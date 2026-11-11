@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>NEAR AI spike</title>
+  <style>
+    body { font: 14px/1.5 system-ui, sans-serif; max-width: 860px; margin: 24px auto; padding: 0 16px; }
+    pre { background: #f4f4f2; padding: 12px; white-space: pre-wrap; word-break: break-all; }
+    input { width: 420px; }
+  </style>
+</head>
+<body>
+  <h1>NEAR AI Cloud — browser spike</h1>
+  <p>Step 1 runs without a key. Step 2 needs a NEAR AI Cloud key (kept in page memory only).</p>
+  <button id="gw">1. Verify Gateway attestation (no key)</button>
+  <p>
+    <input id="key" type="password" placeholder="NEAR AI Cloud API key" />
+    <input id="model" value="Qwen/Qwen3.8-27B" />
+    <button id="chat">2. E2EE chat + verify</button>
+  </p>
+  <pre id="out">idle</pre>
+  <script type="module" src="./nearai.js"></script>
+</body>
+</html>
