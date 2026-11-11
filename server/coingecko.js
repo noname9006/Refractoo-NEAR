@@ -212,4 +212,8 @@ export async function getIconUrl(chainId, address) {
 
 // Kick off on module load
 if (!tryLoadCache()) refresh();
-setInterval(refresh, CACHE_TTL);
+// unref(): the refresh timer must not keep the process alive on its own.
+// vite.config.js imports this module via the token-server plugin, so without
+// unref() `vite build` finishes bundling but never exits. The API server
+// (server/index.js) stays alive through its HTTP listener instead.
+setInterval(refresh, CACHE_TTL).unref();
