@@ -147,3 +147,11 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# ── Refractoo project-specific ─────────────────────────────────────────────
+# Server-side token list cache (regenerated at runtime)
+server/cache/
+# Personal tool settings and notes, not part of the product
+.claude/settings.local.json
+.kilo/
+hackathon/

@@ -1,0 +1,1393 @@
+<!doctype html>
+<html lang="en" data-theme="light" data-density="comfortable" data-texture="paper" data-logo="prism">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Privacy Wallet AI — design</title>
+<style>
+/* ───────────────────────── Design tokens ─────────────────────────
+   "Quiet" — clean, light, low-noise. One restrained accent (iris).
+   Neutral surfaces, hairline borders, soft shadows, tabular numbers. */
+:root{
+  /* neutral GREY background + faintly-warm (beige) layers — contrast, not all-green.
+     Green/teal then reads as a deliberate accent rather than the whole UI. */
+  --canvas:var(--canvas-user, #e4e4e1);
+  --surface:#faf8f3;
+  --surface-2:#f4f1eb;
+  --surface-inset:#ece9e2;
+  --ink:#2a2825;
+  --ink-2:#65625c;
+  --ink-3:#9c9991;
+  --line:#e7e3db;
+  --line-2:#ddd8cf;
+  /* glassmorphism layers (translucent + blur over the textured backdrop) */
+  --glass:color-mix(in srgb, var(--surface) 80%, transparent);
+  --glass-border:color-mix(in srgb, var(--ink) 9%, transparent);
+  --glass-hi:rgba(255,255,255,.55);
+  --icon-border:color-mix(in srgb, var(--ink) 8%, transparent);
+
+  /* ONE brand accent — press + washes derive from it via color-mix, so the
+     whole UI re-tints from a single value. Kept off green/red so it never
+     collides with P&L semantics. Theme-aware: teal in light, green in dark. */
+  --accent:#0d9488;
+  --on-accent:#f4fbf9;
+  --accent-press:color-mix(in srgb, var(--accent), #000 15%);
+  --accent-wash:color-mix(in srgb, var(--accent) 11%, var(--surface));
+  --accent-wash-2:color-mix(in srgb, var(--accent) 20%, var(--surface));
+
+  /* quiet semantics (washes derive from the surface, so they adapt to dark) */
+  --pos:#1a9d6b; --pos-wash:color-mix(in srgb, var(--pos) 12%, var(--surface));
+  --neg:#d6455d; --neg-wash:color-mix(in srgb, var(--neg) 12%, var(--surface));
+  --warn:#b7791f; --warn-wash:color-mix(in srgb, var(--warn) 12%, var(--surface));
+
+  --shadow-sm:0 1px 2px rgba(28,28,34,.06);
+  --shadow:0 1px 3px rgba(28,28,34,.07), 0 6px 18px rgba(28,28,34,.06);
+  --shadow-lg:0 16px 48px rgba(24,24,30,.18), 0 2px 10px rgba(24,24,30,.08);
+
+  --r:12px; --r-md:10px; --r-sm:8px; --pill:999px;
+  --maxw:1180px;
+  --ease:cubic-bezier(.2,.8,.2,1);
+
+  /* type scale */
+  --fs-base:13.5px;
+
+  /* how slow the light⇄dark cross-fade is (one knob) */
+  --theme-dur:.4s;
+
+  /* paper/concrete texture: fine grain (tooth) + soft low-freq mottle */
+  --grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.92' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  --mottle:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600'%3E%3Cfilter id='m'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.012' numOctaves='3' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23m)'/%3E%3C/svg%3E");
+  --rough:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='r'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.06' numOctaves='4' seed='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23r)'/%3E%3C/svg%3E");
+  --flecks:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='360' height='360'%3E%3Cg fill='%23333' fill-opacity='0.55'%3E%3Ccircle cx='28' cy='44' r='1.3'/%3E%3Ccircle cx='110' cy='20' r='0.8'/%3E%3Ccircle cx='180' cy='70' r='1'/%3E%3Ccircle cx='250' cy='38' r='0.7'/%3E%3Ccircle cx='320' cy='90' r='1.2'/%3E%3Ccircle cx='60' cy='120' r='0.9'/%3E%3Ccircle cx='150' cy='150' r='0.7'/%3E%3Ccircle cx='300' cy='160' r='1'/%3E%3Ccircle cx='40' cy='210' r='1.1'/%3E%3Ccircle cx='120' cy='240' r='0.8'/%3E%3Ccircle cx='210' cy='220' r='0.7'/%3E%3Ccircle cx='280' cy='250' r='1.2'/%3E%3Ccircle cx='90' cy='300' r='0.9'/%3E%3Ccircle cx='170' cy='320' r='1'/%3E%3Ccircle cx='250' cy='310' r='0.7'/%3E%3Ccircle cx='330' cy='340' r='1.1'/%3E%3Crect x='200' y='130' width='4' height='1' transform='rotate(20 202 130)'/%3E%3Crect x='70' y='180' width='5' height='1' transform='rotate(-15 72 180)'/%3E%3C/g%3E%3C/svg%3E");
+  --grain-opacity:.10;
+  --mottle-opacity:.06;
+
+  /* density — comfortable defaults; [data-density="compact"] overrides */
+  --pad-card:22px; --pad-cardh:16px 20px; --pad-row:11px 12px; --pad-defi:13px 20px;
+  --total-size:42px; --grid-gap:18px;
+
+  /* Self-hostable stack only — no font CDN (privacy-first, works offline).
+     'Inter'/'Geist' used if present locally, else a clean system face. */
+  font-family:'Inter','Geist','SF Pro Text',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  color-scheme:light;
+}
+[data-theme="dark"]{
+  /* dark grey (not black), faint warmth */
+  --canvas:#16161a;
+  --surface:#202024;
+  --surface-2:#27272c;
+  --surface-inset:#2e2e34;
+  --ink:#eceaf0;
+  --ink-2:#a6a4ad;
+  --ink-3:#75737d;
+  --line:#2f2f36;
+  --line-2:#3a3a42;
+  --grain-opacity:.11;
+  --mottle-opacity:.05;
+  --glass:color-mix(in srgb, var(--surface) 66%, transparent);
+  --glass-border:color-mix(in srgb, #ffffff 8%, transparent);
+  --glass-hi:rgba(255,255,255,.05);
+  --icon-border:color-mix(in srgb, #ffffff 13%, transparent);
+  /* only override the base accent + press; washes recompute from --surface */
+  --accent:#1fd6a6;
+  --accent-press:color-mix(in srgb, var(--accent), #fff 14%);
+  --pos:#3ecf95; --neg:#f0758a; --warn:#e0a94a;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.4);
+  --shadow:0 1px 3px rgba(0,0,0,.5), 0 8px 24px rgba(0,0,0,.4);
+  --shadow-lg:0 16px 48px rgba(0,0,0,.6);
+  color-scheme:dark;
+}
+/* density presets toggle padding/scale via one attribute on <html> */
+[data-density="compact"]{
+  --fs-base:12.5px;
+  --pad-card:16px; --pad-cardh:12px 16px; --pad-row:8px 12px; --pad-defi:10px 18px;
+  --total-size:34px; --grid-gap:14px;
+}
+/* Theme cross-fade via the View Transitions API: it snapshots the whole page
+   and cross-fades old→new as images, so text is never re-rasterized mid-change
+   (that per-glyph re-raster was the flicker). One duration knob: --theme-dur. */
+::view-transition-old(root),::view-transition-new(root){
+  animation-duration:var(--theme-dur); animation-timing-function:ease;
+}
+@media (prefers-reduced-motion: reduce){
+  ::view-transition-old(root),::view-transition-new(root){ animation:none; }
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:var(--canvas);color:var(--ink);
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  line-height:1.5;font-size:var(--fs-base);letter-spacing:-0.006em;
+}
+/* texture layers — above the canvas color, behind all content.
+   Color never changes (--canvas); only the neutral overlay swaps via [data-texture]. */
+body::before, body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;background-repeat:repeat}
+
+/* paper — fine grain + soft mottle (default) */
+[data-texture="paper"] body::before{background-image:var(--grain);background-size:160px 160px;opacity:var(--grain-opacity)}
+[data-texture="paper"] body::after{background-image:var(--mottle);background-size:560px 560px;opacity:var(--mottle-opacity)}
+
+/* laid — horizontal laid lines + sparse vertical chain lines + faint tooth */
+[data-texture="laid"] body::before{
+  background-image:
+    repeating-linear-gradient(0deg, color-mix(in srgb,var(--ink) 6%,transparent) 0 1px, transparent 1px 5px),
+    repeating-linear-gradient(90deg, color-mix(in srgb,var(--ink) 4%,transparent) 0 1px, transparent 1px 32px);
+  opacity:.85}
+[data-texture="laid"] body::after{background-image:var(--grain);background-size:150px 150px;opacity:.07}
+
+/* woven — linen / canvas crosshatch */
+[data-texture="woven"] body::before{
+  background-image:
+    repeating-linear-gradient(0deg, color-mix(in srgb,var(--ink) 6.5%,transparent) 0 1px, transparent 1px 5px),
+    repeating-linear-gradient(90deg, color-mix(in srgb,var(--ink) 6.5%,transparent) 0 1px, transparent 1px 5px);
+  opacity:.8}
+[data-texture="woven"] body::after{background-image:var(--grain);background-size:150px 150px;opacity:.06}
+
+/* cold-press — rough watercolor paper */
+[data-texture="coldpress"] body::before{background-image:var(--rough);background-size:320px 320px;opacity:.17}
+[data-texture="coldpress"] body::after{background-image:var(--grain);background-size:120px 120px;opacity:.09}
+
+/* fibers — handmade paper with scattered inclusions */
+[data-texture="fibers"] body::before{background-image:var(--grain);background-size:150px 150px;opacity:var(--grain-opacity)}
+[data-texture="fibers"] body::after{background-image:var(--flecks);background-size:360px 360px;opacity:.5}
+
+/* smooth — color only, no texture */
+[data-texture="smooth"] body::before,[data-texture="smooth"] body::after{background:none;opacity:0}
+.num{font-variant-numeric:tabular-nums;letter-spacing:0}
+.mono{font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:.86em}
+svg{display:block}
+button{font:inherit;color:inherit;cursor:pointer;border:none;background:none}
+.pos{color:var(--pos)} .neg{color:var(--neg)}
+::selection{background:var(--accent-wash-2)}
+::-webkit-scrollbar{width:11px;height:11px}
+::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:99px;border:3px solid var(--surface)}
+.chat-dock ::-webkit-scrollbar-thumb{border-color:var(--surface)}
+
+/* ───────────────────────── Top bar ───────────────────────── */
+.topbar{
+  position:sticky;top:0;z-index:30;
+  background:color-mix(in srgb,var(--surface) 86%,transparent);
+  backdrop-filter:saturate(140%) blur(14px);
+  -webkit-backdrop-filter:saturate(140%) blur(14px);
+  border-bottom:1px solid var(--line);
+}
+.topbar-in{max-width:var(--maxw);margin:0 auto;height:60px;padding:0 24px;
+  display:flex;align-items:center;gap:16px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;letter-spacing:-.02em;font-size:15px}
+.brand .glyph{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;
+  background:var(--ink);color:var(--surface);box-shadow:var(--shadow-sm)}
+.brand small{color:var(--ink-3);font-weight:450}
+/* two switchable logo options (toggle via [data-logo]) */
+.brand-a, .brand-b{display:inline-flex;align-items:center;gap:9px;color:var(--ink)}
+.brand-b{flex-direction:column;gap:4px;align-items:center}
+.brand .wm{font-weight:600;letter-spacing:.02em}
+.brand .inf{font-size:1.12em;font-weight:600;margin-left:1px;line-height:1}
+.prism-mark{height:22px;width:50px;flex:none}
+[data-logo="inf"] .brand-b{display:none}
+[data-logo="prism"] .brand-a{display:none}
+.spacer{flex:1}
+
+.pill{display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 12px;border-radius:var(--pill);
+  border:1px solid var(--line-2);background:var(--surface);font-size:12.5px;font-weight:500;color:var(--ink-2);
+  transition:background .15s,border-color .15s,color .15s}
+.pill:hover{border-color:var(--ink-3)}
+.pill .dot{width:7px;height:7px;border-radius:50%;background:var(--ink-3)}
+.pill .dot.live{background:var(--pos);box-shadow:0 0 0 3px var(--pos-wash)}
+.pill .dot.work{background:var(--warn)}
+.pill.privacy{color:var(--accent);border-color:var(--accent-wash-2);background:var(--accent-wash)}
+.pill.privacy svg{width:14px;height:14px}
+
+.mini-spin{width:13px;height:13px;border-radius:50%;border:2px solid var(--line-2);border-top-color:var(--warn);
+  animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.icon-btn{width:34px;height:34px;border-radius:var(--r-sm);display:grid;place-items:center;color:var(--ink-2);
+  border:1px solid transparent;transition:background .15s,color .15s}
+.icon-btn:hover{background:var(--surface-inset);color:var(--ink)}
+.icon-btn svg{width:18px;height:18px}
+
+.btn{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px;border-radius:var(--r-sm);
+  font-weight:550;font-size:13.5px;background:var(--surface);border:1px solid var(--line-2);color:var(--ink);
+  transition:background .15s,border-color .15s,transform .06s,box-shadow .15s}
+.btn:hover{background:var(--surface-inset);border-color:var(--ink-3)}
+.btn:active{transform:translateY(.5px)}
+.btn svg{width:16px;height:16px}
+.btn.primary{background:var(--accent);border-color:transparent;color:#fff;box-shadow:0 1px 2px rgba(91,91,214,.4)}
+.btn.primary:hover{background:var(--accent-press)}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--ink-2)}
+.btn.ghost:hover{background:var(--surface-inset);color:var(--ink)}
+.btn.sm{height:30px;padding:0 11px;font-size:12.5px}
+
+/* ───────────────────────── Provision banner ───────────────────────── */
+.provision{max-width:var(--maxw);margin:14px auto 0;padding:0 24px;}
+.provision-card{display:flex;align-items:center;gap:16px;padding:13px 16px;border-radius:var(--r-md);
+  background:var(--surface);border:1px solid var(--line-2);box-shadow:var(--shadow-sm)}
+.provision-card .pc-icon{width:34px;height:34px;border-radius:9px;flex:none;display:grid;place-items:center;
+  background:var(--accent-wash);color:var(--accent)}
+.provision-card .pc-icon svg{width:18px;height:18px}
+.pc-body{flex:1;min-width:0}
+.pc-title{font-weight:550;font-size:13px}
+.pc-sub{color:var(--ink-3);font-size:12px;margin-top:1px}
+.pc-meta{font-size:12px;color:var(--ink-2);white-space:nowrap;font-weight:500}
+.track{height:6px;border-radius:99px;background:var(--surface-inset);overflow:hidden;margin-top:8px}
+.track .fill{height:100%;border-radius:99px;background:var(--accent);width:0%;transition:width .4s var(--ease);position:relative}
+.track .fill::after{content:"";position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.45),transparent);
+  transform:translateX(-100%);animation:sheen 1.6s var(--ease) infinite}
+@keyframes sheen{to{transform:translateX(100%)}}
+.provision-card.done .pc-icon{background:var(--pos-wash);color:var(--pos)}
+.provision-card.done .track{display:none}
+
+/* ───────────────────────── App layout ───────────────────────── */
+.app{max-width:var(--maxw);margin:0 auto;padding:22px 24px 120px}
+.toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px}
+.wallets{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.wchip{display:inline-flex;align-items:center;gap:9px;height:38px;padding:0 6px 0 10px;border-radius:var(--pill);
+  background:var(--surface);border:1px solid var(--line-2);box-shadow:var(--shadow-sm);transition:border-color .15s}
+.wchip:hover{border-color:var(--ink-3)}
+.wchip .ava{width:24px;height:24px;border-radius:50%;flex:none}
+.wchip .nm{font-weight:550;font-size:13px;display:flex;flex-direction:column;line-height:1.15}
+.wchip .nm span{color:var(--ink-3);font-size:11px;font-weight:450}
+.wchip .x{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;color:var(--ink-3)}
+.wchip .x:hover{background:var(--surface-inset);color:var(--ink)}
+.wchip .x svg{width:13px;height:13px}
+.add-wallet{height:38px;width:38px;border-radius:50%;display:grid;place-items:center;border:1px dashed var(--line-2);
+  color:var(--ink-2);transition:border-color .15s,color .15s,background .15s}
+.add-wallet:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-wash)}
+.add-wallet svg{width:16px;height:16px}
+
+.chains{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.chain-pill{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 12px;border-radius:var(--pill);
+  font-size:12.5px;font-weight:500;color:var(--ink-2);background:var(--surface);border:1px solid var(--line-2);
+  transition:all .15s}
+.chain-pill .cd{width:8px;height:8px;border-radius:50%}
+.chain-pill[aria-pressed="true"]{color:var(--ink);border-color:var(--ink);background:var(--surface)}
+.chain-pill[aria-pressed="false"]{opacity:.5;filter:grayscale(.6)}
+.chain-pill:hover{opacity:1}
+.cd.eth{background:#627eea}.cd.arb{background:#28a0f0}.cd.op{background:#ff0420}.cd.base{background:#0052ff}
+.cd.fhe{background:var(--accent)}
+
+/* Cards / grid */
+/* bento layout: full-width header rows + two independent (masonry-like) columns */
+.app-stack{display:flex;flex-direction:column;gap:var(--grid-gap)}
+.columns{display:flex;align-items:flex-start;gap:var(--grid-gap)}
+.col{flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:var(--grid-gap)}
+.col:first-child{flex:1.5 1 0}
+.card{
+  background:var(--glass);
+  -webkit-backdrop-filter:blur(14px) saturate(135%);
+  backdrop-filter:blur(14px) saturate(135%);
+  border:1px solid var(--glass-border);
+  border-radius:var(--r);
+  box-shadow:var(--shadow), inset 0 1px 0 var(--glass-hi);
+}
+.card-pad{padding:var(--pad-card)}
+.card-h{display:flex;align-items:center;gap:10px;padding:var(--pad-cardh);border-bottom:1px solid var(--line)}
+.card-h h3{margin:0;font-size:13px;font-weight:600;letter-spacing:.01em}
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
+.count{font-size:11.5px;font-weight:600;color:var(--ink-3);background:var(--surface-inset);border-radius:99px;padding:2px 8px}
+
+/* Portfolio summary */
+.summary{grid-column:1 / -1;display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap}
+.summary .label{color:var(--ink-3);font-size:12.5px;font-weight:500}
+.summary .total{font-size:var(--total-size);font-weight:600;letter-spacing:-.03em;margin-top:4px;line-height:1}
+.summary .total .cents{color:var(--ink-3);font-weight:500}
+.delta{display:inline-flex;align-items:center;gap:6px;font-weight:550;font-size:13px;margin-top:10px}
+.delta .chip{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:var(--pill);font-size:12.5px}
+.delta .chip.up{background:var(--pos-wash);color:var(--pos)}
+.delta svg{width:13px;height:13px}
+.spark{display:flex;gap:24px}
+.spark .blk{text-align:right}
+.spark .blk .k{font-size:11.5px;color:var(--ink-3);font-weight:500;display:flex;align-items:center;justify-content:flex-end;gap:4px}
+.spark .blk .v{font-size:16px;font-weight:600;margin-top:3px}
+
+/* Holdings list */
+.list{padding:6px 8px}
+.row{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:var(--pad-row);border-radius:var(--r-md);
+  transition:background .12s}
+.row:hover{background:var(--surface-2)}
+.asset{display:flex;align-items:center;gap:12px;min-width:0}
+.token{width:34px;height:34px;border-radius:50%;flex:none;display:grid;place-items:center;font-weight:600;font-size:12px;
+  background:var(--surface-inset);color:var(--ink-2);position:relative;border:1px solid var(--icon-border)}
+.token .chainbadge{position:absolute;right:-3px;bottom:-3px;width:14px;height:14px;border-radius:50%;border:2px solid var(--surface)}
+.asset .meta{min-width:0}
+.asset .nm{font-weight:550;font-size:13.5px;display:flex;align-items:center;gap:7px}
+.asset .sub{color:var(--ink-3);font-size:12px;margin-top:1px}
+.tag{font-size:10.5px;font-weight:600;letter-spacing:.02em;color:var(--ink-2);background:var(--surface-inset);
+  border-radius:5px;padding:1px 6px}
+.vals{text-align:right;white-space:nowrap}
+.vals .v{font-weight:600;font-size:13.5px}
+.vals .c{font-size:12px;margin-top:1px}
+
+/* DeFi positions */
+.defi-row{padding:var(--pad-defi);border-bottom:1px solid var(--line)}
+.defi-row:last-child{border-bottom:none}
+.defi-head{display:flex;align-items:center;gap:11px}
+.proto{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;font-size:13px;background:var(--surface-inset);border:1px solid var(--icon-border)}
+.defi-head .nm{font-weight:600;font-size:13px}
+.defi-head .sub{color:var(--ink-3);font-size:11.5px}
+.defi-legs{display:flex;gap:8px;margin-top:11px;flex-wrap:wrap}
+.defi-row:not(.open) .defi-legs{display:none}   /* collapsed by default */
+.defi-head{cursor:pointer}
+.defi-chev{margin-left:8px;flex:none;color:var(--ink-3);display:inline-flex;transition:transform .2s var(--ease)}
+.defi-chev svg{width:16px;height:16px}
+.defi-row.open .defi-chev{transform:rotate(180deg)}
+.leg{flex:1;min-width:120px;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-sm);padding:9px 11px}
+.leg .k{font-size:11px;color:var(--ink-3);display:flex;align-items:center;gap:5px;font-weight:500}
+.leg .v{font-weight:600;font-size:13.5px;margin-top:3px}
+.dotk{width:6px;height:6px;border-radius:50%}
+.dotk.sup{background:var(--pos)}.dotk.bor{background:var(--neg)}.dotk.lp{background:var(--accent)}
+
+/* Transactions */
+.tx{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:var(--pad-row);border-radius:var(--r-md)}
+.tx:hover{background:var(--surface-2)}
+.tx .ic{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;background:var(--surface-inset);color:var(--ink-2)}
+.tx .ic svg{width:15px;height:15px}
+.tx .ic.in{background:var(--pos-wash);color:var(--pos)}
+.tx .ic.out{background:var(--surface-inset);color:var(--ink-2)}
+.tx .t1{font-weight:550;font-size:13px}
+.tx .t2{color:var(--ink-3);font-size:11.5px;margin-top:1px;display:flex;align-items:center;gap:6px}
+.tx .amt{text-align:right;font-weight:600;font-size:13px;white-space:nowrap}
+.tx .amt .when{display:block;color:var(--ink-3);font-size:11px;font-weight:450;margin-top:1px}
+
+/* Shielded section */
+.shield{grid-column:1 / -1}
+.shield .card{border-color:var(--accent-wash-2);background:
+  linear-gradient(180deg,var(--accent-wash) 0%,var(--surface) 64px)}
+.shield-h{display:flex;align-items:center;gap:12px;padding:18px 22px}
+.shield-h .si{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:var(--surface);
+  border:1px solid var(--accent-wash-2);color:var(--accent)}
+.shield-h .si svg{width:19px;height:19px}
+.shield-h .nm{font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px}
+.shield-h .sub{color:var(--ink-2);font-size:12px;margin-top:1px}
+.shield-body{padding:0 22px 20px}
+.shield-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.svault{background:var(--surface);border:1px solid var(--line-2);border-radius:var(--r-md);padding:15px}
+.svault .k{font-size:11.5px;color:var(--ink-3);font-weight:500;display:flex;align-items:center;gap:6px}
+.svault .v{font-size:20px;font-weight:600;margin-top:8px;letter-spacing:-.01em}
+.svault .v.locked{filter:blur(7px);user-select:none;opacity:.85}
+.svault .c{font-size:12px;color:var(--ink-3);margin-top:3px}
+.svault .c.locked{filter:blur(4px)}
+.locknote{display:flex;align-items:center;gap:8px;margin-top:14px;font-size:12px;color:var(--ink-2)}
+.locknote svg{width:14px;height:14px;color:var(--accent)}
+.reveal-anim{animation:reveal .5s var(--ease)}
+@keyframes reveal{from{filter:blur(7px);opacity:.4}to{filter:blur(0);opacity:1}}
+
+/* ───────────────────────── AI dock ───────────────────────── */
+.dock-launcher{position:fixed;right:24px;bottom:24px;z-index:40;height:52px;padding:0 18px 0 16px;border-radius:var(--pill);
+  display:flex;align-items:center;gap:10px;background:var(--ink);color:var(--surface);font-weight:550;font-size:13.5px;
+  box-shadow:var(--shadow-lg);transition:transform .15s var(--ease),opacity .2s}
+/* .dock-launcher auto-inverts in dark via --ink / --surface */
+.dock-launcher:hover{transform:translateY(-2px)}
+.dock-launcher svg{width:18px;height:18px}
+.dock-launcher .kbd{font-size:11px;opacity:.6;border:1px solid currentColor;border-radius:5px;padding:0 5px;margin-left:2px}
+.dock-launcher.hidden{opacity:0;pointer-events:none;transform:scale(.9)}
+
+.scrim{position:fixed;inset:0;z-index:44;background:rgba(28,22,12,.34);backdrop-filter:blur(2px);opacity:0;
+  pointer-events:none;transition:opacity .25s}
+.scrim.show{opacity:1;pointer-events:auto}
+
+.chat-dock{position:fixed;z-index:45;right:20px;bottom:20px;width:404px;height:min(640px,calc(100vh - 40px));
+  background:var(--surface);border:1px solid var(--line-2);border-radius:18px;box-shadow:var(--shadow-lg);
+  display:flex;flex-direction:column;overflow:hidden;
+  transform:translateY(16px) scale(.98);opacity:0;pointer-events:none;
+  transition:transform .28s var(--ease),opacity .22s,width .3s var(--ease),height .3s var(--ease),right .3s var(--ease),bottom .3s var(--ease)}
+.chat-dock.open{transform:none;opacity:1;pointer-events:auto}
+.chat-dock.full{right:0;bottom:0;width:min(880px,100vw);height:100vh;border-radius:0;border-width:0 0 0 1px}
+
+.chat-top{display:flex;align-items:center;gap:10px;padding:13px 14px;border-bottom:1px solid var(--line)}
+.chat-top .ai{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:var(--accent-wash);color:var(--accent)}
+.chat-top .ai svg{width:17px;height:17px}
+.chat-top .ttl{font-weight:600;font-size:13.5px;line-height:1.2}
+.chat-top .ttl small{display:block;color:var(--ink-3);font-weight:450;font-size:11px;margin-top:1px;display:flex;align-items:center;gap:5px}
+.chat-top .ttl .dot{width:6px;height:6px;border-radius:50%;background:var(--pos)}
+.chat-thread{flex:1;overflow-y:auto;padding:18px 16px;display:flex;flex-direction:column;gap:14px;scroll-behavior:smooth}
+.msg{max-width:86%;font-size:13.5px;line-height:1.55}
+.msg.user{align-self:flex-end;background:var(--accent);color:#fff;padding:9px 13px;border-radius:14px 14px 4px 14px}
+.msg.ai{align-self:flex-start;display:flex;gap:10px}
+.msg.ai .av{width:24px;height:24px;border-radius:7px;flex:none;background:var(--accent-wash);color:var(--accent);display:grid;place-items:center;margin-top:1px}
+.msg.ai .av svg{width:14px;height:14px}
+.msg.ai .bub{background:var(--surface-inset);border-radius:4px 14px 14px 14px;padding:10px 13px;color:var(--ink)}
+.msg.ai .bub p{margin:0 0 7px} .msg.ai .bub p:last-child{margin:0}
+.msg.ai .bub strong{font-weight:600}
+.msg.ai .bub .pill-num{background:var(--surface);border:1px solid var(--line-2);border-radius:6px;padding:0 5px;font-weight:600}
+.caret{display:inline-block;width:7px;height:15px;background:var(--accent);border-radius:1px;vertical-align:-3px;
+  animation:blink 1s steps(2) infinite;margin-left:1px}
+@keyframes blink{50%{opacity:0}}
+.empty{margin:auto;text-align:center;color:var(--ink-3);padding:20px}
+.empty .big{width:46px;height:46px;border-radius:13px;display:grid;place-items:center;margin:0 auto 14px;
+  background:var(--accent-wash);color:var(--accent)}
+.empty .big svg{width:24px;height:24px}
+.empty h4{margin:0 0 4px;color:var(--ink);font-size:15px;font-weight:600}
+.empty p{margin:0;font-size:12.5px;max-width:240px}
+
+.suggest{padding:0 16px 6px;display:flex;flex-wrap:wrap;gap:7px}
+.suggest .lbl{width:100%;font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3);margin-bottom:2px}
+.qchip{font-size:12.5px;color:var(--ink-2);background:var(--surface);border:1px solid var(--line-2);border-radius:var(--pill);
+  padding:7px 12px;text-align:left;transition:all .14s}
+.qchip:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-wash)}
+
+.chat-input{padding:12px 14px;border-top:1px solid var(--line);background:var(--surface)}
+.input-wrap{display:flex;align-items:flex-end;gap:8px;background:var(--surface-2);border:1px solid var(--line-2);
+  border-radius:14px;padding:6px 6px 6px 14px;transition:border-color .15s,box-shadow .15s}
+.input-wrap:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-wash)}
+.input-wrap textarea{flex:1;border:none;background:none;resize:none;outline:none;font:inherit;color:var(--ink);
+  padding:7px 0;max-height:120px;line-height:1.45}
+.input-wrap textarea::placeholder{color:var(--ink-3)}
+.mic{width:36px;height:36px;border-radius:10px;flex:none;display:grid;place-items:center;background:var(--surface);
+  border:1px solid var(--line-2);color:var(--ink-2);transition:all .14s}
+.mic:hover{color:var(--ink);border-color:var(--ink-3)}
+.mic svg{width:17px;height:17px}
+.mic.live{background:var(--neg);border-color:transparent;color:#fff;animation:pulse 1.3s var(--ease) infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(214,69,93,.5)}50%{box-shadow:0 0 0 7px rgba(214,69,93,0)}}
+.send{width:36px;height:36px;border-radius:10px;flex:none;display:grid;place-items:center;background:var(--accent);color:#fff;
+  transition:background .14s,opacity .14s}
+.send:hover{background:var(--accent-press)} .send:disabled{opacity:.4;cursor:default}
+.send svg{width:16px;height:16px}
+.chat-foot{display:flex;align-items:center;gap:6px;margin-top:9px;font-size:11px;color:var(--ink-3)}
+.chat-foot svg{width:12px;height:12px;color:var(--accent)}
+.talk-hint{font-size:11px;color:var(--neg);font-weight:550;text-align:center;margin-top:8px;height:14px}
+
+/* listening waveform */
+.wave{display:none;align-items:center;gap:3px;height:18px;padding:0 4px}
+.wave.show{display:flex}
+.wave i{width:3px;height:5px;background:var(--neg);border-radius:2px;animation:wv .9s var(--ease) infinite}
+.wave i:nth-child(2){animation-delay:.1s}.wave i:nth-child(3){animation-delay:.2s}
+.wave i:nth-child(4){animation-delay:.3s}.wave i:nth-child(5){animation-delay:.15s}
+@keyframes wv{0%,100%{height:5px}50%{height:16px}}
+
+/* ───────────────────────── First-visit modal ───────────────────────── */
+.modal-scrim{position:fixed;inset:0;z-index:60;background:rgba(26,20,10,.42);backdrop-filter:blur(4px);
+  display:grid;place-items:center;padding:24px;opacity:0;pointer-events:none;transition:opacity .3s}
+.modal-scrim.show{opacity:1;pointer-events:auto}
+.modal{width:100%;max-width:432px;background:var(--surface);border:1px solid var(--line-2);border-radius:20px;
+  box-shadow:var(--shadow-lg);padding:28px;transform:translateY(14px) scale(.98);transition:transform .3s var(--ease)}
+.modal-scrim.show .modal{transform:none}
+.modal .badge{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;font-weight:600;color:var(--accent);
+  background:var(--accent-wash);border-radius:99px;padding:5px 11px}
+.modal .badge svg{width:14px;height:14px}
+.modal h2{font-size:21px;font-weight:650;letter-spacing:-.02em;margin:16px 0 8px}
+.modal p.lead{color:var(--ink-2);font-size:13.5px;line-height:1.55;margin:0}
+.spec{display:flex;gap:10px;margin:20px 0;flex-wrap:wrap}
+.spec .it{flex:1;min-width:0;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-sm);padding:12px;text-align:center}
+.spec .it svg{width:17px;height:17px;color:var(--accent);margin:0 auto 6px}
+.spec .it .t{font-size:12.5px;font-weight:600}
+.spec .it .s{font-size:11px;color:var(--ink-3);margin-top:1px}
+.modal-actions{display:flex;gap:10px;margin-top:6px}
+.modal-actions .btn{height:42px;flex:1;justify-content:center}
+.modal-fine{font-size:11.5px;color:var(--ink-3);text-align:center;margin-top:14px;display:flex;align-items:center;
+  justify-content:center;gap:6px}
+.modal-fine svg{width:13px;height:13px;color:var(--pos)}
+
+/* ── reveal-all + shielded summary stat ── */
+.sum-right{display:flex;flex-direction:column;align-items:flex-end;gap:12px}
+.spark .blk .k .kshield{width:12px;height:12px;color:var(--accent);flex:none}
+.reveal-all svg{width:15px;height:15px}   /* inherit button text color (white over green when primary) */
+.badge{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;padding:3px 10px;border-radius:999px;color:var(--ink-2);background:var(--surface-inset)}
+.badge.warn{color:var(--warn);background:var(--warn-wash)}
+.badge .dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+
+/* ── shielded rows (holdings) + reveal control ── */
+.token.tk-shield{background:var(--accent-wash);color:var(--accent)}
+.token.tk-shield svg{width:17px;height:17px}
+.tag.shield-tag{background:var(--accent-wash);color:var(--accent)}
+.row.shielded:hover{background:var(--accent-wash)}
+.row.shielded .vals{display:flex;align-items:center;gap:9px}
+.secret{transition:filter .2s}
+.peek{width:30px;height:30px;flex:none;border-radius:8px;display:grid;place-items:center;color:var(--ink-3);
+  border:1px solid var(--line-2);background:var(--surface);transition:all .14s}
+.peek:hover{color:var(--accent);border-color:var(--accent);background:var(--accent-wash)}
+.peek svg{width:16px;height:16px}
+.shielded.revealed .peek{color:var(--accent);border-color:transparent;background:var(--accent-wash)}
+
+/* ── shielded DeFi position ── */
+.proto.proto-shield{background:var(--accent-wash);color:var(--accent)}
+.proto.proto-shield svg{width:16px;height:16px}
+.defi-row.shielded .defi-head .peek{margin-left:2px}
+
+/* ── spending caps ── */
+.cap{display:flex;align-items:center;gap:12px;padding:var(--pad-row);border-radius:var(--r-md)}
+.cap:hover{background:var(--surface-2)}
+.cap-tok{width:32px;height:32px;border-radius:9px;flex:none;display:grid;place-items:center;font-weight:600;font-size:13px;border:1px solid var(--icon-border)}
+.cap .t1{font-weight:550;font-size:13px}
+.cap .t1 .arrow{color:var(--ink-3);margin:0 3px;font-weight:400}
+.cap .t2{color:var(--ink-3);font-size:11.5px;margin-top:1px;display:flex;align-items:center;gap:6px}
+.cap .t2 .cd{width:7px;height:7px;border-radius:50%}
+.cap-amt{font-size:12.5px;font-weight:600;white-space:nowrap}
+.cap-amt.risk{color:var(--warn);background:var(--warn-wash);padding:3px 9px;border-radius:999px;font-size:11px}
+.revoke{color:var(--ink-2)}
+.revoke:hover{color:var(--neg);background:var(--neg-wash);border-color:transparent}
+
+/* ── inline AI assistant (collapsible, full-screen-able) ── */
+.assistant{grid-column:1 / -1;display:flex;flex-direction:column;overflow:hidden;padding:0}
+.asst-head{display:flex;align-items:center;gap:11px;padding:13px 18px;cursor:pointer;user-select:none}
+.asst-head .ai{width:30px;height:30px;flex:none;border-radius:9px;display:grid;place-items:center;background:var(--accent-wash);color:var(--accent)}
+.asst-head .ai svg{width:17px;height:17px}
+.asst-head .ttl{font-weight:600;font-size:13.5px;line-height:1.2}
+.asst-head .ttl small{display:flex;align-items:center;gap:5px;color:var(--ink-3);font-weight:450;font-size:11px;margin-top:1px}
+.asst-head .ttl .dot{width:6px;height:6px;border-radius:50%;background:var(--pos)}
+.asst-head .chev{transition:transform .25s var(--ease)}
+.assistant.collapsed .chev{transform:rotate(-90deg)}
+.asst-body{display:flex;flex-direction:column;min-height:0;border-top:1px solid var(--line)}
+.assistant.collapsed .asst-body{display:none}
+.assistant .chat-thread{flex:0 1 auto;max-height:240px;min-height:120px}
+.assistant.full{position:fixed;inset:0;z-index:45;border-radius:0;box-shadow:var(--shadow-lg)}
+.assistant.full .asst-body{flex:1}
+.assistant.full .chat-thread{max-height:none;flex:1}
+
+/* ── summary: sparkline + range selector + live cue (analytics polish) ── */
+.sum-main{min-width:200px}
+.summary .label{display:flex;align-items:center;flex-wrap:wrap;gap:0 4px}
+.synced{display:inline-flex;align-items:center;gap:5px;margin-left:6px;font-size:11px;color:var(--ink-3);font-weight:500}
+.livedot{width:6px;height:6px;aspect-ratio:1;border-radius:50%;background:var(--pos);box-shadow:0 0 0 3px var(--pos-wash)}
+/* sum-chart: chart (flex:1) → H/L col → range button column (right) */
+.sum-chart{flex:1 1 220px;max-width:480px;min-width:190px;align-self:stretch;display:flex;align-items:stretch;gap:6px}
+.chart-col-d{position:relative;flex:1;min-width:0;min-height:72px}
+.chart-hl-d{display:flex;flex-direction:column;justify-content:space-between;padding:4px 0;min-width:50px;pointer-events:none}
+.chart-hl-lbl{font-size:10px;font-weight:500;color:var(--ink-3);white-space:nowrap;line-height:1;letter-spacing:-.01em}
+.range{display:flex;flex-direction:column;gap:4px;align-self:center}
+.rg{font-size:11px;font-weight:600;color:var(--ink-3);padding:3px 8px;border-radius:7px;transition:color .12s,background .12s}
+.rg:hover{color:var(--ink-2);background:var(--surface-inset)}
+.rg.on{color:var(--accent);background:var(--accent-wash)}
+.trend{color:var(--accent);width:100%;height:100%;display:block}
+.chart-end-d{position:absolute;width:8px;height:8px;aspect-ratio:1;border-radius:50%;background:var(--surface);border:2px solid var(--accent);transform:translate(-50%,-50%);right:0;top:23%}
+
+/* ── prototype-only design controls (not part of the product UI) ── */
+.dc{position:fixed;left:18px;bottom:18px;z-index:42;font-size:12px}
+.dc-toggle{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 13px;border-radius:var(--pill);
+  background:var(--surface);border:1px solid var(--line-2);color:var(--ink-2);box-shadow:var(--shadow);font-weight:550}
+.dc-toggle:hover{color:var(--ink)}
+.dc-panel{position:absolute;left:0;bottom:42px;width:238px;background:var(--surface);border:1px solid var(--line-2);
+  border-radius:14px;box-shadow:var(--shadow-lg);padding:14px;display:none}
+.dc.open .dc-panel{display:block}
+.dc-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:13px}
+.dc-row:last-child{margin-bottom:0}
+.dc-lbl{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3)}
+.dc-sw{display:flex;gap:8px}
+.dc-sw button{width:20px;height:20px;border-radius:50%;background:var(--c);border:1px solid rgba(0,0,0,.08);
+  transition:box-shadow .15s,transform .1s}
+.dc-sw button:hover{transform:scale(1.12)}
+.dc-sw button.on{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--c)}
+.seg{display:inline-flex;background:var(--surface-inset);border-radius:9px;padding:2px}
+.seg button{font-size:11.5px;font-weight:550;color:var(--ink-2);padding:4px 10px;border-radius:7px;transition:background .12s,color .12s}
+.seg button.on{background:var(--surface);color:var(--ink);box-shadow:var(--shadow-sm)}
+.dc-row.dc-col{flex-direction:column;align-items:stretch;gap:8px}
+.seg-wrap{flex-wrap:wrap;justify-content:flex-start}
+.dc-slider{-webkit-appearance:none;appearance:none;height:5px;border-radius:99px;outline:none;flex:1;margin-left:10px;cursor:pointer;background:var(--surface-inset)}
+.dc-slider::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--accent);border:2px solid var(--surface);box-shadow:var(--shadow-sm);cursor:pointer}
+.dc-slider::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--accent);border:2px solid var(--surface);cursor:pointer}
+.dc-warm{background:linear-gradient(90deg,#aebfd8,#e7e5e2 50%,#e8cfa0)}
+.dc-light{background:linear-gradient(90deg,#bdbdba,#f3f3f0)}
+
+@media (max-width:920px){
+  .columns{flex-direction:column}
+  .summary{gap:16px}.summary .total{font-size:34px}
+}
+@media (max-width:560px){
+  .topbar-in{padding:0 14px;gap:10px}.brand small{display:none}
+  .app{padding:16px 14px 110px}
+  .chat-dock{right:0;left:0;bottom:0;width:100%;height:88vh;border-radius:18px 18px 0 0}
+  .spark{width:100%;justify-content:space-between}
+}
+</style>
+</head>
+<body>
+
+<!-- ════════════════ TOP BAR ════════════════ -->
+<header class="topbar">
+  <div class="topbar-in">
+    <div class="brand" id="brand">
+      <span class="brand-a"><span class="wm">refract</span><span class="inf">∞</span></span>
+      <span class="brand-b">
+        <svg class="prism-mark" viewBox="0 0 64 28" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <g stroke="currentColor" stroke-width="1.8"><circle cx="19" cy="14" r="9"/><circle cx="30" cy="14" r="9"/><path d="M0 14H32"/></g>
+          <path d="M32 14L62 4"  stroke="#ea3a3a" stroke-width="1.8"/>
+          <path d="M32 14L62 8"  stroke="#f5972b" stroke-width="1.8"/>
+          <path d="M32 14L62 12" stroke="#56b04a" stroke-width="1.8"/>
+          <path d="M32 14L62 16" stroke="#36a3e6" stroke-width="1.8"/>
+          <path d="M32 14L62 20" stroke="#8a5bd0" stroke-width="1.8"/>
+        </svg>
+        <span class="wm">refract</span>
+      </span>
+      <small class="tag-line">· your private defi consultant</small>
+    </div>
+    <div class="spacer"></div>
+
+    <button class="pill" id="modelPill" title="Local model status">
+      <span class="dot" id="modelDot"></span>
+      <span class="mini-spin" id="modelSpin" style="display:none"></span>
+      <span id="modelText">Set up local AI</span>
+    </button>
+
+    <span class="pill privacy" title="All analysis & keys stay on this device">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6l7-3z"/></svg>
+      Local-only
+    </span>
+
+    <button class="icon-btn" id="themeBtn" title="Toggle theme">
+      <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</header>
+
+<!-- ════════════════ PROVISION BANNER ════════════════ -->
+<div class="provision" id="provisionBanner" style="display:none">
+  <div class="provision-card" id="provisionCard">
+    <div class="pc-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M12 15l-4-4M12 15l4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+    </div>
+    <div class="pc-body">
+      <div class="pc-title" id="provTitle">Preparing your local AI for on-device deployment</div>
+      <div class="pc-sub" id="provSub">You can keep using everything below while this finishes — nothing leaves your device.</div>
+      <div class="track"><div class="fill" id="provFill"></div></div>
+    </div>
+    <div class="pc-meta" id="provMeta">0% · estimating…</div>
+  </div>
+</div>
+
+<!-- ════════════════ APP ════════════════ -->
+<main class="app">
+
+  <!-- toolbar: wallets + chains -->
+  <div class="toolbar">
+    <div class="wallets" id="wallets">
+      <div class="wchip">
+        <svg class="ava" viewBox="0 0 24 24"><defs><linearGradient id="g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5b5bd6"/><stop offset="1" stop-color="#22b3c4"/></linearGradient></defs><rect width="24" height="24" rx="12" fill="url(#g1)"/></svg>
+        <span class="nm">vault.eth<span class="mono">0x4F2a…9c1B</span></span>
+        <button class="x" title="Remove"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </div>
+      <div class="wchip">
+        <svg class="ava" viewBox="0 0 24 24"><defs><linearGradient id="g2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e3a04a"/><stop offset="1" stop-color="#d6455d"/></linearGradient></defs><rect width="24" height="24" rx="12" fill="url(#g2)"/></svg>
+        <span class="nm">Cold wallet<span class="mono">0x8b7C…2D4e</span></span>
+        <button class="x" title="Remove"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </div>
+      <button class="add-wallet" id="addWallet" title="Connect another wallet">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+    </div>
+
+    <div class="spacer"></div>
+
+    <div class="chains" id="chains">
+      <button class="chain-pill" data-all aria-pressed="true">All chains</button>
+      <button class="chain-pill" aria-pressed="true"><span class="cd eth"></span>Ethereum</button>
+      <button class="chain-pill" aria-pressed="true"><span class="cd arb"></span>Arbitrum</button>
+      <button class="chain-pill" aria-pressed="true"><span class="cd op"></span>Optimism</button>
+      <button class="chain-pill" aria-pressed="true"><span class="cd base"></span>Base</button>
+    </div>
+  </div>
+
+  <div class="app-stack">
+    <!-- summary -->
+    <section class="summary card card-pad" style="padding-top:14px">
+      <div class="sum-main">
+        <div class="label">Total portfolio value · 2 wallets · 4 chains <span class="synced"><span class="livedot"></span>synced 12s ago</span></div>
+        <div class="total num">$128,430<span class="cents">.27</span></div>
+        <div class="delta">
+          <span style="font-size:11px;color:var(--ink-3);font-weight:500">past 24h</span>
+          <span class="chip up">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 15l7-7 7 7"/></svg>
+            $3,012<span style="margin:0 3px"> · </span>2.4%
+          </span>
+        </div>
+      </div>
+      <div class="sum-chart">
+        <!-- chart fills flex:1; H/L col to its right; range buttons on far right -->
+        <div class="chart-col-d">
+          <svg class="trend" viewBox="0 0 240 60" preserveAspectRatio="none" aria-hidden="true">
+            <defs><linearGradient id="tg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity="0.20"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></linearGradient></defs>
+            <path class="trend-area" fill="url(#tg)" d="M0,46 L18,44 L36,47 L54,41 L72,38 L90,40 L108,34 L126,30 L144,33 L162,26 L180,24 L198,27 L216,20 L234,16 L240,14 L240,60 L0,60 Z"/>
+            <path class="trend-line" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" d="M0,46 L18,44 L36,47 L54,41 L72,38 L90,40 L108,34 L126,30 L144,33 L162,26 L180,24 L198,27 L216,20 L234,16 L240,14"/>
+            <!-- High / low dotted guides -->
+            <line x1="0" y1="14" x2="240" y2="14" stroke="currentColor" stroke-width="1" stroke-dasharray="3 4" stroke-opacity="0.28"/>
+            <line x1="0" y1="47" x2="240" y2="47" stroke="currentColor" stroke-width="1" stroke-dasharray="3 4" stroke-opacity="0.28"/>
+          </svg>
+          <!-- End-point dot: HTML so it stays a perfect circle regardless of SVG scaling -->
+          <div class="chart-end-d"></div>
+        </div>
+        <div class="chart-hl-d">
+          <span class="chart-hl-lbl">H $131,442</span>
+          <span class="chart-hl-lbl">L $124,800</span>
+        </div>
+        <div class="range" id="range">
+          <button class="rg">24H</button><button class="rg on">7D</button><button class="rg">30D</button><button class="rg">1Y</button>
+        </div>
+      </div>
+      <div class="sum-right">
+        <div class="spark">
+          <div class="blk"><div class="k">Public</div><div class="v num">$115,930</div></div>
+          <div class="blk"><div class="k">DeFi</div><div class="v num">$58,210</div></div>
+          <div class="blk shielded"><div class="k"><svg class="kshield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Shielded</div><div class="v num secret" data-secret="$12,500" style="color:var(--accent)">$•••••</div></div>
+        </div>
+        <button class="btn sm reveal-all" id="revealAllBtn" title="Decrypts locally via your wallet permit">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 7.5-1.9"/></svg>
+          Reveal shielded
+        </button>
+      </div>
+    </section>
+
+    <!-- AI assistant — inline, visible by default, collapsible -->
+    <section class="assistant card" id="assistant">
+      <div class="asst-head" id="asstHead">
+        <div class="ai"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.6 4.6L18 9l-4.4 1.4L12 15l-1.6-4.6L6 9l4.4-1.4L12 3z"/></svg></div>
+        <div class="ttl">Wallet Assistant<small><span class="dot" id="aiDot"></span><span id="aiStatus">Running locally · Qwen3.5-4B</span></small></div>
+        <span class="spacer"></span>
+        <button class="icon-btn" id="fullBtn" title="Expand to full screen">
+          <svg id="fullIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+        </button>
+        <button class="icon-btn" id="collapseBtn" title="Collapse">
+          <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+      </div>
+      <div class="asst-body" id="asstBody">
+        <div class="chat-thread" id="thread">
+          <div class="empty" id="emptyState">
+            <div class="big"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.6 4.6L18 9l-4.4 1.4L12 15l-1.6-4.6L6 9l4.4-1.4L12 3z"/></svg></div>
+            <h4>Ask about your wallets</h4>
+            <p>Computed from on-chain facts, answered by a model running on your device.</p>
+          </div>
+        </div>
+        <div class="suggest" id="suggest">
+          <span class="lbl">Popular questions</span>
+          <button class="qchip">What changed in my portfolio this week?</button>
+          <button class="qchip">Am I overexposed to ETH?</button>
+          <button class="qchip">Explain my Aave health factor</button>
+          <button class="qchip">Any risky token approvals?</button>
+        </div>
+        <div class="chat-input">
+          <div class="input-wrap">
+            <div class="wave" id="wave"><i></i><i></i><i></i><i></i><i></i></div>
+            <textarea id="chatBox" rows="1" placeholder="Ask anything, or hold the mic to talk…"></textarea>
+            <button class="mic" id="micBtn" title="Hold to talk (push-to-talk)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+            </button>
+            <button class="send" id="sendBtn" title="Send" disabled>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </button>
+          </div>
+          <div class="talk-hint" id="talkHint"></div>
+          <div class="chat-foot">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6l7-3z"/></svg>
+            Private — your questions and data never leave this device.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="columns">
+    <div class="col">
+
+    <!-- holdings -->
+    <section class="card">
+      <div class="card-h"><h3>Token holdings</h3><span class="spacer"></span><span class="count">6 public · 2 shielded</span></div>
+      <div class="list">
+        <div class="row">
+          <div class="asset">
+            <div class="token" style="background:#eef1fd;color:#627eea">Ξ<span class="chainbadge cd eth"></span></div>
+            <div class="meta"><div class="nm">Ethereum <span class="tag">ETH</span></div><div class="sub num">14.82 ETH · $3,420</div></div>
+          </div>
+          <div class="vals"><div class="v num">$50,684</div><div class="c pos num">+2.9%</div></div>
+        </div>
+        <div class="row">
+          <div class="asset">
+            <div class="token" style="background:#e9f4fe;color:#2775ca">$<span class="chainbadge cd arb"></span></div>
+            <div class="meta"><div class="nm">USD Coin <span class="tag">USDC</span></div><div class="sub num">28,400 USDC · Arbitrum</div></div>
+          </div>
+          <div class="vals"><div class="v num">$28,400</div><div class="c num" style="color:var(--ink-3)">0.0%</div></div>
+        </div>
+        <div class="row">
+          <div class="asset">
+            <div class="token" style="background:#fff0e6;color:#f7931a">₿<span class="chainbadge cd eth"></span></div>
+            <div class="meta"><div class="nm">Wrapped BTC <span class="tag">WBTC</span></div><div class="sub num">0.31 WBTC · $61,200</div></div>
+          </div>
+          <div class="vals"><div class="v num">$18,972</div><div class="c pos num">+1.1%</div></div>
+        </div>
+        <div class="row">
+          <div class="asset">
+            <div class="token" style="background:#eaf3ff;color:#28a0f0">A<span class="chainbadge cd arb"></span></div>
+            <div class="meta"><div class="nm">Arbitrum <span class="tag">ARB</span></div><div class="sub num">9,500 ARB · $0.84</div></div>
+          </div>
+          <div class="vals"><div class="v num">$7,980</div><div class="c neg num">−3.2%</div></div>
+        </div>
+        <div class="row">
+          <div class="asset">
+            <div class="token" style="background:#ffeaec;color:#ff0420">O<span class="chainbadge cd op"></span></div>
+            <div class="meta"><div class="nm">Optimism <span class="tag">OP</span></div><div class="sub num">3,100 OP · $1.92</div></div>
+          </div>
+          <div class="vals"><div class="v num">$5,952</div><div class="c pos num">+4.4%</div></div>
+        </div>
+        <div class="row">
+          <div class="asset">
+            <div class="token" style="background:#e9eefe;color:#0052ff">●<span class="chainbadge cd base"></span></div>
+            <div class="meta"><div class="nm">Coinbase ETH <span class="tag">cbETH</span></div><div class="sub num">1.05 cbETH · Base</div></div>
+          </div>
+          <div class="vals"><div class="v num">$3,742</div><div class="c pos num">+2.7%</div></div>
+        </div>
+
+        <div class="row shielded">
+          <div class="asset">
+            <div class="token tk-shield"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><span class="chainbadge cd fhe"></span></div>
+            <div class="meta"><div class="nm">Shielded USDC <span class="tag shield-tag">private</span></div><div class="sub num secret" data-secret="12,500 USDC · Fhenix">•••••• USDC · Fhenix</div></div>
+          </div>
+          <div class="vals"><div class="v num secret" data-secret="$12,500">$•••••</div><button class="peek" title="Reveal — decrypts locally"><svg class="eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
+        </div>
+        <div class="row shielded">
+          <div class="asset">
+            <div class="token tk-shield"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><span class="chainbadge cd fhe"></span></div>
+            <div class="meta"><div class="nm">Shielded ETH <span class="tag shield-tag">private</span></div><div class="sub num secret" data-secret="1.40 ETH · Fhenix">••••• ETH · Fhenix</div></div>
+          </div>
+          <div class="vals"><div class="v num secret" data-secret="$4,788">$••••</div><button class="peek" title="Reveal — decrypts locally"><svg class="eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- DeFi positions (under holdings) -->
+    <section class="card">
+      <div class="card-h"><h3>DeFi positions</h3><span class="spacer"></span><span class="count">4 public · 1 shielded</span></div>
+      <div class="defi-row">
+        <div class="defi-head">
+          <div class="proto" style="background:#f3e9ff;color:#9b59ff">👻</div>
+          <div><div class="nm">Aave v3 <span class="tag">Ethereum</span></div><div class="sub">Lending · Health factor 2.14</div></div>
+          <span class="spacer"></span><div class="num" style="font-weight:600">$27,360</div>
+        </div>
+        <div class="defi-legs">
+          <div class="leg"><div class="k"><span class="dotk sup"></span>Supplied</div><div class="v num">8.00 ETH · $27,360</div></div>
+          <div class="leg"><div class="k"><span class="dotk bor"></span>Borrowed</div><div class="v num">9,000 USDC · $9,000</div></div>
+        </div>
+      </div>
+      <div class="defi-row">
+        <div class="defi-head">
+          <div class="proto" style="background:#ffe9f4;color:#ff007a">🦄</div>
+          <div><div class="nm">Uniswap v3 <span class="tag">Arbitrum</span></div><div class="sub">LP · ETH / USDC · in range</div></div>
+          <span class="spacer"></span><div class="num" style="font-weight:600">$18,940</div>
+        </div>
+        <div class="defi-legs">
+          <div class="leg"><div class="k"><span class="dotk lp"></span>Liquidity</div><div class="v num">5.1 ETH + 1,540 USDC</div></div>
+          <div class="leg"><div class="k"><span class="dotk sup"></span>Fees earned</div><div class="v num pos">+$412</div></div>
+        </div>
+      </div>
+      <div class="defi-row">
+        <div class="defi-head">
+          <div class="proto" style="background:#e8f0ff;color:#00a3ff">🌊</div>
+          <div><div class="nm">Lido <span class="tag">Ethereum</span></div><div class="sub">Staking · stETH</div></div>
+          <span class="spacer"></span><div class="num" style="font-weight:600">$8,420</div>
+        </div>
+        <div class="defi-legs">
+          <div class="leg"><div class="k"><span class="dotk sup"></span>Staked</div><div class="v num">2.46 stETH · 3.1% APR</div></div>
+          <div class="leg"><div class="k"><span class="dotk sup"></span>Rewards</div><div class="v num pos">+0.071 stETH</div></div>
+        </div>
+      </div>
+      <div class="defi-row">
+        <div class="defi-head">
+          <div class="proto" style="background:#e9f6ee;color:#16a34a">✈️</div>
+          <div><div class="nm">Aerodrome <span class="tag">Base</span></div><div class="sub">LP + gauge · cbETH / ETH</div></div>
+          <span class="spacer"></span><div class="num" style="font-weight:600">$3,490</div>
+        </div>
+        <div class="defi-legs">
+          <div class="leg"><div class="k"><span class="dotk lp"></span>Position</div><div class="v num">0.9 cbETH + 0.9 ETH</div></div>
+          <div class="leg"><div class="k"><span class="dotk sup"></span>AERO rewards</div><div class="v num pos">+$58 / wk</div></div>
+        </div>
+      </div>
+      <div class="defi-row shielded">
+        <div class="defi-head">
+          <div class="proto proto-shield"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div>
+          <div><div class="nm">Fhenix Vault <span class="tag shield-tag">private</span></div><div class="sub">Confidential lending · encrypted position</div></div>
+          <span class="spacer"></span><div class="num secret" data-secret="$6,200" style="font-weight:600">$••••</div>
+          <button class="peek" title="Reveal — decrypts locally"><svg class="eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        </div>
+        <div class="defi-legs">
+          <div class="leg"><div class="k"><span class="dotk lp"></span>Supplied</div><div class="v num secret" data-secret="6,200 eUSDC · $6,200">•••••• eUSDC</div></div>
+          <div class="leg"><div class="k"><span class="dotk sup"></span>Encrypted yield</div><div class="v num secret" data-secret="+$83 · 4.1% APR">••••</div></div>
+        </div>
+      </div>
+    </section>
+      </div>
+      <div class="col">
+
+    <!-- transactions -->
+    <section class="card">
+      <div class="card-h"><h3>Recent activity</h3><span class="spacer"></span><button class="btn ghost sm">View all</button></div>
+      <div class="list">
+        <div class="tx">
+          <div class="ic in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg></div>
+          <div><div class="t1">Received ETH</div><div class="t2"><span class="cd eth" style="width:7px;height:7px;border-radius:50%"></span>Ethereum · from 0x3a…f1</div></div>
+          <div class="amt pos num">+1.50 ETH<span class="when">2h ago</span></div>
+        </div>
+        <div class="tx">
+          <div class="ic out"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10M7 17L17 7"/></svg></div>
+          <div><div class="t1">Swap USDC → ARB</div><div class="t2"><span class="cd arb" style="width:7px;height:7px;border-radius:50%"></span>Arbitrum · Uniswap v3</div></div>
+          <div class="amt num">2,000 USDC<span class="when">6h ago</span></div>
+        </div>
+        <div class="tx">
+          <div class="ic out"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
+          <div><div class="t1">Supplied to Aave</div><div class="t2"><span class="cd eth" style="width:7px;height:7px;border-radius:50%"></span>Ethereum · Aave v3</div></div>
+          <div class="amt num">8.00 ETH<span class="when">1d ago</span></div>
+        </div>
+        <div class="tx">
+          <div class="ic out"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></div>
+          <div><div class="t1">Sent ETH</div><div class="t2"><span class="cd base" style="width:7px;height:7px;border-radius:50%"></span>Base · to 0x9f…7C</div></div>
+          <div class="amt num">−0.40 ETH<span class="when">2d ago</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Spending caps -->
+    <section class="card">
+      <div class="card-h">
+        <h3>Spending caps</h3>
+        <span class="spacer"></span>
+        <span class="badge warn"><span class="dot"></span>2 unlimited</span>
+      </div>
+      <div class="list">
+        <div class="cap">
+          <div class="cap-tok" style="background:#e9f4fe;color:#2775ca">$</div>
+          <div><div class="t1">USDC <span class="arrow">→</span> Velodrome</div><div class="t2"><span class="cd op"></span>Optimism · approved 2d ago</div></div>
+          <span class="spacer"></span>
+          <span class="cap-amt risk">Unlimited</span>
+          <button class="btn ghost sm revoke">Revoke</button>
+        </div>
+        <div class="cap">
+          <div class="cap-tok" style="background:#fff0e6;color:#f7931a">₿</div>
+          <div><div class="t1">WBTC <span class="arrow">→</span> Aave v3</div><div class="t2"><span class="cd eth"></span>Ethereum · approved 8d ago</div></div>
+          <span class="spacer"></span>
+          <span class="cap-amt risk">Unlimited</span>
+          <button class="btn ghost sm revoke">Revoke</button>
+        </div>
+        <div class="cap">
+          <div class="cap-tok" style="background:#e9f4fe;color:#2775ca">$</div>
+          <div><div class="t1">USDC <span class="arrow">→</span> Uniswap v3</div><div class="t2"><span class="cd arb"></span>Arbitrum · approved 14d ago</div></div>
+          <span class="spacer"></span>
+          <span class="cap-amt num">2,000 USDC</span>
+          <button class="btn ghost sm revoke">Revoke</button>
+        </div>
+      </div>
+    </section>
+
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- scrim — used by the assistant's full-screen mode -->
+<div class="scrim" id="scrim"></div>
+
+<!-- ════════════════ FIRST-VISIT MODAL ════════════════ -->
+<div class="modal-scrim" id="modalScrim">
+  <div class="modal">
+    <span class="badge">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6l7-3z"/></svg>
+      Runs 100% on your device
+    </span>
+    <h2>Set up your private AI</h2>
+    <p class="lead">We’ll prepare a local language model so your wallet analysis happens entirely on this device. The download runs in the background — you can connect wallets and explore right away.</p>
+    <div class="spec">
+      <div class="it">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <div class="t">~2.4 GB</div><div class="s">one-time download</div>
+      </div>
+      <div class="it">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l6-6-6-6M12 19h8"/></svg>
+        <div class="t">WebGPU</div><div class="s">CPU fallback</div>
+      </div>
+      <div class="it">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        <div class="t">Offline-ready</div><div class="s">cached locally</div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="laterBtn">Use other services for now</button>
+      <button class="btn primary" id="downloadBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 11l4 4 4-4M5 19h14"/></svg>
+        Download &amp; prepare
+      </button>
+    </div>
+    <div class="modal-fine">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg>
+      No account, no tracking. Weights are downloaded once and cached.
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const $ = (s)=>document.querySelector(s);
+  const $$ = (s)=>Array.from(document.querySelectorAll(s));
+
+  /* ---------- Theme (gradual light⇄dark cross-fade) ---------- */
+  const SUN='<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>';
+  const MOON='<path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/>';
+  window.__theme=(t)=>{
+    const r=document.documentElement;
+    const apply=()=>{ r.setAttribute('data-theme',t); const ti=$('#themeIcon'); if(ti) ti.innerHTML = t==='dark' ? SUN : MOON; };
+    const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if(document.startViewTransition && !reduce) document.startViewTransition(apply);  // snapshot cross-fade, no text re-raster
+    else apply();
+  };
+  $('#themeBtn').addEventListener('click',()=>{
+    window.__theme(document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark');
+  });
+
+  /* ---------- Provisioning flow ---------- */
+  let modelReady=false, provInterval=null;
+  const setModelState=(state)=>{
+    const dot=$('#modelDot'), spin=$('#modelSpin'), text=$('#modelText'), aiDot=$('#aiDot'), aiStatus=$('#aiStatus');
+    if(state==='ready'){
+      modelReady=true;
+      dot.className='dot live'; dot.style.display='';
+      spin.style.display='none'; text.textContent='Local AI ready';
+      if(aiDot) aiDot.style.background='var(--pos)';
+      if(aiStatus) aiStatus.textContent='Running locally · Qwen3.5-4B';
+    }else if(state==='preparing'){
+      modelReady=false;
+      dot.style.display='none'; spin.style.display=''; text.textContent='Preparing local AI…';
+      if(aiDot) aiDot.style.background='var(--warn)';
+      if(aiStatus) aiStatus.textContent='Preparing locally…';
+    }else{ /* idle / not started */
+      modelReady=false;
+      dot.className='dot'; dot.style.display=''; spin.style.display='none'; text.textContent='Set up local AI';
+      if(aiDot) aiDot.style.background='var(--ink-3)';
+      if(aiStatus) aiStatus.textContent='Not set up yet';
+    }
+  };
+
+  const startProvision=()=>{
+    closeModal();
+    setModelState('preparing');
+    const banner=$('#provisionBanner'); banner.style.display='';
+    const fill=$('#provFill'), meta=$('#provMeta'), card=$('#provisionCard');
+    let pct=0; const total=2400; // MB
+    clearInterval(provInterval);
+    provInterval=setInterval(()=>{
+      pct=Math.min(100, pct + (pct<85?Math.random()*5+2.2:Math.random()*1.6+0.5));
+      fill.style.width=pct+'%';
+      const mb=Math.round(total*pct/100);
+      const etaSec=Math.max(0,Math.round((100-pct)/4.5));
+      meta.textContent = pct<100
+        ? `${Math.round(pct)}% · ${mb} / ${total} MB · ~${etaSec}s left`
+        : '2.4 GB · complete';
+      if(pct>=100){
+        clearInterval(provInterval);
+        setModelState('ready');
+        card.classList.add('done');
+        $('.pc-icon').innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
+        $('#provTitle').textContent='Local AI is ready';
+        $('#provSub').textContent='Qwen3.5-4B is cached on your device. Ask the assistant anything about your wallets.';
+        setTimeout(()=>{ banner.style.transition='opacity .5s, transform .5s'; banner.style.opacity='0'; banner.style.transform='translateY(-6px)';
+          setTimeout(()=>banner.style.display='none',520); }, 3200);
+      }
+    },360);
+  };
+
+  $('#downloadBtn').addEventListener('click',startProvision);
+  $('#modelPill').addEventListener('click',()=>{ if(!modelReady && !provInterval) startProvision(); });
+  $('#laterBtn').addEventListener('click',()=>{ closeModal(); setModelState('idle'); });
+
+  /* ---------- Modal ---------- */
+  const modal=$('#modalScrim');
+  function openModal(){ modal.classList.add('show'); }
+  function closeModal(){ modal.classList.remove('show'); }
+  // show on first visit
+  setTimeout(openModal, 350);
+
+  /* ---------- Chain filter ---------- */
+  const chainWrap=$('#chains');
+  chainWrap.addEventListener('click',(e)=>{
+    const btn=e.target.closest('.chain-pill'); if(!btn) return;
+    const pills=$$('.chain-pill:not([data-all])');
+    const allBtn=$('.chain-pill[data-all]');
+    if(btn.hasAttribute('data-all')){
+      const turnOn=btn.getAttribute('aria-pressed')!=='true';
+      btn.setAttribute('aria-pressed', turnOn);
+      pills.forEach(p=>p.setAttribute('aria-pressed',turnOn));
+    }else{
+      btn.setAttribute('aria-pressed', btn.getAttribute('aria-pressed')!=='true');
+      const allOn=pills.every(p=>p.getAttribute('aria-pressed')==='true');
+      allBtn.setAttribute('aria-pressed', allOn);
+    }
+  });
+
+  /* ---------- Portfolio range / sparkline ---------- */
+  const trends={
+    '24H':'M0,40 L20,42 L40,38 L60,41 L80,36 L100,39 L120,33 L140,35 L160,30 L180,32 L200,27 L220,29 L240,24',
+    '7D':'M0,46 L18,44 L36,47 L54,41 L72,38 L90,40 L108,34 L126,30 L144,33 L162,26 L180,24 L198,27 L216,20 L234,16 L240,14',
+    '30D':'M0,50 L24,46 L48,49 L72,40 L96,43 L120,34 L144,37 L168,28 L192,31 L216,22 L240,16',
+    '1Y':'M0,54 L24,50 L48,44 L72,47 L96,38 L120,41 L144,30 L168,33 L192,24 L216,18 L240,12'
+  };
+  const rangeWrap=$('#range');
+  if(rangeWrap) rangeWrap.addEventListener('click',(e)=>{
+    const b=e.target.closest('.rg'); if(!b) return;
+    $$('#range .rg').forEach(x=>x.classList.toggle('on',x===b));
+    const d=trends[b.textContent.trim()]; if(!d) return;
+    $('.trend-line').setAttribute('d',d);
+    $('.trend-area').setAttribute('d', d+' L240,60 L0,60 Z');
+  });
+
+  /* ---------- Wallet chips ---------- */
+  $('#wallets').addEventListener('click',(e)=>{
+    const x=e.target.closest('.x'); if(x){ x.closest('.wchip').style.transition='opacity .2s,transform .2s';
+      x.closest('.wchip').style.opacity='0'; x.closest('.wchip').style.transform='scale(.9)';
+      setTimeout(()=>x.closest('.wchip').remove(),200); }
+  });
+  $('#addWallet').addEventListener('click',()=>{
+    const w=document.createElement('div'); w.className='wchip'; w.style.opacity='0';
+    const id=Math.random().toString(16).slice(2,6), id2=Math.random().toString(16).slice(2,6);
+    w.innerHTML=`<svg class="ava" viewBox="0 0 24 24"><rect width="24" height="24" rx="12" fill="#9aa0b5"/></svg>
+      <span class="nm">New wallet<span class="mono">0x${id}…${id2}</span></span>
+      <button class="x" title="Remove"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>`;
+    $('#addWallet').before(w);
+    requestAnimationFrame(()=>{ w.style.transition='opacity .25s'; w.style.opacity='1'; });
+  });
+
+  /* ---------- Shielded reveal: per-item + reveal-all (decrypts locally) ---------- */
+  const EYE='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>';
+  const EYEOFF='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18M10.6 10.7a3 3 0 0 0 4.2 4.2M9.9 5.2A9.6 9.6 0 0 1 12 5c6.5 0 10 7 10 7a16 16 0 0 1-3 3.9M6.2 6.3A16 16 0 0 0 2 12s3.5 7 10 7a9.5 9.5 0 0 0 3-.5"/></svg>';
+  const REVEAL_ICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 7.5-1.9"/></svg>';
+  const HIDE_ICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>';
+  function setItem(item, on){
+    item.classList.toggle('revealed', on);
+    item.querySelectorAll('.secret').forEach(s=>{
+      if(s.dataset.mask===undefined) s.dataset.mask=s.textContent;
+      s.textContent = on ? s.dataset.secret : s.dataset.mask;
+      if(on){ s.classList.remove('reveal-anim'); void s.offsetWidth; s.classList.add('reveal-anim'); }
+    });
+    const pk=item.querySelector('.peek');
+    if(pk){ pk.innerHTML = on ? EYEOFF : EYE; pk.title = on ? 'Hide' : 'Reveal — decrypts locally'; }
+    syncRevealAll();
+  }
+  const shieldedItems=()=>$$('.shielded');
+  function revealAll(on){ shieldedItems().forEach(i=>setItem(i,on)); }
+  function syncRevealAll(){
+    const items=shieldedItems();
+    const allOn=items.length>0 && items.every(i=>i.classList.contains('revealed'));
+    const btn=$('#revealAllBtn'); if(!btn) return;
+    btn.innerHTML=(allOn?HIDE_ICON+' Hide shielded':REVEAL_ICON+' Reveal shielded');
+    btn.classList.toggle('primary', !allOn);
+  }
+  document.addEventListener('click',(e)=>{               // per-item peek (event-delegated)
+    const pk=e.target.closest('.peek'); if(!pk) return;
+    const item=pk.closest('.shielded'); if(!item) return;
+    setItem(item, !item.classList.contains('revealed'));
+  });
+  $('#revealAllBtn').addEventListener('click',function(){
+    const items=shieldedItems();
+    const allOn=items.length>0 && items.every(i=>i.classList.contains('revealed'));
+    if(allOn){ revealAll(false); return; }
+    const btn=this; btn.disabled=true;
+    btn.innerHTML='<span class="mini-spin"></span> Decrypting locally…';
+    setTimeout(()=>{ btn.disabled=false; revealAll(true); }, 650);
+  });
+  syncRevealAll();
+
+  /* ---------- Inline assistant: collapse + full screen ---------- */
+  const assistant=$('#assistant'), scrim=$('#scrim');
+  const EXPAND_ICON='<path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/>';
+  const SHRINK_ICON='<path d="M14 10l7-7M21 3v6h-6M10 14l-7 7M3 21v-6h6"/>';
+  const setCollapsed=(on)=>assistant.classList.toggle('collapsed', on);
+  function setFull(on){
+    assistant.classList.toggle('full', on);
+    scrim.classList.toggle('show', on);
+    $('#fullIcon').innerHTML = on ? SHRINK_ICON : EXPAND_ICON;
+    if(on) setCollapsed(false);
+  }
+  $('#asstHead').addEventListener('click',(e)=>{
+    if(e.target.closest('#fullBtn')||e.target.closest('#collapseBtn')) return;
+    setCollapsed(!assistant.classList.contains('collapsed'));
+  });
+  $('#collapseBtn').addEventListener('click',(e)=>{ e.stopPropagation();
+    if(assistant.classList.contains('full')) return setFull(false);
+    setCollapsed(!assistant.classList.contains('collapsed'));
+  });
+  $('#fullBtn').addEventListener('click',(e)=>{ e.stopPropagation(); setFull(!assistant.classList.contains('full')); });
+  scrim.addEventListener('click',()=>setFull(false));
+  document.addEventListener('keydown',(e)=>{
+    if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){ e.preventDefault(); setCollapsed(false); $('#chatBox').focus(); }
+    if(e.key==='Escape'&&assistant.classList.contains('full')) setFull(false);
+  });
+  /* spending caps: revoke (demo) */
+  document.addEventListener('click',(e)=>{
+    const rv=e.target.closest('.revoke'); if(!rv) return;
+    const cap=rv.closest('.cap'); if(!cap) return;
+    cap.style.transition='opacity .2s'; cap.style.opacity='0'; setTimeout(()=>cap.remove(),200);
+  });
+
+  /* ---------- Chat send + mock stream ---------- */
+  const thread=$('#thread'), box=$('#chatBox'), sendBtn=$('#sendBtn'), suggest=$('#suggest');
+  const answers={
+    'What changed in my portfolio this week?':"Your cluster is up <span class='pill-num'>+2.4%</span> over 24h and roughly <span class='pill-num'>+6.1%</span> on the week, driven mostly by <strong>ETH (+2.9%)</strong> and <strong>OP (+4.4%)</strong>. <strong>ARB</strong> is the main drag at −3.2%. You also moved 8 ETH into <strong>Aave v3</strong> and your Uniswap LP earned <strong>+$412</strong> in fees.",
+    'Am I overexposed to ETH?':"ETH-correlated assets (ETH, stETH, cbETH, plus the Aave + LP legs) are about <strong>64%</strong> of your public holdings. That's concentrated. A drop to a 40–50% band would cut single-asset risk; your <span class='pill-num'>12,500</span> shielded USDC is already a useful hedge.",
+    'Explain my Aave health factor':"Your Aave v3 health factor is <span class='pill-num'>2.14</span> — comfortably safe (liquidation triggers at 1.0). You've supplied <strong>8 ETH</strong> and borrowed <strong>9,000 USDC</strong>. ETH would need to fall roughly <strong>−53%</strong> before liquidation risk.",
+    'Any risky token approvals?':"One worth reviewing: an <strong>unlimited USDC spend cap</strong> granted to Velodrome on Optimism 2 days ago. It's a known router, but unlimited approvals are a standing risk — consider revoking or setting a finite cap."
+  };
+  const fallback="Based on your on-chain facts: 2 wallets across 4 chains, <span class='pill-num'>$128,430</span> total with <span class='pill-num'>$58,210</span> in DeFi and <span class='pill-num'>$12,500</span> shielded. Ask about exposure, health factors, approvals, or recent activity and I'll break it down — all computed locally.";
+
+  box.addEventListener('input',()=>{ sendBtn.disabled=!box.value.trim(); autoGrow(); });
+  function autoGrow(){ box.style.height='auto'; box.style.height=Math.min(box.scrollHeight,120)+'px'; }
+  box.addEventListener('keydown',(e)=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); send(box.value); } });
+  sendBtn.addEventListener('click',()=>send(box.value));
+  suggest.addEventListener('click',(e)=>{ const c=e.target.closest('.qchip'); if(c) send(c.textContent.trim()); });
+
+  function send(text){
+    text=(text||'').trim(); if(!text) return;
+    $('#emptyState')?.remove();
+    suggest.style.display='none';
+    box.value=''; sendBtn.disabled=true; autoGrow();
+    const u=document.createElement('div'); u.className='msg user'; u.textContent=text; thread.appendChild(u);
+    scrollThread();
+
+    const ai=document.createElement('div'); ai.className='msg ai';
+    ai.innerHTML='<div class="av"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.6 4.6L18 9l-4.4 1.4L12 15l-1.6-4.6L6 9l4.4-1.4L12 3z"/></svg></div><div class="bub"></div>';
+    thread.appendChild(ai); scrollThread();
+    const bub=ai.querySelector('.bub');
+
+    if(!modelReady){
+      bub.innerHTML="Your local AI is still being prepared — I'll answer the moment it's ready. <span style='color:var(--ink-3)'>(Queued; nothing is sent to a server.)</span>";
+      scrollThread(); return;
+    }
+    streamInto(bub, answers[text]||fallback);
+  }
+  function streamInto(el, html){
+    const tokens=html.split(/(\s+|<[^>]+>)/).filter(Boolean);
+    let i=0; el.innerHTML='<span class="caret"></span>';
+    const tick=()=>{
+      if(i>=tokens.length){ el.querySelector('.caret')?.remove(); return; }
+      const caret=el.querySelector('.caret');
+      caret.insertAdjacentHTML('beforebegin', tokens[i]); i++;
+      scrollThread();
+      setTimeout(tick, 14+Math.random()*40);
+    };
+    setTimeout(tick, 220);
+  }
+  function scrollThread(){ thread.scrollTop=thread.scrollHeight; }
+
+  /* ---------- Push-to-talk ---------- */
+  const mic=$('#micBtn'), wave=$('#wave'), hint=$('#talkHint');
+  let talking=false;
+  const startTalk=()=>{ talking=true; mic.classList.add('live'); wave.classList.add('show'); hint.textContent='Listening… release to send'; box.placeholder='Listening…'; };
+  const endTalk=()=>{ if(!talking) return; talking=false; mic.classList.remove('live'); wave.classList.remove('show'); hint.textContent=''; box.placeholder='Ask anything, or hold the mic to talk…';
+    const sample="How risky are my current token approvals?";
+    box.value=sample; sendBtn.disabled=false; autoGrow(); box.focus();
+  };
+  mic.addEventListener('pointerdown',(e)=>{ e.preventDefault(); startTalk(); });
+  window.addEventListener('pointerup',endTalk);
+  mic.addEventListener('pointerleave',()=>{ if(talking) endTalk(); });
+
+  /* ---------- DeFi positions: collapsible legs (collapsed by default) ---------- */
+  const DEFI_CHEV='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+  $$('.defi-row').forEach(row=>{
+    const head=row.querySelector('.defi-head'); if(!head) return;
+    const chev=document.createElement('span'); chev.className='defi-chev'; chev.innerHTML=DEFI_CHEV;
+    head.appendChild(chev);
+    head.addEventListener('click',(e)=>{ if(e.target.closest('.peek')) return; row.classList.toggle('open'); });
+  });
+
+  /* ---------- expose for demo screenshots ---------- */
+  window.__demo={ startProvision, finishProvision:()=>{ startProvision(); },
+    setReady:()=>{ clearInterval(provInterval); setModelState('ready'); $('#provisionBanner').style.display='none'; },
+    openModal, closeModal,
+    expand:()=>setCollapsed(false), collapse:()=>setCollapsed(true), full:(on)=>setFull(on!==false),
+    revealAll, unlock:()=>revealAll(true), ask:(q)=>{ setCollapsed(false); send(q); } };
+})();
+</script>
+<!-- ════════════════ PROTOTYPE CONTROLS (design tool, not product UI) ════════════════ -->
+<div class="dc" id="designControls">
+  <button class="dc-toggle" id="dcToggle">
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/></svg>
+    Design
+  </button>
+  <div class="dc-panel">
+    <div class="dc-row">
+      <span class="dc-lbl">Accent</span>
+      <div class="dc-sw" id="dcSwatches">
+        <button class="on" data-accent="#0d9488" style="--c:#0d9488" title="Teal / green (default)"></button>
+        <button data-accent="#5b5bd6" style="--c:#5b5bd6" title="Iris"></button>
+        <button data-accent="#2f6bed" style="--c:#2f6bed" title="Cobalt"></button>
+        <button data-accent="#7b4dd8" style="--c:#7b4dd8" title="Violet"></button>
+        <button data-accent="#43434f" style="--c:#43434f" title="Graphite"></button>
+      </div>
+    </div>
+    <div class="dc-row">
+      <span class="dc-lbl">Density</span>
+      <div class="seg" id="dcDensity">
+        <button class="on" data-density="comfortable">Cozy</button>
+        <button data-density="compact">Compact</button>
+      </div>
+    </div>
+    <div class="dc-row">
+      <span class="dc-lbl">Theme</span>
+      <div class="seg" id="dcTheme">
+        <button class="on" data-theme="light">Light</button>
+        <button data-theme="dark">Dark</button>
+      </div>
+    </div>
+    <div class="dc-row">
+      <span class="dc-lbl">Logo</span>
+      <div class="seg" id="dcLogo">
+        <button class="on" data-logo="prism">Prism</button>
+        <button data-logo="inf">refract∞</button>
+      </div>
+    </div>
+    <div class="dc-row dc-col">
+      <span class="dc-lbl">Texture</span>
+      <div class="seg seg-wrap" id="dcTexture">
+        <button class="on" data-texture="paper">Paper</button>
+        <button data-texture="laid">Laid</button>
+        <button data-texture="woven">Woven</button>
+        <button data-texture="coldpress">Cold-press</button>
+        <button data-texture="fibers">Fibers</button>
+        <button data-texture="smooth">Smooth</button>
+      </div>
+    </div>
+    <div class="dc-row">
+      <span class="dc-lbl">Warmth</span>
+      <input type="range" class="dc-slider dc-warm" id="dcWarm" min="-50" max="50" value="10" title="Background: cold ⇄ warm">
+    </div>
+    <div class="dc-row">
+      <span class="dc-lbl">Lightness</span>
+      <input type="range" class="dc-slider dc-light" id="dcLight" min="82" max="96" value="89" step="0.5" title="Background: darker ⇄ lighter">
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  const root=document.documentElement;
+  const $$=s=>Array.from(document.querySelectorAll(s));
+  const dc=document.querySelector('#designControls');
+  document.querySelector('#dcToggle').addEventListener('click',()=>dc.classList.toggle('open'));
+  $$('#dcSwatches button').forEach(b=>b.addEventListener('click',()=>{
+    root.style.setProperty('--accent', b.dataset.accent);
+    $$('#dcSwatches button').forEach(x=>x.classList.toggle('on',x===b));
+  }));
+  $$('#dcDensity button').forEach(b=>b.addEventListener('click',()=>{
+    root.setAttribute('data-density', b.dataset.density);
+    $$('#dcDensity button').forEach(x=>x.classList.toggle('on',x===b));
+  }));
+  function setTheme(t){
+    // delegate to the shared helper so the gradual cross-fade + icon are consistent
+    if(window.__theme) window.__theme(t); else root.setAttribute('data-theme',t);
+    $$('#dcTheme button').forEach(x=>x.classList.toggle('on',x.dataset.theme===t));
+  }
+  $$('#dcTheme button').forEach(b=>b.addEventListener('click',()=>setTheme(b.dataset.theme)));
+  $$('#dcLogo button').forEach(b=>b.addEventListener('click',()=>{
+    root.setAttribute('data-logo', b.dataset.logo);
+    $$('#dcLogo button').forEach(x=>x.classList.toggle('on',x===b));
+  }));
+  $$('#dcTexture button').forEach(b=>b.addEventListener('click',()=>{
+    root.setAttribute('data-texture', b.dataset.texture);
+    $$('#dcTexture button').forEach(x=>x.classList.toggle('on',x===b));
+  }));
+  /* background warmth + lightness sliders (light theme; routed via --canvas-user) */
+  const dcWarm=document.querySelector('#dcWarm'), dcLight=document.querySelector('#dcLight');
+  function updateBg(){
+    const w=+dcWarm.value, L=+dcLight.value;
+    const sat=Math.min(Math.abs(w)/50*8, 8);          // 0–8% tint
+    const hue=w>=0 ? 45 : 220;                          // warm amber vs cool blue
+    root.style.setProperty('--canvas-user', `hsl(${hue}, ${sat.toFixed(1)}%, ${L}%)`);
+  }
+  if(dcWarm && dcLight){ [dcWarm,dcLight].forEach(s=>s.addEventListener('input',updateBg)); updateBg(); }
+  window.__dc={ accent:h=>{root.style.setProperty('--accent',h);}, density:d=>root.setAttribute('data-density',d), theme:setTheme, texture:t=>root.setAttribute('data-texture',t),
+    bg:(w,l)=>{ if(w!=null)dcWarm.value=w; if(l!=null)dcLight.value=l; updateBg(); }, logo:l=>root.setAttribute('data-logo',l) };
+})();
+</script>
+</body>
+</html>

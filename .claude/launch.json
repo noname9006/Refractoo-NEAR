@@ -1,0 +1,18 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "wallet-analyzer",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 5173,
+      "autoPort": true
+    },
+    {
+      "name": "design",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite", "design", "--port", "5180", "--strictPort"],
+      "port": 5180
+    }
+  ]
+}
