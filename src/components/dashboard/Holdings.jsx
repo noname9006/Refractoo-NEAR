@@ -102,12 +102,16 @@ export default function Holdings({ view, loading, updating, smallUsd = DEFAULT_S
           })}
 
           {shielded.map((s) => (
-            <div className="row shielded" key={s.wallet}>
+            <div className="row shielded" key={s.key || `${s.stack}:${s.address}:${s.wallet}`}>
               <div className="asset">
                 <TokenGlyph h={{}} shield />
                 <div className="meta">
-                  <div className="nm">Shielded balance <span className="tag shield-tag">private</span></div>
-                  <div className="sub num">CoFHE · unsealed locally</div>
+                  <div className="nm">{s.symbol || 'Shielded balance'} <span className="tag shield-tag">private</span></div>
+                  <div className="sub num">
+                    {s.stack === 'near-intents'
+                      ? 'NEAR private shard · read locally'
+                      : `${s.stack} · ${s.state === 'revealed' ? 'decrypted locally' : 'encrypted'}`}
+                  </div>
                 </div>
               </div>
               <div className="vals"><div className="v num" style={{ color: 'var(--accent)' }}>{usd(s.usd)}</div></div>

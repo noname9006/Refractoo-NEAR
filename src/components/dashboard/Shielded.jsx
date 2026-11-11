@@ -5,6 +5,7 @@ import { getLayout, setCardCollapsed } from '../../storage/local.js';
 import { TRUST } from '../../fhe/index.js';
 import { MODE } from '../../config/networks.js';
 import { fheApps } from '../../data/fheApps.js';
+import { STACK_ID as NEAR_STACK, intentsConfigured } from '../../near/confidentialIntents.js';
 
 // Confidential (shielded) token balances, across every FHE stack the active
 // network profile supports — Zama Protocol, Fhenix CoFHE, Inco Lightning.
@@ -20,7 +21,11 @@ export default function Shielded({ flow, view, updating }) {
   const [busyKey, setBusyKey] = useState(null);
   const [showTrust, setShowTrust] = useState(false);
 
-  const tokens = view?.shielded || [];
+  const all = view?.shielded || [];
+  // FHE-stack rows (per-token reveal) and NEAR private-shard rows (one sign-in
+  // for the whole account) behave differently, so they render as two blocks.
+  const tokens = all.filter((t) => t.stack !== NEAR_STACK);
+  const nearRows = all.filter((t) => t.stack === NEAR_STACK);
   const stacks = flow.shieldedStacks || [];
   const encrypted = tokens.filter((t) => t.state === 'encrypted');
   const hasWallet = !!flow.wallet;
@@ -50,9 +55,9 @@ export default function Shielded({ flow, view, updating }) {
         <h3>Shielded balances</h3>
         {updating && <span className="synced"><span className="mini-spin" />scanning…</span>}
         <span className="spacer" />
-        {tokens.length > 0 && (
+        {all.length > 0 && (
           <span className="count">
-            {tokens.length} found{encrypted.length ? ` · ${encrypted.length} encrypted` : ''}
+            {all.length} found{encrypted.length ? ` · ${encrypted.length} encrypted` : ''}
           </span>
         )}
         <button className="icon-btn" aria-label={collapsed ? 'Expand' : 'Collapse'}
@@ -176,6 +181,8 @@ export default function Shielded({ flow, view, updating }) {
             </>
           )}
 
+          <NearIntentsBlock flow={flow} rows={nearRows} hasWallet={hasWallet} />
+
           {/* Where to actually use confidential tokens. Links only — these are
               not the user's positions and carry no numbers (see data/fheApps.js). */}
           {apps.length > 0 && (
@@ -196,6 +203,110 @@ export default function Shielded({ flow, view, updating }) {
         </>
       )}
     </section>
+  );
+}
+
+// NEAR Confidential Intents: balances on NEAR's private shard. Unlike the FHE
+// stacks there is nothing to discover publicly — the shard is invisible from
+// outside — so the block starts locked and one wallet signature (a no-op intent
+// that moves nothing) reads every private balance at once.
+function NearIntentsBlock({ flow, rows, hasWallet }) {
+  const [showTrust, setShowTrust] = useState(false);
+  const ni = flow.nearIntents || { status: 'idle' };
+  const signing = ni.status === 'signing';
+  const configured = intentsConfigured();
+  const total = rows.reduce((s, t) => s + (Number.isFinite(t.usd) ? t.usd : 0), 0);
+
+  return (
+    <div className="near-intents">
+      <div className="shield-apps-h">NEAR Confidential Intents · private shard</div>
+
+      {ni.status !== 'unlocked' && (
+        <div className="list">
+          <div className="empty-note">
+            Since Aug 2026 NEAR Intents balances are confidential by default — invisible to
+            explorers and to this app until you prove you own them.
+            {ni.status === 'error' && <div className="warn" style={{ marginTop: 6 }}>{ni.error}</div>}
+          </div>
+          <div className="shield-actions">
+            <button className="btn ghost sm" disabled={!configured || !hasWallet || signing}
+              title={!configured
+                ? 'NEAR Intents API key is not configured'
+                : hasWallet
+                  ? 'Sign a no-op intent (moves nothing) to read your private-shard balances'
+                  : 'Connect a wallet to read NEAR confidential balances'}
+              onClick={() => flow.unlockNearIntents()}>
+              {signing ? <span className="mini-spin" /> : <IUnlock />} Read private balances (1 signature)
+            </button>
+          </div>
+        </div>
+      )}
+
+      {ni.status === 'unlocked' && (
+        <div className="list">
+          {rows.length === 0 && (
+            <div className="empty-note">No balances on the private shard for {shortAddr(ni.address)}.</div>
+          )}
+          {rows.map((t) => (
+            <div className="shield-row" key={t.key}>
+              <div className="proto" title={t.name}>🔒</div>
+              <div className="shield-main">
+                <div className="nm">
+                  {t.symbol}
+                  <span className="tag">NEAR private shard</span>
+                  {t.originChain && <span className="tag">{t.originChain}</span>}
+                </div>
+                <div className="sub">
+                  {t.address}
+                  {t.state === 'error' && <> · <span className="warn">{t.error}</span></>}
+                </div>
+              </div>
+              <span className="spacer" />
+              <div className="shield-vals">
+                <div className="num" style={{ fontWeight: 600 }}>{usdHolding(t.usd)}</div>
+                <div className="sub num">
+                  {t.amount != null ? `${amount(t.amount)} ${t.symbol}` : `${t.rawAmount} raw`}
+                </div>
+              </div>
+              <span className="shield-btn done" title="Read in this browser · never stored"><ILock /></span>
+            </div>
+          ))}
+          {rows.length > 0 && (
+            <div className="empty-note" style={{ paddingTop: 6 }}>
+              {rows.length} private balance{rows.length === 1 ? '' : 's'} · {usdHolding(total)}
+              {Array.isArray(ni.history) && <> · {ni.history.length} swap{ni.history.length === 1 ? '' : 's'} in history</>}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="shield-foot">
+        <button className="linkish" onClick={() => setShowTrust((v) => !v)}>
+          {showTrust ? 'Hide' : 'Who can see these balances'}
+        </button>
+        {showTrust && (
+          <div className="shield-trust">
+            <p>
+              <strong>Public, explorers, other apps:</strong> nothing. The private shard is not
+              readable from outside.
+            </p>
+            <p>
+              <strong>The signature</strong> signs an empty intent list — it authorizes no transfer
+              and moves no funds. It only proves you control this address.
+            </p>
+            <p>
+              <strong>NEAR Intents API (Aurora)</strong> serves the balances, so it sees your address
+              and amounts. The shard's permissioned validators run in TEEs and see its state — a
+              hardware trust assumption.
+            </p>
+            <p>
+              <strong>This app:</strong> amounts and the session stay in this browser's memory for
+              this page load only. Our server never sees them.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 

@@ -140,6 +140,11 @@ function finalizeShielded(t, priceFor) {
   if (t.state !== 'revealed' || t.amount == null) {
     return { ...t, usd: null, price: null, change24h: null };
   }
+  // NEAR Confidential Intents rows arrive with a USD price from the Intents
+  // API's own token list (src/near/confidentialIntents.js); no 24h change.
+  if (t.priceUsd != null) {
+    return { ...t, price: t.priceUsd, usd: t.amount * t.priceUsd, change24h: null };
+  }
   const p = t.underlying ? priceFor(llamaKey(t.chainId, t.underlying)) : null;
   const price = p?.price ?? null;
   return {
@@ -302,7 +307,9 @@ export function portfolioFacts(p) {
         'entries listed as revealed have a known amount — they were decrypted in ' +
         'this browser at the user\'s request. For encrypted entries the amount is ' +
         'UNKNOWN and MUST NOT be guessed, estimated, or treated as zero. ' +
-        'totalUsd includes revealed amounts only.',
+        'totalUsd includes revealed amounts only. Entries with stack "near-intents" ' +
+        'are balances on NEAR\'s private shard (Confidential Intents), read with the ' +
+        'user\'s signature; they are invisible to block explorers.',
       revealedUsd: revealed.length ? money(p.shieldedUsd) : null,
       encryptedCount: stillEncrypted.length,
       revealed: revealed.map((t) => ({

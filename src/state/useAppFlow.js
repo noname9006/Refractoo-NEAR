@@ -55,6 +55,10 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
   // is never written to localStorage or IndexedDB — see storage/local.js.
   const [shielded, setShielded] = useState([]);
   const [shieldedStacks, setShieldedStacks] = useState([]);
+  // NEAR Confidential Intents (private shard). Its holdings join `shielded` as
+  // stack 'near-intents' rows; this tracks the sign-in itself.
+  // status: 'idle' | 'signing' | 'unlocked' | 'error'. Memory only, like `shielded`.
+  const [nearIntents, setNearIntents] = useState({ status: 'idle', error: null, address: null, history: null });
   const [model, setModel] = useState({
     status: 'idle', id: null, mode: 'local', externalName: null, reason: '', progress: 0, statusText: '', ctxStatus: null, error: null, log: [],
   });
@@ -702,6 +706,9 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
         // handle means the balance moved on-chain and the old amount is stale.
         return prev && prev.handle === t.handle ? { ...t, state: 'revealed', amount: prev.amount } : t;
       });
+      // NEAR private-shard rows are not discovered on-chain (they need a signed
+      // session), so a rediscovery must keep them rather than drop them.
+      merged.push(...(shieldedRef.current || []).filter((t) => t.stack === 'near-intents'));
       commitShielded(merged);
       // Price the underlyings so a reveal renders with a USD value immediately.
       if (merged.length) {
@@ -753,6 +760,28 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
     }
   }, [revealShieldedToken]);
 
+  // Read the connected wallet's NEAR Confidential Intents balances. One ERC-191
+  // signature of a no-op intent (moves nothing) → session → private balances.
+  // Rows replace any previous near-intents rows; amounts stay in memory only.
+  const unlockNearIntents = useCallback(async () => {
+    if (!wallet) throw new Error('Connect a wallet to read NEAR confidential balances');
+    setNearIntents((s) => ({ ...s, status: 'signing', error: null }));
+    try {
+      const { loadConfidentialHoldings } = await import('../near/confidentialIntents.js');
+      const { address, tokens, history } = await loadConfidentialHoldings(wallet.signer);
+      const rest = (shieldedRef.current || []).filter((t) => !(t.stack === 'near-intents' && t.wallet === address));
+      commitShielded([...rest, ...tokens]);
+      setNearIntents({ status: 'unlocked', error: null, address, history });
+    } catch (e) {
+      const msg = String(e?.message || e);
+      const friendly = /user rejected|rejected the request|ACTION_REJECTED|4001/i.test(msg)
+        ? 'Signature declined — nothing was read.'
+        : msg;
+      console.warn('[flow] NEAR Intents unlock failed', e);
+      setNearIntents((s) => ({ ...s, status: 'error', error: friendly }));
+    }
+  }, [wallet, commitShielded]);
+
   // Revoke a token approval (approve(spender, 0)). Switches the wallet to the
   // approval's chain first if needed.
   const revoke = useCallback(async (approval) => {
@@ -788,10 +817,10 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
 
   return {
     stage, cluster, wallet, clusterData, facts, portfolio, pricing, refreshing,
-    shielded, shieldedStacks,
+    shielded, shieldedStacks, nearIntents,
     model, prefs, voiceDownload, error, busy,
     connect, addAnother, connectMore, loadDemo, removeFromCluster, renameWallet, continueFromWallets,
     rebuildView, startModel: loadModel, retryModel, unloadModel, chooseVoice, refresh, loadHistory, revoke, updatePref,
-    discoverShieldedTokens, revealShieldedToken, revealAllShielded,
+    discoverShieldedTokens, revealShieldedToken, revealAllShielded, unlockNearIntents,
   };
 }
