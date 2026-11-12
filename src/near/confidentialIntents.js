@@ -4,8 +4,8 @@
 // the private shard are not visible to block explorers or public RPC. The only
 // way to read them is as the owner, through the Intents API (operated by Aurora):
 //
-//   1. the user signs a no-op intent (ERC-191 from an EVM wallet here; NEP-413
-//      from a NEAR wallet is the other accepted standard),
+//   1. the user signs a no-op intent — ERC-191 from an EVM wallet or NEP-413
+//      from a NEAR wallet (see evmIdentity / nearIdentity below),
 //   2. POST /api/auth/authenticate/{apiKey} exchanges it for a session JWT,
 //   3. GET  /api/account/balances/{apiKey} returns the private balances.
 //
@@ -28,9 +28,11 @@
 //       https://docs.near-intents.org (signing standards)
 
 import { encodeBase58, getBytes } from 'ethers';
+import { intentsMessage, nep413Hash, normalizeSignature, verifyNep413, b64encode, INTENTS_RECIPIENT } from './nep413.js';
 
 const BASE = 'https://intents-api.aurora.dev';
-const API_KEY = String(import.meta.env.VITE_AURORA_INTENTS_API_KEY || '').trim();
+// `?.` keeps the module importable outside Vite (Node tests set the key below).
+let API_KEY = String(import.meta.env?.VITE_AURORA_INTENTS_API_KEY || '').trim();
 const VERIFYING_CONTRACT = 'intents.near';
 const DEADLINE_MS = 5 * 60_000;
 
@@ -38,8 +40,9 @@ export const STACK_ID = 'near-intents';
 export const CHAIN_NAME = 'NEAR private shard';
 
 export const intentsConfigured = () => !!API_KEY;
+export function setIntentsApiKeyForTests(k) { API_KEY = String(k || '').trim(); }
 
-// In-memory session, keyed by signer address. Never persisted.
+// In-memory session, keyed by "<kind>:<account>". Never persisted.
 const sessions = new Map();
 
 // Token metadata + USD prices, shared by every user. Cached for the page load.
@@ -64,38 +67,81 @@ function randomNonceBase64() {
   return btoa(String.fromCharCode(...b));
 }
 
-// ERC-191 sign-in. `signer` is an ethers v6 Signer (the connected EVM wallet).
-// personal_sign over the exact payload string; the verifier expects the 65-byte
-// r||s||v signature with v normalized to {0,1}, base58-encoded with a
-// "secp256k1:" prefix.
-async function authenticateErc191(signer) {
-  const address = (await signer.getAddress()).toLowerCase();
-  const payload = JSON.stringify({
-    signer_id: address,
-    verifying_contract: VERIFYING_CONTRACT,
-    nonce: randomNonceBase64(),
-    deadline: new Date(Date.now() + DEADLINE_MS).toISOString(),
-    intents: [],
-  });
-  const sigHex = await signer.signMessage(payload);
-  const sig = getBytes(sigHex);
-  if (sig.length !== 65) throw new Error(`Unexpected signature length ${sig.length}`);
-  if (sig[64] >= 27) sig[64] -= 27;
+// --- Identities --------------------------------------------------------------
+// Two ways to prove ownership, one shape: { kind, id, signedData() }.
+//   evm  — ERC-191 personal_sign from an EVM wallet (ethers v6 Signer)
+//   near — NEP-413 signMessage from a NEAR wallet (near-connect)
+// Both sign an EMPTY intent list: no transfer, no on-chain effect.
 
+// ERC-191: personal_sign over the exact payload string; the verifier expects the
+// 65-byte r||s||v signature with v normalized to {0,1}, base58 with a
+// "secp256k1:" prefix.
+export async function evmIdentity(signer) {
+  const address = (await signer.getAddress()).toLowerCase();
+  return {
+    kind: 'evm',
+    id: address,
+    async signedData() {
+      const payload = JSON.stringify({
+        signer_id: address,
+        verifying_contract: VERIFYING_CONTRACT,
+        nonce: randomNonceBase64(),
+        deadline: new Date(Date.now() + DEADLINE_MS).toISOString(),
+        intents: [],
+      });
+      const sig = getBytes(await signer.signMessage(payload));
+      if (sig.length !== 65) throw new Error(`Unexpected signature length ${sig.length}`);
+      if (sig[64] >= 27) sig[64] -= 27;
+      return { standard: 'erc191', signature: `secp256k1:${encodeBase58(sig)}`, payload };
+    },
+  };
+}
+
+// NEP-413: `signMessage({ message, recipient, nonce })` is the wallet's call
+// (near-connect's wallet.signMessage, or a local key in tests) and must return
+// { accountId?, publicKey: "ed25519:…", signature: base64 | "ed25519:…" }.
+// The signature is checked locally before it is sent anywhere.
+export function nearIdentity({ accountId, signMessage }) {
+  const id = String(accountId).toLowerCase();
+  return {
+    kind: 'near',
+    id,
+    async signedData() {
+      const nonce = crypto.getRandomValues(new Uint8Array(32));
+      const message = intentsMessage(id, Date.now() + DEADLINE_MS);
+      const signed = await signMessage({ message, recipient: INTENTS_RECIPIENT, nonce });
+      if (signed?.accountId && String(signed.accountId).toLowerCase() !== id) {
+        throw new Error(`Wallet signed as ${signed.accountId}, expected ${id}`);
+      }
+      const p = { message, nonce, recipient: INTENTS_RECIPIENT };
+      if (!verifyNep413(p, signed?.publicKey, signed?.signature)) {
+        throw new Error('The wallet returned a NEP-413 signature that does not verify — nothing was sent.');
+      }
+      return {
+        standard: 'nep413',
+        public_key: signed.publicKey,
+        signature: normalizeSignature(signed.signature).encoded,
+        payload: { recipient: INTENTS_RECIPIENT, nonce: b64encode(nonce), message },
+      };
+    },
+  };
+}
+export { nep413Hash };
+
+async function authenticate(identity) {
+  const signedData = await identity.signedData();
   const res = await api('/api/auth/authenticate/{key}', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      signedData: { standard: 'erc191', signature: `secp256k1:${encodeBase58(sig)}`, payload },
-    }),
+    body: JSON.stringify({ signedData }),
   });
   const session = {
-    address,
+    key: `${identity.kind}:${identity.id}`,
     accessToken: res.accessToken,
     refreshToken: res.refreshToken,
     expiresAt: Date.now() + (Number(res.expiresIn) || 0) * 1000,
   };
-  sessions.set(address, session);
+  sessions.set(session.key, session);
   return session;
 }
 
@@ -110,26 +156,26 @@ async function refresh(session) {
   return session;
 }
 
-// A usable session for `signer`: reuse → refresh → sign again, in that order,
+// A usable session for `identity`: reuse → refresh → sign again, in that order,
 // so the wallet only prompts when it has to.
-async function sessionFor(signer) {
-  const address = (await signer.getAddress()).toLowerCase();
-  const s = sessions.get(address);
+async function sessionFor(identity) {
+  const key = `${identity.kind}:${identity.id}`;
+  const s = sessions.get(key);
   if (s && s.expiresAt - Date.now() > 30_000) return s;
   if (s?.refreshToken) {
-    try { return await refresh(s); } catch { sessions.delete(address); }
+    try { return await refresh(s); } catch { sessions.delete(key); }
   }
-  return authenticateErc191(signer);
+  return authenticate(identity);
 }
 
-async function authed(signer, path) {
-  let s = await sessionFor(signer);
+async function authed(identity, path) {
+  let s = await sessionFor(identity);
   try {
     return await api(path, { headers: { Authorization: `Bearer ${s.accessToken}` } });
   } catch (e) {
     if (e.status !== 401) throw e;
-    sessions.delete(s.address);
-    s = await authenticateErc191(signer);
+    sessions.delete(s.key);
+    s = await authenticate(identity);
     return api(path, { headers: { Authorization: `Bearer ${s.accessToken}` } });
   }
 }
@@ -154,10 +200,13 @@ const HISTORY_QUERY = new URLSearchParams([
 // Read the signer's private-shard holdings. Returns ShieldedToken-shaped rows
 // (see data/shielded.js) already in the 'revealed' state — the signature IS the
 // reveal — plus the swap history, which callers may use or ignore.
-export async function loadConfidentialHoldings(signer) {
-  const address = (await signer.getAddress()).toLowerCase();
+// `who` is an identity from evmIdentity()/nearIdentity(), or (back-compat) an
+// ethers Signer, which is wrapped as an EVM identity.
+export async function loadConfidentialHoldings(who) {
+  const identity = typeof who?.getAddress === 'function' ? await evmIdentity(who) : who;
+  const address = identity.id; // EVM address or NEAR account id
   const [balances, tokens] = await Promise.all([
-    authed(signer, '/api/account/balances/{key}'),
+    authed(identity, '/api/account/balances/{key}'),
     fetchIntentsTokens().catch(() => new Map()),
   ]);
 
@@ -193,13 +242,13 @@ export async function loadConfidentialHoldings(signer) {
 
   let history = null;
   try {
-    const h = await authed(signer, `/api/account/history/{key}?${HISTORY_QUERY}`);
+    const h = await authed(identity, `/api/account/history/{key}?${HISTORY_QUERY}`);
     history = h?.items || [];
   } catch (e) {
     console.warn('[near-intents] history unavailable', e);
   }
 
-  return { address, tokens: rows, history };
+  return { address, kind: identity.kind, tokens: rows, history };
 }
 
 // Forget every session (e.g. on disconnect). Amounts held by callers are theirs

@@ -867,33 +867,52 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
   // Read the connected wallet's NEAR Confidential Intents balances. One ERC-191
   // signature of a no-op intent (moves nothing) → session → private balances.
   // Rows replace any previous near-intents rows; amounts stay in memory only.
-  const unlockNearIntents = useCallback(async () => {
+  // via: 'evm' — ERC-191 from the connected EVM wallet (default)
+  //      'near' — NEP-413 from a NEAR wallet (near-connect picker)
+  const unlockNearIntents = useCallback(async (via = 'evm') => {
     // Demo without a wallet: show clearly-labelled SAMPLE private-shard rows
     // (no signature, no API call) so the flow can be seen end to end.
-    if (!wallet && demo) {
+    if (via === 'evm' && !wallet && demo) {
       const { demoIntentsHoldings, DEMO_INTENTS_HISTORY, DEMO_NEAR_ACCOUNT } = await import('../near/demoFixtures.js');
       const rest = (shieldedRef.current || []).filter((t) => t.stack !== 'near-intents');
       commitShielded([...rest, ...demoIntentsHoldings(DEMO_NEAR_ACCOUNT)]); // owned by a demo wallet id, so the wallet filter keeps them
       setNearIntents({ status: 'unlocked', error: null, address: DEMO_NEAR_ACCOUNT, history: DEMO_INTENTS_HISTORY, demo: true });
       return;
     }
-    if (!wallet) throw new Error('Connect a wallet to read NEAR confidential balances');
-    setNearIntents((s) => ({ ...s, status: 'signing', error: null }));
+    if (via === 'evm' && !wallet) throw new Error('Connect a wallet to read NEAR confidential balances');
+    setNearIntents((s) => ({ ...s, status: 'signing', error: null, via }));
     try {
-      const { loadConfidentialHoldings } = await import('../near/confidentialIntents.js');
-      const { address, tokens, history } = await loadConfidentialHoldings(wallet.signer);
+      const ci = await import('../near/confidentialIntents.js');
+      let identity;
+      if (via === 'near') {
+        const { connectNearWallet, nearWalletSigner } = await import('../near/nearWallet.js');
+        const nw = await connectNearWallet();
+        const accountId = normalizeAccountId(nw.accountId);
+        // The signing account is also a public NEAR account of this user:
+        // add it (read-only) so its balances and the private rows sit together.
+        if (!getCluster().nearAccounts.includes(accountId)) {
+          setCluster({ ...addNearAccount(accountId) });
+          loadNearAccounts([accountId]);
+        }
+        identity = ci.nearIdentity({ accountId, signMessage: nearWalletSigner({ wallet: nw.wallet, accountId: nw.accountId }) });
+      } else {
+        identity = await ci.evmIdentity(wallet.signer);
+      }
+      const { address, tokens, history, kind } = await ci.loadConfidentialHoldings(identity);
       const rest = (shieldedRef.current || []).filter((t) => !(t.stack === 'near-intents' && t.wallet === address));
       commitShielded([...rest, ...tokens]);
-      setNearIntents({ status: 'unlocked', error: null, address, history });
+      setNearIntents({ status: 'unlocked', error: null, address, history, via: kind });
     } catch (e) {
       const msg = String(e?.message || e);
-      const friendly = /user rejected|rejected the request|ACTION_REJECTED|4001/i.test(msg)
+      const friendly = /user rejected|rejected the request|ACTION_REJECTED|4001|cancel/i.test(msg)
         ? 'Signature declined — nothing was read.'
-        : msg;
+        : e?.status === 401
+          ? 'The NEAR Intents API declined the sign-in (401). The signature was checked locally first, so the API is refusing this account — we have seen it do this for accounts that have never used Confidential Intents.'
+          : msg;
       console.warn('[flow] NEAR Intents unlock failed', e);
       setNearIntents((s) => ({ ...s, status: 'error', error: friendly }));
     }
-  }, [wallet, commitShielded, demo]);
+  }, [wallet, commitShielded, demo, loadNearAccounts]);
 
   // Revoke a token approval (approve(spender, 0)). Switches the wallet to the
   // approval's chain first if needed.

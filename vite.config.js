@@ -45,6 +45,6 @@ export default defineConfig({
     exclude: ['@wllama/wllama', '@huggingface/transformers'],
     // Only reached through a dynamic import; without this, the first use in dev
     // triggers dependency re-optimisation and a full page reload mid-request.
-    include: ['@nearai/inference-sdk', 'buffer'],
+    include: ['@nearai/inference-sdk', 'buffer', '@hot-labs/near-connect', '@noble/curves/ed25519', '@noble/hashes/sha256'],
   },
 });

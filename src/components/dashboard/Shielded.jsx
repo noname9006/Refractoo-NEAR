@@ -214,9 +214,10 @@ function NearIntentsBlock({ flow, rows, hasWallet }) {
   const [showTrust, setShowTrust] = useState(false);
   const ni = flow.nearIntents || { status: 'idle' };
   const signing = ni.status === 'signing';
-  // Demo without a wallet: the button shows labelled sample data instead.
+  // Demo without a wallet: an extra button shows labelled sample data.
   const demoMode = !!flow.demo && !hasWallet;
-  const configured = intentsConfigured() || demoMode;
+  const apiKeySet = intentsConfigured();
+  const run = (via) => flow.unlockNearIntents(via).catch(() => {});
   const total = rows.reduce((s, t) => s + (Number.isFinite(t.usd) ? t.usd : 0), 0);
 
   return (
@@ -231,18 +232,29 @@ function NearIntentsBlock({ flow, rows, hasWallet }) {
             {ni.status === 'error' && <div className="warn" style={{ marginTop: 6 }}>{ni.error}</div>}
           </div>
           <div className="shield-actions">
-            <button className="btn ghost sm" disabled={!configured || (!hasWallet && !demoMode) || signing}
-              title={demoMode
-                ? 'Demo: shows SAMPLE private-shard balances — no signature, nothing read'
-                : !configured
-                  ? 'NEAR Intents API key is not configured'
-                  : hasWallet
-                    ? 'Sign a no-op intent (moves nothing) to read your private-shard balances'
-                    : 'Connect a wallet to read NEAR confidential balances'}
-              onClick={() => flow.unlockNearIntents()}>
-              {signing ? <span className="mini-spin" /> : <IUnlock />}
-              {demoMode ? ' Show sample private balances (demo)' : ' Read private balances (1 signature)'}
+            {/* NEAR wallet: NEP-413 signMessage of an empty intent. */}
+            <button className="btn ghost sm" disabled={!apiKeySet || signing}
+              title={apiKeySet
+                ? 'Connect a NEAR wallet and sign an empty intent (NEP-413, moves nothing) to read your private-shard balances'
+                : 'NEAR Intents API key is not configured'}
+              onClick={() => run('near')}>
+              {signing && ni.via === 'near' ? <span className="mini-spin" /> : <IUnlock />} Sign with NEAR wallet
             </button>
+            {/* EVM wallet: ERC-191 personal_sign of an empty intent. */}
+            {hasWallet && (
+              <button className="btn ghost sm" disabled={!apiKeySet || signing}
+                title={apiKeySet ? 'Sign an empty intent with your EVM wallet (ERC-191, moves nothing)' : 'NEAR Intents API key is not configured'}
+                onClick={() => run('evm')}>
+                {signing && ni.via !== 'near' ? <span className="mini-spin" /> : <IUnlock />} Sign with EVM wallet
+              </button>
+            )}
+            {demoMode && (
+              <button className="btn ghost sm" disabled={signing}
+                title="Demo: shows SAMPLE private-shard balances — no signature, nothing read"
+                onClick={() => run('evm')}>
+                <IUnlock /> Show sample private balances (demo)
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -257,7 +269,7 @@ function NearIntentsBlock({ flow, rows, hasWallet }) {
             </div>
           )}
           {rows.length === 0 && (
-            <div className="empty-note">No balances on the private shard for {shortAddr(ni.address)}.</div>
+            <div className="empty-note">No balances on the private shard for {String(ni.address).startsWith("0x") ? shortAddr(ni.address) : ni.address}.</div>
           )}
           {rows.map((t) => (
             <div className="shield-row" key={t.key}>

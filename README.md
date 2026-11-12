@@ -57,12 +57,20 @@ The hackathon diff: [`pre-hackathon...main`](https://github.com/noname9006/Refra
 | **NEAR AI TEE inference tier**: browser-side gateway + model attestation, E2EE chat, per-answer signature check, "Verified" receipt; refuses non-attested (Incognito) models | [`src/near/nearAiContext.js`](src/near/nearAiContext.js) |
 | NVIDIA NRAS verdict check with bounded clock tolerance (the SDK has none; a few seconds of client clock lag failed every verification) | [`src/near/nrasVerifier.js`](src/near/nrasVerifier.js) |
 | **Key-less live gateway check** for people without a NEAR AI key | `verifyGatewayNow()` in `nearAiContext.js`, [`GatewayCheck.jsx`](src/components/dashboard/GatewayCheck.jsx) |
-| **NEAR Confidential Intents**: one signature of an empty intent → private-shard balances + swap history, held in memory only | [`src/near/confidentialIntents.js`](src/near/confidentialIntents.js) |
+| **NEAR Confidential Intents**: one signature of an empty intent → private-shard balances + swap history, held in memory only. Sign with a **NEAR wallet (NEP-413**, via near-connect: HOT, Meteor, Intear, MyNearWallet, Ledger…) or an EVM wallet (ERC-191). NEP-413 payloads are built and the wallet's signature verified locally before anything is sent | [`confidentialIntents.js`](src/near/confidentialIntents.js), [`nep413.js`](src/near/nep413.js), [`nearWallet.js`](src/near/nearWallet.js) |
 | **Public NEAR accounts** by name: balance, FTs, per-pool staking, priced | [`src/near/nearAccount.js`](src/near/nearAccount.js) |
 | **Pseudonymization** of off-device prompts, per-tier amount precision (TEE exact, external 4 significant figures), local restore of real addresses | [`src/utils/pseudonymize.js`](src/utils/pseudonymize.js) |
 | Tier switcher with the who-sees-what table | [`TierPanel.jsx`](src/components/dashboard/TierPanel.jsx) |
 | Demo mode for reviewers (live NEAR account, labelled sample private-shard data) | [`src/near/demoFixtures.js`](src/near/demoFixtures.js) |
 | Tests | [`tests/`](tests) |
+
+**Known limitation — Confidential Intents sign-in.** Against the live Intents
+API, sign-in from freshly generated accounts returns `401 Signature verification
+failed` for both standards, although the request passes the API's schema, the
+NEP-413 signature verifies locally and `intents.near` recognises the key
+(`has_public_key` → true). Our reading is that the API admits only accounts with
+Confidential Intents activity; we have not yet confirmed it with such an account.
+The sign-in tests that hit the API are therefore opt-in: `INTENTS_LIVE=1 npm test`.
 
 Also in the window: reasoning budget for NEAR AI models (Settings), token-name
 sanitizing before anything reaches a prompt (deployer-chosen names are
