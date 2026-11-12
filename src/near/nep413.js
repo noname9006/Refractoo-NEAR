@@ -55,12 +55,55 @@ export const bytesToBase58 = (bytes) => {
 };
 
 // The Intents sign-in message (stringified JSON, field order as in the docs).
-export function intentsMessage(accountId, deadlineMs) {
+// `deadline` must be the SAME instant that is encoded in the versioned nonce.
+export function intentsMessage(accountId, deadline) {
   return JSON.stringify({
     signer_id: accountId,
-    deadline: new Date(deadlineMs).toISOString(),
+    deadline: new Date(deadline).toISOString(),
     intents: [],
   });
+}
+
+// --- Versioned nonce (required by the Intents auth APIs) ---------------------
+// A plain random 32-byte nonce is rejected ("invalid nonce" on 1Click, a bare
+// 401 "Signature verification failed" on the Aurora API). Layout, as built by
+// @defuse-protocol/intents-sdk VersionedNonceBuilder:
+//   [0..4)   magic 56 28 f6 c6
+//   [4]      version 0
+//   [5..9)   salt — intents.near current_salt (4 bytes)
+//   [9..17)  deadline, u64 LE nanoseconds — same instant as the message deadline
+//   [17..32) 15 bytes: u64 LE nanoseconds of "now" (server checks it is within
+//            5 min of its clock), then 7 random bytes
+export const VERSIONED_NONCE_MAGIC = [0x56, 0x28, 0xf6, 0xc6];
+
+export function versionedNonce(salt, deadline, now = Date.now()) {
+  if (!(salt instanceof Uint8Array) || salt.length !== 4) throw new Error('intents salt must be 4 bytes');
+  const b = new Uint8Array(32);
+  b.set(VERSIONED_NONCE_MAGIC, 0);
+  b[4] = 0;
+  b.set(salt, 5);
+  const dv = new DataView(b.buffer);
+  dv.setBigUint64(9, BigInt(new Date(deadline).getTime()) * 1_000_000n, true);
+  dv.setBigUint64(17, BigInt(now) * 1_000_000n, true);
+  crypto.getRandomValues(b.subarray(25));
+  return b;
+}
+
+// intents.near `current_salt` (a hex string) → 4 bytes. Public view call.
+export async function fetchIntentsSalt({ fetchImpl = (...a) => fetch(...a) } = {}) {
+  const r = await fetchImpl('https://rpc.mainnet.fastnear.com', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0', id: 1, method: 'query',
+      params: { request_type: 'call_function', finality: 'final', account_id: 'intents.near', method_name: 'current_salt', args_base64: btoa('{}') },
+    }),
+  });
+  const j = await r.json();
+  if (j.error || !Array.isArray(j.result?.result)) throw new Error('Could not read the intents.near salt');
+  const hex = JSON.parse(new TextDecoder().decode(new Uint8Array(j.result.result)));
+  if (!/^[0-9a-f]{8}$/i.test(hex)) throw new Error(`Unexpected intents salt "${hex}"`);
+  return Uint8Array.from(hex.match(/../g), (h) => parseInt(h, 16));
 }
 
 // borsh(NEP-413 payload), prefixed with the tag, hashed.

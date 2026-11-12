@@ -907,7 +907,7 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
       const friendly = /user rejected|rejected the request|ACTION_REJECTED|4001|cancel/i.test(msg)
         ? 'Signature declined — nothing was read.'
         : e?.status === 401
-          ? 'The NEAR Intents API (Aurora) declined the sign-in (401). The signature is valid — it was checked here and is accepted by the intents.near verifier — so the private-shard auth service is refusing this account. Accounts opened through near.com may be controlled by a near.com key rather than this wallet\'s key.'
+          ? 'The NEAR Intents API declined the sign-in (401). Nothing was read. If it repeats, check that this device\'s clock is correct — the sign-in nonce carries a timestamp the API checks.'
           : msg;
       console.warn('[flow] NEAR Intents unlock failed', e);
       setNearIntents((s) => ({ ...s, status: 'error', error: friendly }));

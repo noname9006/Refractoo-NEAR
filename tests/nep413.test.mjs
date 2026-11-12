@@ -39,6 +39,19 @@ test('signatures verify in both wallet encodings; tampering fails', () => {
   assert.equal(verifyNep413(payload, publicKey, 'garbage'), false);
 });
 
+test('versionedNonce matches the SDK layout', async () => {
+  const { versionedNonce } = await import('../src/near/nep413.js');
+  const deadline = new Date('2026-11-13T00:05:00.123Z');
+  const now = Date.parse('2026-11-13T00:00:00.000Z');
+  const n = Buffer.from(versionedNonce(Uint8Array.from([1, 2, 3, 4]), deadline, now));
+  assert.equal(n.length, 32);
+  assert.equal(n.subarray(0, 5).toString('hex'), '5628f6c600');
+  assert.equal(n.subarray(5, 9).toString('hex'), '01020304');
+  assert.equal(n.readBigUInt64LE(9), BigInt(deadline.getTime()) * 1000000n);
+  assert.equal(n.readBigUInt64LE(17), BigInt(now) * 1000000n);
+  assert.throws(() => versionedNonce(new Uint8Array(3), deadline), /4 bytes/);
+});
+
 test('base58 keeps leading zero bytes; implicit account = hex(pubkey)', () => {
   const b = new Uint8Array([0, 0, 1, 2, 255]);
   assert.deepEqual(base58ToBytes(bytesToBase58(b)), b);

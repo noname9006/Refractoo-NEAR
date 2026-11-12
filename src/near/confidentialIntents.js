@@ -28,7 +28,10 @@
 //       https://docs.near-intents.org (signing standards)
 
 import { encodeBase58, getBytes } from 'ethers';
-import { intentsMessage, nep413Hash, normalizeSignature, verifyNep413, b64encode, INTENTS_RECIPIENT } from './nep413.js';
+import {
+  intentsMessage, nep413Hash, normalizeSignature, verifyNep413, b64encode, INTENTS_RECIPIENT,
+  versionedNonce, fetchIntentsSalt,
+} from './nep413.js';
 
 const BASE = 'https://intents-api.aurora.dev';
 // `?.` keeps the module importable outside Vite (Node tests set the key below).
@@ -62,9 +65,16 @@ async function api(path, init = {}) {
   return body;
 }
 
-function randomNonceBase64() {
-  const b = crypto.getRandomValues(new Uint8Array(32));
-  return btoa(String.fromCharCode(...b));
+// Every sign-in needs a versioned nonce bound to the intents.near salt and to
+// the message deadline (see nep413.js → versionedNonce). The salt rotates
+// rarely; cache it for a minute.
+let saltCache = { at: 0, salt: null };
+let saltProvider = () => fetchIntentsSalt();
+export function setSaltProviderForTests(fn) { saltProvider = fn || (() => fetchIntentsSalt()); saltCache = { at: 0, salt: null }; }
+async function freshNonce() {
+  if (!saltCache.salt || Date.now() - saltCache.at > 60_000) saltCache = { at: Date.now(), salt: await saltProvider() };
+  const deadline = new Date(Date.now() + DEADLINE_MS);
+  return { deadline, nonce: versionedNonce(saltCache.salt, deadline) };
 }
 
 // --- Identities --------------------------------------------------------------
@@ -82,11 +92,12 @@ export async function evmIdentity(signer) {
     kind: 'evm',
     id: address,
     async signedData() {
+      const { nonce, deadline } = await freshNonce();
       const payload = JSON.stringify({
         signer_id: address,
         verifying_contract: VERIFYING_CONTRACT,
-        nonce: randomNonceBase64(),
-        deadline: new Date(Date.now() + DEADLINE_MS).toISOString(),
+        deadline: deadline.toISOString(),
+        nonce: b64encode(nonce),
         intents: [],
       });
       const sig = getBytes(await signer.signMessage(payload));
@@ -102,9 +113,7 @@ export async function evmIdentity(signer) {
 // { accountId?, publicKey: "ed25519:…", signature: base64 | "ed25519:…" }.
 // The signature is checked locally before it is sent anywhere.
 //
-// signerPrefix: accounts opened through near.com live on the private shard
-// under a namespaced id, "nearcom:<account>" — the wallet signs as
-// <account>, but the intent's signer_id must be the namespaced one.
+// signerPrefix: optional namespace for the signer_id (unused by default).
 export function nearIdentity({ accountId, signMessage, signerPrefix = '' }) {
   const walletId = String(accountId).toLowerCase();
   const id = `${signerPrefix}${walletId}`;
@@ -112,8 +121,8 @@ export function nearIdentity({ accountId, signMessage, signerPrefix = '' }) {
     kind: 'near',
     id,
     async signedData() {
-      const nonce = crypto.getRandomValues(new Uint8Array(32));
-      const message = intentsMessage(id, Date.now() + DEADLINE_MS);
+      const { nonce, deadline } = await freshNonce();
+      const message = intentsMessage(id, deadline);
       const signed = await signMessage({ message, recipient: INTENTS_RECIPIENT, nonce });
       if (signed?.accountId && String(signed.accountId).toLowerCase() !== walletId) {
         throw new Error(`Wallet signed as ${signed.accountId}, expected ${walletId}`);

@@ -12,7 +12,7 @@ import { ed25519 } from '@noble/curves/ed25519';
 import { Wallet } from 'ethers';
 import { nep413Hash, bytesToBase58, b64encode, implicitAccountId } from '../src/near/nep413.js';
 import {
-  nearIdentity, evmIdentity, loadConfidentialHoldings, setIntentsApiKeyForTests, clearIntentsSessions,
+  nearIdentity, evmIdentity, loadConfidentialHoldings, setIntentsApiKeyForTests, clearIntentsSessions, setSaltProviderForTests,
 } from '../src/near/confidentialIntents.js';
 
 function readKey() {
@@ -24,10 +24,6 @@ function readKey() {
   } catch { return ''; }
 }
 const KEY = readKey();
-// Live sign-in currently returns 401 for accounts with no Confidential Intents
-// history (both standards; format and signature verified — see README). Run on
-// demand: INTENTS_LIVE=1 npm test.
-const LIVE = KEY && process.env.INTENTS_LIVE === '1';
 
 // A local "wallet" that signs NEP-413 exactly as a NEAR wallet would.
 function localNearWallet() {
@@ -53,14 +49,21 @@ test('nearIdentity refuses a signature that does not verify (nothing sent)', asy
   await assert.rejects(other.signedData(), /expected alice\.near/);
 });
 
-test('nearIdentity builds the documented nep413 signedData', async () => {
+test('nearIdentity builds the documented nep413 signedData with a versioned nonce', async () => {
+  setSaltProviderForTests(async () => Uint8Array.from([0x25, 0x28, 0x12, 0xb3]));
   const w = localNearWallet();
   const sd = await nearIdentity(w).signedData();
   assert.equal(sd.standard, 'nep413');
   assert.equal(sd.public_key, w.publicKey);
   assert.match(sd.signature, /^ed25519:[1-9A-HJ-NP-Za-km-z]+$/);
   assert.equal(sd.payload.recipient, 'intents.near');
-  assert.equal(Buffer.from(sd.payload.nonce, 'base64').length, 32);
+  const n = Buffer.from(sd.payload.nonce, 'base64');
+  assert.equal(n.length, 32);
+  assert.equal(n.subarray(0, 5).toString('hex'), '5628f6c600');
+  assert.equal(n.subarray(5, 9).toString('hex'), '252812b3');
+  // nonce deadline (ns) == message deadline
+  assert.equal(n.readBigUInt64LE(9), BigInt(Date.parse(JSON.parse(sd.payload.message).deadline)) * 1000000n);
+  setSaltProviderForTests(undefined);
   const msg = JSON.parse(sd.payload.message);
   assert.equal(msg.signer_id, w.accountId);
   assert.deepEqual(msg.intents, []);
@@ -83,7 +86,7 @@ test('live, no key: intents.near simulate_intents accepts our NEP-413 payload', 
   assert.equal(out.intents_executed?.[0]?.account_id, w.accountId);
 });
 
-test('live: NEP-413 sign-in is accepted and balances can be read', { skip: !LIVE && 'set INTENTS_LIVE=1 (and an Intents API key)', timeout: 60_000 }, async () => {
+test('live: NEP-413 sign-in is accepted and balances can be read', { skip: !KEY && 'no Intents API key', timeout: 60_000 }, async () => {
   setIntentsApiKeyForTests(KEY);
   clearIntentsSessions();
   const w = localNearWallet();
@@ -93,7 +96,7 @@ test('live: NEP-413 sign-in is accepted and balances can be read', { skip: !LIVE
   assert.ok(Array.isArray(out.tokens)); // a fresh account holds nothing — the point is the 200
 });
 
-test('live: ERC-191 sign-in still works after the refactor', { skip: !LIVE && 'set INTENTS_LIVE=1 (and an Intents API key)', timeout: 60_000 }, async () => {
+test('live: ERC-191 sign-in still works after the refactor', { skip: !KEY && 'no Intents API key', timeout: 60_000 }, async () => {
   setIntentsApiKeyForTests(KEY);
   clearIntentsSessions();
   const out = await loadConfidentialHoldings(Wallet.createRandom());

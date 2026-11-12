@@ -64,19 +64,14 @@ The hackathon diff: [`pre-hackathon...main`](https://github.com/noname9006/Refra
 | Demo mode for reviewers (live NEAR account, labelled sample private-shard data) | [`src/near/demoFixtures.js`](src/near/demoFixtures.js) |
 | Tests | [`tests/`](tests) |
 
-**Known limitation — Confidential Intents sign-in.** The Aurora Intents API
-answers `401 Signature verification failed` to our sign-in, including for a real
-account (`randomname1001.near`) that had just deposited into Confidential
-Intents, signed in its own wallet. The same signed payload is **accepted by
-NEAR Intents' own verifier** — `intents.near` `simulate_intents` returns
-`intents_executed` for it — the key is registered there (`public_keys_of`), and
-the signature verifies locally. A test (`npm test`, no key needed) runs a
-NEP-413 payload of ours through `simulate_intents` on every run. So the payload
-is correct for the protocol and the refusal comes from Aurora's private-shard
-auth; the account shows on near.com as `nearcom:randomname1001.near` and may be
-controlled by a near.com key rather than the wallet's (signing as that id was
-refused too). This is an open question for Aurora. Sign-in tests against their API are opt-in:
-`INTENTS_LIVE=1 npm test`. The demo shows the flow with labelled sample data.
+**Confidential Intents sign-in needs a versioned nonce.** The Intents auth
+APIs reject a plain random nonce — Aurora with a bare `401 Signature
+verification failed`, 1Click with `invalid nonce` — even though the same
+payload passes `intents.near` `simulate_intents`. Sign-in builds the nonce like
+the official SDK (`VersionedNonceBuilder`): magic prefix, `intents.near`
+`current_salt`, the message deadline and the current time, see
+[`nep413.js`](src/near/nep413.js). Live tests sign in with throwaway NEP-413 and
+ERC-191 keys and read balances on every `npm test` run that has the Intents key.
 
 Also in the window: reasoning budget for NEAR AI models (Settings), token-name
 sanitizing before anything reaches a prompt (deployer-chosen names are
