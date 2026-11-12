@@ -66,6 +66,23 @@ test('nearIdentity builds the documented nep413 signedData', async () => {
   assert.deepEqual(msg.intents, []);
 });
 
+// The authoritative check, no keys needed: intents.near's own verifier
+// (simulate_intents, a view call) must accept our NEP-413 sign-in payload.
+test('live, no key: intents.near simulate_intents accepts our NEP-413 payload', { timeout: 30_000 }, async () => {
+  const w = localNearWallet();
+  const sd = await nearIdentity(w).signedData();
+  const args = Buffer.from(JSON.stringify({ signed: [sd] })).toString('base64');
+  const r = await fetch('https://rpc.mainnet.fastnear.com', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'query', params: { request_type: 'call_function', finality: 'final', account_id: 'intents.near', method_name: 'simulate_intents', args_base64: args } }),
+  });
+  const j = await r.json();
+  assert.ok(!j.error && !j.result?.error, String(JSON.stringify(j.error || j.result?.error)).slice(0, 300));
+  const out = JSON.parse(Buffer.from(j.result.result).toString());
+  assert.equal(out.intents_executed?.[0]?.account_id, w.accountId);
+});
+
 test('live: NEP-413 sign-in is accepted and balances can be read', { skip: !LIVE && 'set INTENTS_LIVE=1 (and an Intents API key)', timeout: 60_000 }, async () => {
   setIntentsApiKeyForTests(KEY);
   clearIntentsSessions();

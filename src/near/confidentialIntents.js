@@ -101,8 +101,13 @@ export async function evmIdentity(signer) {
 // (near-connect's wallet.signMessage, or a local key in tests) and must return
 // { accountId?, publicKey: "ed25519:…", signature: base64 | "ed25519:…" }.
 // The signature is checked locally before it is sent anywhere.
-export function nearIdentity({ accountId, signMessage }) {
-  const id = String(accountId).toLowerCase();
+//
+// signerPrefix: accounts opened through near.com live on the private shard
+// under a namespaced id, "nearcom:<account>" — the wallet signs as
+// <account>, but the intent's signer_id must be the namespaced one.
+export function nearIdentity({ accountId, signMessage, signerPrefix = '' }) {
+  const walletId = String(accountId).toLowerCase();
+  const id = `${signerPrefix}${walletId}`;
   return {
     kind: 'near',
     id,
@@ -110,8 +115,8 @@ export function nearIdentity({ accountId, signMessage }) {
       const nonce = crypto.getRandomValues(new Uint8Array(32));
       const message = intentsMessage(id, Date.now() + DEADLINE_MS);
       const signed = await signMessage({ message, recipient: INTENTS_RECIPIENT, nonce });
-      if (signed?.accountId && String(signed.accountId).toLowerCase() !== id) {
-        throw new Error(`Wallet signed as ${signed.accountId}, expected ${id}`);
+      if (signed?.accountId && String(signed.accountId).toLowerCase() !== walletId) {
+        throw new Error(`Wallet signed as ${signed.accountId}, expected ${walletId}`);
       }
       const p = { message, nonce, recipient: INTENTS_RECIPIENT };
       if (!verifyNep413(p, signed?.publicKey, signed?.signature)) {
@@ -130,6 +135,10 @@ export { nep413Hash };
 
 async function authenticate(identity) {
   const signedData = await identity.signedData();
+  // DEV-ONLY debugging aid: the exact sign-in payload (a public key, a
+  // signature over an empty intent list, a nonce) so a failing sign-in can be
+  // replayed and diagnosed. Stripped from production builds.
+  if (import.meta.env?.DEV && typeof window !== 'undefined') window.__lastIntentsAuth = signedData;
   const res = await api('/api/auth/authenticate/{key}', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

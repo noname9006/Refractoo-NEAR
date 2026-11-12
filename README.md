@@ -64,13 +64,19 @@ The hackathon diff: [`pre-hackathon...main`](https://github.com/noname9006/Refra
 | Demo mode for reviewers (live NEAR account, labelled sample private-shard data) | [`src/near/demoFixtures.js`](src/near/demoFixtures.js) |
 | Tests | [`tests/`](tests) |
 
-**Known limitation — Confidential Intents sign-in.** Against the live Intents
-API, sign-in from freshly generated accounts returns `401 Signature verification
-failed` for both standards, although the request passes the API's schema, the
-NEP-413 signature verifies locally and `intents.near` recognises the key
-(`has_public_key` → true). Our reading is that the API admits only accounts with
-Confidential Intents activity; we have not yet confirmed it with such an account.
-The sign-in tests that hit the API are therefore opt-in: `INTENTS_LIVE=1 npm test`.
+**Known limitation — Confidential Intents sign-in.** The Aurora Intents API
+answers `401 Signature verification failed` to our sign-in, including for a real
+account (`randomname1001.near`) that had just deposited into Confidential
+Intents, signed in its own wallet. The same signed payload is **accepted by
+NEAR Intents' own verifier** — `intents.near` `simulate_intents` returns
+`intents_executed` for it — the key is registered there (`public_keys_of`), and
+the signature verifies locally. A test (`npm test`, no key needed) runs a
+NEP-413 payload of ours through `simulate_intents` on every run. So the payload
+is correct for the protocol and the refusal comes from Aurora's private-shard
+auth; the account shows on near.com as `nearcom:randomname1001.near` and may be
+controlled by a near.com key rather than the wallet's (signing as that id was
+refused too). This is an open question for Aurora. Sign-in tests against their API are opt-in:
+`INTENTS_LIVE=1 npm test`. The demo shows the flow with labelled sample data.
 
 Also in the window: reasoning budget for NEAR AI models (Settings), token-name
 sanitizing before anything reaches a prompt (deployer-chosen names are
