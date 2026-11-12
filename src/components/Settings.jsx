@@ -4,7 +4,9 @@ import { describeOffload } from '../utils/offload-planner.js';
 import { probeGGUFArch } from '../utils/gguf-probe.js';
 import { recommendModel } from '../utils/resource-detector.js';
 import { applyEffects } from '../utils/theme.js';
-import { listConfidentialModels, NEARAI_DEFAULT_MODEL } from '../near/nearAiContext.js';
+import {
+  listConfidentialModels, NEARAI_DEFAULT_MODEL, REASONING_BUDGETS, DEFAULT_REASONING_BUDGET, ANSWER_TOKENS, outputTokenLimit,
+} from '../near/nearAiContext.js';
 import { MODE, PROFILE, IS_TESTNET, AVAILABLE_MODES, setModeOverride } from '../config/networks.js';
 import {
   detectResources, measureStorage, clearCategory, fmtBytes, fmtBytesBin, STORAGE_CATEGORIES,
@@ -132,8 +134,24 @@ export default function Settings({ flow, onClose }) {
     flow.updatePref({ inference: 'local' });
     await flow.unloadModel();
   };
+  // Reasoning budget: saved immediately (read per request, no reconnect).
+  const naiBudget = prefs.nearAi?.reasoningBudget ?? DEFAULT_REASONING_BUDGET;
+  const chooseBudget = (b) => flow.updatePref({ nearAi: { ...(prefs.nearAi || {}), reasoningBudget: b } });
+  const naiOutPrice = (naiModels || []).find((x) => x.id === (nai.model || NEARAI_DEFAULT_MODEL))?.outUsdPerM;
+  const naiLimit = outputTokenLimit(true, naiBudget);
+  const budgetNote = naiLimit == null
+    ? 'No cap: the model may think up to its context window. A runaway answer can take many minutes and cost much more — use Stop.'
+    : `Up to ${naiLimit.toLocaleString()} output tokens per answer (reasoning + ${ANSWER_TOKENS.toLocaleString()} for the answer)` +
+      (naiOutPrice != null ? ` · worst-case output cost ≈ $${((naiLimit * naiOutPrice) / 1e6).toFixed(3)}` : '') +
+      '. With Think off the model does not reason.';
   const connectNearAi = async () => {
-    const cfg = { apiKey: nai.apiKey.trim(), model: nai.model || NEARAI_DEFAULT_MODEL };
+    // Key/model come from the form; reasoningBudget from live prefs (it's saved
+    // on change, and `nai` holds a stale copy from when Settings opened).
+    const cfg = {
+      ...(prefs.nearAi || {}),
+      apiKey: nai.apiKey.trim(),
+      model: nai.model || NEARAI_DEFAULT_MODEL,
+    };
     if (!cfg.apiKey) return;
     setNai(cfg);
     flow.updatePref({ inference: 'nearai', nearAi: cfg });
@@ -503,6 +521,15 @@ export default function Settings({ flow, onClose }) {
                   </select>
                 </label>
                 {naiListErr && <div className="ext-status muted">Model list unavailable ({naiListErr}) — using the default.</div>}
+                <label className="ext-field">
+                  <span>Reasoning budget <em>(when “Think” is on — applies to the next question)</em></span>
+                  <select value={String(naiBudget)} onChange={(e) => chooseBudget(Number(e.target.value))}>
+                    {REASONING_BUDGETS.map((b) => (
+                      <option key={b} value={String(b)}>{b === 0 ? 'Unlimited' : `${b / 1024}k tokens`}</option>
+                    ))}
+                  </select>
+                </label>
+                <div className="ext-status muted">{budgetNote}</div>
                 <div className="ext-status muted">
                   {model.mode === 'nearai' && model.status === 'ready' ? `Verified · ${model.externalName}`
                     : model.mode === 'nearai' && model.status === 'loading' ? (model.statusText || 'Verifying attestation…')

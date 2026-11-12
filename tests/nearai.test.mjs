@@ -109,6 +109,18 @@ test('listConfidentialModels: filters to attested NEAR vLLM, does not cache an e
   assert.ok(!requested.some((u) => u.includes('openai')), 'relayed providers skipped');
 });
 
+test('outputTokenLimit: Think off ignores the budget; 0 means no cap; bad values fall back', async () => {
+  const { outputTokenLimit, ANSWER_TOKENS, DEFAULT_REASONING_BUDGET } = await import('../src/near/nearAiContext.js');
+  assert.equal(outputTokenLimit(false, 0), ANSWER_TOKENS);
+  assert.equal(outputTokenLimit(false, 65536), ANSWER_TOKENS);
+  assert.equal(outputTokenLimit(true, 0), null);
+  assert.equal(outputTokenLimit(true, 8192), 8192 + ANSWER_TOKENS);
+  assert.equal(outputTokenLimit(true, undefined), DEFAULT_REASONING_BUDGET + ANSWER_TOKENS);
+  assert.equal(outputTokenLimit(true, null), DEFAULT_REASONING_BUDGET + ANSWER_TOKENS);
+  assert.equal(outputTokenLimit(true, -5), DEFAULT_REASONING_BUDGET + ANSWER_TOKENS);
+  assert.equal(outputTokenLimit(true, 'abc'), DEFAULT_REASONING_BUDGET + ANSWER_TOKENS);
+});
+
 function readKey() {
   if (process.env.NEARAI_API_KEY) return process.env.NEARAI_API_KEY;
   try {

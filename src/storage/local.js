@@ -121,7 +121,9 @@ const DEFAULT_PREFS = {
   // verified in the browser, prompts end-to-end encrypted to the model.
   inference: 'local', // 'local' | 'nearai' | 'external'
   externalApi: { baseUrl: '', apiKey: '', model: '' },
-  nearAi: { apiKey: '', model: '' }, // model '' = NEARAI_DEFAULT_MODEL
+  // model '' = NEARAI_DEFAULT_MODEL; reasoningBudget undefined = default (32k),
+  // 0 = unlimited. Applies only when the Think toggle is on.
+  nearAi: { apiKey: '', model: '' },
   // GPU/CPU layer offload for on-device inference. 'auto' offloads everything to
   // the GPU and auto-degrades if it doesn't fit (the safe default). 'manual' pins
   // a specific GPU layer count (offloadGpuLayers; null = derive/all) so the user

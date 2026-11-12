@@ -340,7 +340,7 @@ export default function Assistant({ ctx, flow }) {
           done: false,
           liveTrimmed: liveText.trimmed || liveThink.trimmed,
         }));
-      }, createThinkStreamParser, { thinking });
+      }, createThinkStreamParser, { thinking, reasoningBudget: flow.prefs.nearAi?.reasoningBudget });
       verification = res?.verification || null;
       // The model can burn its entire token budget inside <think> and stop
       // before emitting an answer (finish_reason === 'length'). Don't leave the

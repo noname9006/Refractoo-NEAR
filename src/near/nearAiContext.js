@@ -169,6 +169,23 @@ export function receiptVerified(receipt) {
   return verificationChecks(receipt).every((c) => c.ok === true);
 }
 
+// --- Reasoning budget --------------------------------------------------------
+// Reasoning and answer share one max_tokens. With Think off the model doesn't
+// reason, so ANSWER_TOKENS is the whole limit; with Think on the limit is the
+// user's reasoning budget plus room for the answer. 0 = no limit at all.
+export const ANSWER_TOKENS = 4096;
+export const DEFAULT_REASONING_BUDGET = 32768;
+export const REASONING_BUDGETS = [8192, 16384, 32768, 65536, 131072, 0];
+
+// Pure, exported for tests and the Settings cost estimate.
+// → number of output tokens, or null for "no max_tokens".
+export function outputTokenLimit(thinking, budget) {
+  if (!thinking) return ANSWER_TOKENS;
+  if (budget === 0) return null;
+  const b = Number(budget);
+  return (Number.isFinite(b) && b > 0 ? Math.round(b) : DEFAULT_REASONING_BUDGET) + ANSWER_TOKENS;
+}
+
 // Turns SDK errors into something a user can act on.
 function explain(err) {
   const code = err?.failure?.code || err?.code || '';
@@ -224,8 +241,12 @@ export class NearAiContext {
 
   async warmup() {}
 
-  async analyze(messages, onStream, thinkParserFactory, { thinking = true } = {}) {
+  // reasoningBudget: tokens the model may spend thinking when `thinking` is on
+  // (0 = unlimited, undefined = DEFAULT_REASONING_BUDGET). Read per request so a
+  // Settings change applies without reconnecting.
+  async analyze(messages, onStream, thinkParserFactory, { thinking = true, reasoningBudget } = {}) {
     if (!this.modelLoaded || !this.client) throw new Error('NEAR AI model not connected');
+    const maxTokens = outputTokenLimit(thinking, reasoningBudget);
     const client = this.client; // stable for this request even if unload() runs
     const { model } = this.config;
     this._abort = new AbortController();
@@ -267,7 +288,8 @@ export class NearAiContext {
           // spent the entire 4096-token budget thinking (2+ min, no answer).
           // vLLM honours this chat-template switch; E2EE leaves it intact.
           chat_template_kwargs: { enable_thinking: !!thinking },
-          max_tokens: thinking ? 8192 : 4096,
+          // Omitted (unlimited) → vLLM allows up to the rest of the context window.
+          ...(maxTokens != null ? { max_tokens: maxTokens } : {}),
         },
         { signal: this._abort.signal }
       );
