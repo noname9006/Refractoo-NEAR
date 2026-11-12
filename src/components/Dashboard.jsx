@@ -150,7 +150,7 @@ export default function Dashboard({ ctx, flow }) {
           selectedWallets={selectedWallets} onToggleWallet={toggleWallet} />
         <div className="app-stack">
           <div id="sec-summary"><PortfolioSummary flow={flow} view={view} /></div>
-          <div id="sec-assistant"><Assistant ctx={ctx} flow={flow} /></div>
+          <div id="sec-assistant"><Assistant ctx={ctx} flow={flow} onOpenSettings={() => setSettingsOpen(true)} /></div>
           <div className="columns" ref={columnsRef}>
             <div className="col" style={{ flex: `${colRatio} 1 0` }}>
               {cardOrder.slice(0, COL1_SLOTS).map((id) => (

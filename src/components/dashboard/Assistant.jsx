@@ -10,7 +10,9 @@ import { startResourceMonitor, subscribeResources, getResourceSnapshot } from '.
 import { fmtBytesBin } from '../../utils/system-info.js';
 import { ISpark, IExpand, IShrink, IChevDown, IMic, ISend, IStop, IPower, IDownload, IPlus, IList, ITrash, IChat, PrismMark } from './icons.jsx';
 import { PrivacyBadge } from './PrivacyBadge.jsx';
+import TierPanel from './TierPanel.jsx';
 import { verificationChecks } from '../../near/nearAiContext.js';
+import { pseudonymizeForRemote, SIG_FIGS } from '../../utils/pseudonymize.js';
 
 const THINK_KEY = 'pwai.thinking';
 // Default OFF to match Qwen3.5's documented behavior (reasoning is disabled by
@@ -57,7 +59,8 @@ function scheduleIdleTask(callback, timeout = 400) {
 // wllama model over the real cluster + portfolio facts. Push-to-talk uses the
 // local Whisper engine (only when voice was enabled in onboarding). Keeps a
 // list of conversations (Claude/ChatGPT-style) in a collapsible left sidebar.
-export default function Assistant({ ctx, flow }) {
+export default function Assistant({ ctx, flow, onOpenSettings }) {
+  const [tiersOpen, setTiersOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [full, setFull] = useState(false);
   const [input, setInput] = useState('');
@@ -309,6 +312,7 @@ export default function Assistant({ ctx, flow }) {
     let finalThink = '';
     let needsReload = false;
     let verification = null;
+    let redacted = null; // { labels } when pseudonymized, { off: true } when sent raw off-device
     setLiveMsg({
       role: 'ai',
       text: '',
@@ -321,9 +325,26 @@ export default function Assistant({ ctx, flow }) {
     });
     try {
       const facts = { ...(flow.facts || {}), usdPortfolio: portfolioFacts(flow.portfolio) };
-      const messages = buildAnalysisMessages(facts, text);
-      console.info(`[assistant] Sending prompt (${messages.length} messages) via ${flow.model.mode || 'local'} backend… thinking=${thinking}`);
-      const res = await ctx.analyze(messages, (visible, think, isThinking, _tps, thinkPreview = []) => {
+      // Off-device tiers get pseudonymized FACTS + question; the answer is
+      // mapped back to real addresses here, locally. On-device sees real data.
+      const remote = flow.model.mode === 'nearai' || flow.model.mode === 'external';
+      let messages;
+      let restore = (s) => s;
+      if (remote && flow.prefs.redactRemote !== false) {
+        const r = pseudonymizeForRemote(facts, text);
+        messages = buildAnalysisMessages(r.facts, r.question);
+        restore = r.restore;
+        redacted = { labels: r.labels };
+        if (import.meta.env.DEV) window.__lastRemotePrompt = messages; // dev-only inspection
+      } else {
+        messages = buildAnalysisMessages(facts, text);
+        if (remote) redacted = { off: true };
+      }
+      console.info(`[assistant] Sending prompt (${messages.length} messages) via ${flow.model.mode || 'local'} backend… thinking=${thinking}${redacted?.labels != null ? ` · pseudonymized (${redacted.labels} identifiers)` : ''}`);
+      const res = await ctx.analyze(messages, (rawVisible, rawThink, isThinking, _tps, rawPreview = []) => {
+        const visible = restore(rawVisible);
+        const think = restore(rawThink);
+        const thinkPreview = rawPreview.map(restore);
         lastVisible = visible;
         finalText = visible;
         finalThink = think;
@@ -377,6 +398,7 @@ export default function Assistant({ ctx, flow }) {
         showThink: false,
         done: true,
         ...(verification ? { verification } : {}),
+        ...(redacted ? { redacted } : {}),
       });
       setLiveMsg(null);
       setRunning(false);
@@ -561,7 +583,8 @@ export default function Assistant({ ctx, flow }) {
                   </div>
                 )}
                 <div className="talk-hint">{hint}</div>
-                <PrivacyBadge prefs={flow.prefs} />
+                <PrivacyBadge prefs={flow.prefs} onClick={() => setTiersOpen((o) => !o)} />
+                {tiersOpen && <TierPanel flow={flow} onClose={() => setTiersOpen(false)} onOpenSettings={onOpenSettings} />}
               </div>
             </div>
           </div>
@@ -650,6 +673,13 @@ const AssistantBubble = memo(function AssistantBubble({ msg, live = false, elaps
           </div>
         )}
         {normalized.done && normalized.verification && <VerifiedPanel receipt={normalized.verification} />}
+        {normalized.done && normalized.redacted && (
+          <div className={`redact-note${normalized.redacted.off ? ' off' : ''}`}>
+            {normalized.redacted.off
+              ? 'Sent with real addresses and exact amounts (pseudonymization is off).'
+              : `Sent pseudonymized: ${normalized.redacted.labels} identifier${normalized.redacted.labels === 1 ? '' : 's'} replaced with placeholders, amounts rounded to ${SIG_FIGS} significant figures. Real addresses above were restored on this device.`}
+          </div>
+        )}
       </div>
     </div>
   );

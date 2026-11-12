@@ -886,6 +886,25 @@ label.check input{width:auto;padding:0;margin:0}
 .verified-list .vd{grid-column:2;color:var(--ink-3);overflow-wrap:anywhere}
 .verified-list .mono{font-family:var(--mono,ui-monospace,monospace);font-size:11px}
 .verified-list li.meta .vl{color:var(--ink-3)}
+/* Privacy line as a button → tier comparison panel */
+.chat-foot.as-btn{width:100%;background:none;border:0;padding:0;cursor:pointer;text-align:left;font:inherit;font-size:11px}
+.chat-foot.as-btn:hover span:nth-child(2){color:var(--ink-2)}
+.chat-foot-more{margin-left:auto;flex:none;color:var(--accent);font-weight:550;white-space:nowrap}
+.tier-panel{margin-top:10px;border:1px solid var(--line-2);border-radius:var(--r-sm);background:var(--surface);padding:10px 12px;font-size:12px}
+.tier-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;color:var(--ink)}
+.tier-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tier-table{width:100%;min-width:560px;border-collapse:collapse;table-layout:fixed}
+.tier-table th,.tier-table td{padding:6px 8px;border-top:1px solid var(--line);vertical-align:top;text-align:left;line-height:1.4;color:var(--ink-2)}
+.tier-table thead th{border-top:0;color:var(--ink);font-weight:600;white-space:nowrap}
+.tier-table thead th > div{margin-top:5px;font-weight:400}
+.tier-table tbody th{width:24%;color:var(--ink-3);font-weight:500}
+.tier-table .cur{background:var(--accent-wash)}
+.tier-table thead th .privacy-light{display:inline-block;vertical-align:middle;margin-right:4px}
+.tier-cur{font-size:11px;color:var(--accent);font-weight:600}
+.tier-redact{margin-top:10px;align-items:flex-start;line-height:1.4;color:var(--ink-2)}
+.tier-foot{margin:8px 0 0;font-size:11px;line-height:1.4}
+.redact-note{margin-top:4px;font-size:11px;color:var(--ink-3);line-height:1.4}
+.redact-note.off{color:var(--warn)}
 .verified-alert{padding:6px 10px;border-top:1px solid var(--line);color:var(--neg);font-weight:550}
 .ext-warn{font-size:12px;line-height:1.5;color:var(--ink-2);background:color-mix(in srgb,var(--warn) 9%,transparent);
   border:1px solid color-mix(in srgb,var(--warn) 32%,transparent);border-radius:var(--r-sm);padding:10px 12px}

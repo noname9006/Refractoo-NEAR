@@ -84,7 +84,7 @@ export function saveStore(store) {
         updatedAt: c.updatedAt,
         msgs: (c.msgs || [])
           .slice(-MAX_MSGS_PER_CONV)
-          .map(({ role, text, think, verification }) => ({
+          .map(({ role, text, think, verification, redacted }) => ({
             role,
             text: clampText(text, MAX_TEXT_CHARS),
             think: clampText(think, MAX_THINK_CHARS),
@@ -92,6 +92,7 @@ export function saveStore(store) {
             // TCB statuses, truncated signer addresses and a completion id — no
             // prompt or answer content.
             ...(verification ? { verification } : {}),
+            ...(redacted ? { redacted } : {}),
             done: true,
           })),
       }));

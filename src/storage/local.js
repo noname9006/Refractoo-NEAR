@@ -124,6 +124,10 @@ const DEFAULT_PREFS = {
   // model '' = NEARAI_DEFAULT_MODEL; reasoningBudget undefined = default (32k),
   // 0 = unlimited. Applies only when the Think toggle is on.
   nearAi: { apiKey: '', model: '' },
+  // Pseudonymize FACTS + question for off-device tiers (nearai, external):
+  // addresses → placeholders, amounts → 3 significant figures. See
+  // utils/pseudonymize.js. On-device inference always sees real data.
+  redactRemote: true,
   // GPU/CPU layer offload for on-device inference. 'auto' offloads everything to
   // the GPU and auto-degrades if it doesn't fit (the safe default). 'manual' pins
   // a specific GPU layer count (offloadGpuLayers; null = derive/all) so the user
