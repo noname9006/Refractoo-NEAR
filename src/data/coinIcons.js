@@ -84,7 +84,12 @@ async function fetchOnDemand(chainId, address) {
   }
 }
 
+// NEAR rows: native gets the NEAR logo; FTs / staking pools fall back to the
+// letter glyph (the icon server and registry only know EVM contracts).
+const NEAR_ICON = 'https://assets.coingecko.com/coins/images/10365/small/near.jpg';
+
 export async function getCoinIcon(chainId, address) {
+  if (chainId === 'near') return address ? null : NEAR_ICON;
   if (!address) return NATIVE_ICON;
   const key = ck(chainId, address);
   if (mem.has(key)) return mem.get(key);

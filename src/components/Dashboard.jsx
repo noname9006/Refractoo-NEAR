@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { filterPortfolioView } from '../analytics/portfolio.js';
 import { getLayout, setLayout } from '../storage/local.js';
-import { CHAIN_IDS } from '../config/networks.js';
+import { VIEW_CHAIN_IDS } from '../config/networks.js';
 import TopBar from './dashboard/TopBar.jsx';
 import Toolbar from './dashboard/Toolbar.jsx';
 import PortfolioSummary from './dashboard/PortfolioSummary.jsx';
@@ -18,7 +18,7 @@ import NavPanel from './dashboard/NavPanel.jsx';
 import Settings from './Settings.jsx';
 
 // Chains available in the active network profile (mainnet or testnet).
-const ALL_CHAINS = CHAIN_IDS;
+const ALL_CHAINS = VIEW_CHAIN_IDS; // EVM chains + NEAR (read by account name)
 
 // Card slot order: the first COL1_SLOTS entries fill the wide left column, the
 // rest the right one. Bumped to v2 when the Shielded card made it five cards —
@@ -76,8 +76,10 @@ export default function Dashboard({ ctx, flow }) {
   }, []);
 
   const addresses = flow.cluster.addresses || [];
+  // Wallet ids for selection/filtering: EVM addresses + NEAR account names.
+  const walletIds = [...addresses, ...(flow.cluster.nearAccounts || [])];
   useEffect(() => {
-    const addrs = addresses.map((a) => a.toLowerCase());
+    const addrs = walletIds.map((a) => a.toLowerCase());
     setSelectedWallets((prev) => {
       if (knownRef.current === null) { knownRef.current = new Set(addrs); return new Set(addrs); }
       const next = new Set([...prev].filter((a) => addrs.includes(a)));
@@ -85,7 +87,7 @@ export default function Dashboard({ ctx, flow }) {
       knownRef.current = new Set(addrs);
       return next;
     });
-  }, [addresses.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [walletIds.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Clicking a chain isolates it; clicking the already-isolated chain again
   // restores the full selection.
@@ -96,9 +98,9 @@ export default function Dashboard({ ctx, flow }) {
     setSelectedWallets((s) => { const a = addr.toLowerCase(); const n = new Set(s); n.has(a) ? n.delete(a) : n.add(a); return n; });
 
   const view = useMemo(() => {
-    const list = selectedWallets.size ? [...selectedWallets] : addresses;
+    const list = selectedWallets.size ? [...selectedWallets] : walletIds;
     return filterPortfolioView(flow.rebuildView(list), selectedChains);
-  }, [flow.portfolio, flow.rebuildView, selectedWallets, selectedChains, addresses]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [flow.portfolio, flow.rebuildView, selectedWallets, selectedChains, walletIds.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Column drag-to-resize
   const startDrag = useCallback((e) => {
@@ -138,7 +140,7 @@ export default function Dashboard({ ctx, flow }) {
   };
 
   // No wallet yet → focused connect/demo overlay instead of a dead $0 dashboard.
-  const noWallets = (flow.cluster.addresses || []).length === 0;
+  const noWallets = walletIds.length === 0;
 
   return (
     <>

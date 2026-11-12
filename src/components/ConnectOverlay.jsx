@@ -1,4 +1,5 @@
 import { IShield, IPlus, ISpark } from './dashboard/icons.jsx';
+import NearAccountInput from './dashboard/NearAccountInput.jsx';
 
 // Shown over the dashboard whenever no wallet is connected. Replaces the old
 // "dead" zero-state (a full dashboard of $0.00) with a single focused choice:
@@ -21,6 +22,8 @@ export default function ConnectOverlay({ flow }) {
             <ISpark /> Explore a demo
           </button>
         </div>
+        <div className="connect-or"><span>or read a NEAR account by name — no wallet, no signature</span></div>
+        <NearAccountInput flow={flow} />
         {flow.error && <p className="err connect-err">{flow.error}</p>}
         <p className="modal-fine"><IShield /> Your keys and data never leave this device.</p>
       </div>

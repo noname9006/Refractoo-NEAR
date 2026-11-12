@@ -89,8 +89,13 @@ export const TOKENS = PROFILE.tokens;
 export const CHAIN_SLUG = PROFILE.chainSlug;
 export const NATIVE_BY_CHAIN = PROFILE.native;
 export const AAVE_V3_POOL = PROFILE.aaveV3Pool;
-export const CHAIN_META = PROFILE.chainMeta;
-export const EXPLORER = PROFILE.explorer;
+// NEAR is read by account name through its own module (src/near/nearAccount.js),
+// not the EVM pipeline, so it is NOT in CHAIN_IDS — only in the display maps and
+// VIEW_CHAIN_IDS (chain filter pills). Always NEAR mainnet, in both profiles.
+export const NEAR_VIEW_CHAIN = 'near';
+export const VIEW_CHAIN_IDS = [...CHAIN_IDS, NEAR_VIEW_CHAIN];
+export const CHAIN_META = { ...PROFILE.chainMeta, [NEAR_VIEW_CHAIN]: { name: 'NEAR', cd: 'near' } };
+export const EXPLORER = { ...PROFILE.explorer, [NEAR_VIEW_CHAIN]: 'https://nearblocks.io' };
 export const FHE_STACKS = PROFILE.fheStacks;
 export const USE_TOKEN_REGISTRY = PROFILE.useTokenRegistry;
 export const PRICE_MODE = PROFILE.priceMode;

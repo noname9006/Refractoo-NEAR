@@ -16,7 +16,9 @@ const num = (v) => (typeof v === 'number' && isFinite(v) ? v : 0);
 // shielded:    ShieldedToken[] from data/shielded.js — confidential-token holdings
 //              across Zama / CoFHE / Inco. Each is 'encrypted' (amount unknown)
 //              or 'revealed' (amount decrypted in memory this session only).
-export function buildPortfolio({ clusterData = {}, enriched = {}, prices = new Map(), shielded = [] } = {}) {
+// near: [{ accountId, holdings }] from near/nearAccount.js — rows already carry
+// their own price object (priced by that module), chainId 'near'.
+export function buildPortfolio({ clusterData = {}, enriched = {}, prices = new Map(), shielded = [], near = [] } = {}) {
   const addresses = Object.keys(clusterData);
   const holdingsMap = new Map(); // key: chainId:symbol(:address) → aggregated holding
   const defiPositions = [];
@@ -77,8 +79,13 @@ export function buildPortfolio({ clusterData = {}, enriched = {}, prices = new M
     }
   }
 
+  // NEAR accounts (read-only by name): native, FTs and per-pool staking rows.
+  for (const acct of near) {
+    for (const h of acct?.holdings || []) addHolding(holdingsMap, h);
+  }
+
   // finalize holdings: compute usd + change
-  const holdings = [...holdingsMap.values()].map(finalizeHolding).sort((a, b) => num(b.usd) - num(a.usd));
+  const holdings =[...holdingsMap.values()].map(finalizeHolding).sort((a, b) => num(b.usd) - num(a.usd));
 
   // staking positions are derived from the priced holdings
   const staking = stakingPositionsFromHoldings(holdings.filter((h) => h.protocol && h.label === 'Staking'));
@@ -117,7 +124,7 @@ export function buildPortfolio({ clusterData = {}, enriched = {}, prices = new M
   const deltaPct = prev > 0 ? (deltaUsd / prev) * 100 : 0;
 
   return {
-    walletCount: addresses.length,
+    walletCount: addresses.length + near.length,
     chains: [...new Set(holdings.map((h) => h.chainId))],
     priced: prices.size > 0,
     holdings,
@@ -328,12 +335,17 @@ export function portfolioFacts(p) {
       })),
     },
     holdings: p.holdings.slice(0, 16).map((h) => ({
-      asset: h.symbol,
+      // Symbols are set by token deployers — untrusted text in an LLM prompt
+      // (spam like "visit-xyz.com" or injected instructions). Keep it to a
+      // short ticker-shaped string.
+      asset: String(h.symbol || '').replace(/[^A-Za-z0-9$._-]/g, '').slice(0, 16) || '?',
       chain: CHAIN_SLUG[h.chainId] || h.chainName,
       amount: Number(h.amount.toPrecision(6)),
       price: h.price != null ? Number(h.price.toPrecision(8)) : null,
       usd: money(h.usd),
       change24hPct: h.change24h != null ? Number(h.change24h.toFixed(2)) : null,
+      // Staked rows (e.g. NEAR in a staking pool) must not read as liquid balance.
+      ...(h.label === 'Staking' ? { staked: true, stakedIn: h.protocol } : {}),
     })),
     defiPositions: p.positions.map((d) => ({
       protocol: d.protocol,

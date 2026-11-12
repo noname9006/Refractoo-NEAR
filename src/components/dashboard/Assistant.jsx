@@ -13,6 +13,7 @@ import { PrivacyBadge } from './PrivacyBadge.jsx';
 import TierPanel from './TierPanel.jsx';
 import { verificationChecks } from '../../near/nearAiContext.js';
 import { pseudonymizeForRemote, precisionFor } from '../../utils/pseudonymize.js';
+import { nearAccountFacts } from '../../near/nearAccount.js';
 
 const THINK_KEY = 'pwai.thinking';
 // Default OFF to match Qwen3.5's documented behavior (reasoning is disabled by
@@ -324,7 +325,13 @@ export default function Assistant({ ctx, flow, onOpenSettings }) {
       liveTrimmed: false,
     });
     try {
-      const facts = { ...(flow.facts || {}), usdPortfolio: portfolioFacts(flow.portfolio) };
+      const nearAccounts = nearAccountFacts(flow.nearData || []);
+      const facts = {
+        ...(flow.facts || {}),
+        usdPortfolio: portfolioFacts(flow.portfolio),
+        // usdPortfolio.holdings aggregates across accounts; this says whose is what.
+        ...(nearAccounts.length ? { nearAccounts } : {}),
+      };
       // Off-device tiers get pseudonymized FACTS + question; the answer is
       // mapped back to real addresses here, locally. On-device sees real data.
       const remote = flow.model.mode === 'nearai' || flow.model.mode === 'external';

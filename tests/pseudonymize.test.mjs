@@ -86,6 +86,23 @@ test('pseudonymizeForRemote: nothing identifying survives the JSON, question too
   assert.deepEqual(facts.addresses, [W1, W2], 'input not mutated');
 });
 
+test('NEAR account names in facts.nearAccounts become WALLET_n after EVM wallets', () => {
+  const facts = { addresses: [W1], nearAccounts: ['randomname1001.near'], note: 'staked by randomname1001.near' };
+  const r = pseudonymizeForRemote(facts, 'what does randomname1001.near hold?');
+  assert.deepEqual(r.facts.nearAccounts, ['WALLET_2']);
+  assert.equal(r.facts.note, 'staked by WALLET_2');
+  assert.equal(r.question, 'what does WALLET_2 hold?');
+  assert.equal(r.restore('WALLET_2 holds NEAR'), 'randomname1001.near holds NEAR');
+});
+
+test('nearAccounts as per-account objects: names and staking pools are masked', () => {
+  const facts = { nearAccounts: [{ account: 'root.near', holdings: [{ asset: 'NEAR', staked: true, stakedIn: 'shitzu.pool.near' }] }] };
+  const r = pseudonymizeForRemote(facts, 'q');
+  assert.equal(r.facts.nearAccounts[0].account, 'WALLET_1');
+  assert.equal(r.facts.nearAccounts[0].holdings[0].stakedIn, 'NEAR_1');
+  assert.equal(r.restore('WALLET_1 stakes with NEAR_1'), 'root.near stakes with shitzu.pool.near');
+});
+
 test('sigFigs 0 (TEE default): identifiers replaced, numbers and dates exact', () => {
   const facts = { addresses: [W1], usdPortfolio: { totalUsd: 140439.79 }, activity: { oldestSampled: '2026-03-14' } };
   const r = pseudonymizeForRemote(facts, `about ${W1}`);

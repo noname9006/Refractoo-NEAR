@@ -36,7 +36,29 @@ function write(key, value) {
 export function getCluster() {
   const c = read(CLUSTER_KEY, { addresses: [], labels: {}, updatedAt: null });
   if (!c.labels) c.labels = {}; // migrate older clusters that predate names
+  // NEAR accounts (read-only, by name) live beside the EVM addresses rather than
+  // in them, so the EVM chain pipeline never tries to probe "alice.near".
+  if (!Array.isArray(c.nearAccounts)) c.nearAccounts = [];
   return c;
+}
+
+export function addNearAccount(accountId) {
+  const cluster = getCluster();
+  const id = String(accountId).trim().toLowerCase();
+  if (!cluster.nearAccounts.includes(id)) cluster.nearAccounts.push(id);
+  cluster.updatedAt = Date.now();
+  write(CLUSTER_KEY, cluster);
+  return cluster;
+}
+
+export function removeNearAccount(accountId) {
+  const cluster = getCluster();
+  const id = String(accountId).trim().toLowerCase();
+  cluster.nearAccounts = cluster.nearAccounts.filter((x) => x !== id);
+  delete cluster.labels[id];
+  cluster.updatedAt = Date.now();
+  write(CLUSTER_KEY, cluster);
+  return cluster;
 }
 
 // The "Explore a demo" mode seeds a public address (labeled "Demo · …") so the
@@ -52,6 +74,7 @@ export function purgeDemoWallets() {
   );
   if (!demoKeys.length) return cluster;
   cluster.addresses = cluster.addresses.filter((a) => !demoKeys.includes(a.toLowerCase()));
+  cluster.nearAccounts = cluster.nearAccounts.filter((a) => !demoKeys.includes(a));
   for (const k of demoKeys) delete cluster.labels[k];
   cluster.updatedAt = Date.now();
   write(CLUSTER_KEY, cluster);
@@ -105,7 +128,7 @@ export function renameWallet(address, name) {
 }
 
 export function resetCluster() {
-  write(CLUSTER_KEY, { addresses: [], labels: {}, updatedAt: null });
+  write(CLUSTER_KEY, { addresses: [], nearAccounts: [], labels: {}, updatedAt: null });
 }
 
 // --- Prefs ---

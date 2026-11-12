@@ -138,7 +138,10 @@ export async function fetchPrices(keys) {
     for (const key of chunkKeys) {
       const c = coins[key];
       if (!c || typeof c.price !== 'number') continue;
-      out.set(key, { price: c.price, change24h: changes[key] ?? null, symbol: c.symbol || null });
+      out.set(key, {
+        price: c.price, change24h: changes[key] ?? null, symbol: c.symbol || null,
+        decimals: Number.isInteger(c.decimals) ? c.decimals : null, // NEAR FTs need this
+      });
     }
   }), PRICE_CONCURRENCY);
   return out;

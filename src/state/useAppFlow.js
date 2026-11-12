@@ -13,6 +13,8 @@ import {
   addWallet,
   removeWallet,
   renameWallet as persistRename,
+  addNearAccount,
+  removeNearAccount,
   getPrefs,
   setPrefs,
 } from '../storage/local.js';
@@ -25,6 +27,7 @@ import { fetchHostInfo } from '../utils/system-info.js';
 import { estimateStorage, requestPersistentStorage } from '../utils/storage-quota.js';
 import { getASR } from '../voice/index.js';
 import { NEARAI_DEFAULT_MODEL } from '../near/nearAiContext.js';
+import { loadNearAccount, isNearAccountId, normalizeAccountId } from '../near/nearAccount.js';
 
 // Central onboarding/workspace state machine. Transitions are EFFECT-driven:
 // entering a stage triggers its async work, which then advances the stage.
@@ -81,6 +84,11 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
   const discoverShieldedRef = useRef(null);
   const shieldedRef = useRef(shielded);
   shieldedRef.current = shielded;
+  // Public NEAR accounts (read-only by name): loaded results [{accountId,
+  // holdings}] for buildPortfolio, plus per-account load status for the UI.
+  const nearRef = useRef([]);
+  const [nearStatus, setNearStatus] = useState({}); // id → { status, error }
+  const [nearData, setNearData] = useState([]); // mirror of nearRef for renders (AI facts)
   // raw + enriched cluster data kept for rebuilding the portfolio (e.g. after
   // a sealed unlock) without re-fetching the chain.
   const clusterDataRef = useRef({});
@@ -107,7 +115,7 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
       enrichedRef.current = enriched;
       setPortfolio(buildPortfolio({
         clusterData: clusterDataFresh, enriched,
-        prices: pricesRef.current, shielded: shieldedRef.current,
+        prices: pricesRef.current, shielded: shieldedRef.current, near: nearRef.current,
       }));
     };
 
@@ -191,7 +199,7 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
     enrichedRef.current = cachedEn;
     setPortfolio(buildPortfolio({
       clusterData: rawData, enriched: cachedEn,
-      prices: pricesRef.current, shielded: shieldedRef.current,
+      prices: pricesRef.current, shielded: shieldedRef.current, near: nearRef.current,
     }));
     try {
       const prices = await fetchPrices(holdingPriceTargets(rawData, cachedEn, shieldedRef.current));
@@ -199,7 +207,7 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
       pricesRef.current = prices;
       setPortfolio(buildPortfolio({
         clusterData: rawData, enriched: cachedEn,
-        prices, shielded: shieldedRef.current,
+        prices, shielded: shieldedRef.current, near: nearRef.current,
       }));
     } catch {}
   }, []);
@@ -211,6 +219,7 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
         enriched: enrichedRef.current,
         prices: pricesRef.current,
         shielded: nextShielded,
+        near: nearRef.current,
       })
     );
   }, []);
@@ -235,6 +244,7 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
       // same narrowing the address-keyed maps get above — otherwise deselecting a
       // wallet would still count its shielded balance in the total.
       shielded: (shieldedRef.current || []).filter((t) => keep.has(t.wallet.toLowerCase())),
+      near: (nearRef.current || []).filter((a) => keep.has(a.accountId)),
     });
   }, []);
 
@@ -528,8 +538,57 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
     const cluster = purgeDemoWallets();
     setCluster({ ...cluster });
     if (initialStage === 'ready' && cluster.addresses.length) loadCluster();
+    if (initialStage === 'ready' && cluster.nearAccounts.length) loadNearAccounts(cluster.nearAccounts);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // --- NEAR accounts (public, read-only by name) ---
+
+  const rebuildWithNear = useCallback(() => {
+    setPortfolio(buildPortfolio({
+      clusterData: clusterDataRef.current, enriched: enrichedRef.current,
+      prices: pricesRef.current, shielded: shieldedRef.current, near: nearRef.current,
+    }));
+  }, []);
+
+  // Fetch + price each account and merge it into the portfolio as it lands.
+  // A failed or missing account keeps its chip with an error, contributes nothing.
+  const loadNearAccounts = useCallback(async (ids) => {
+    const list = [...new Set(ids.map(normalizeAccountId))];
+    setNearStatus((s) => ({ ...s, ...Object.fromEntries(list.map((id) => [id, { status: 'loading', error: null }])) }));
+    await Promise.all(list.map(async (id) => {
+      try {
+        const acct = await loadNearAccount(id);
+        // Removed while loading? Don't resurrect it.
+        if (!getCluster().nearAccounts.includes(id)) return;
+        nearRef.current = [...nearRef.current.filter((a) => a.accountId !== id), acct];
+        setNearData(nearRef.current);
+        setNearStatus((s) => ({ ...s, [id]: acct.exists ? { status: 'ready', error: null } : { status: 'missing', error: 'Account not found on NEAR mainnet' } }));
+      } catch (e) {
+        setNearStatus((s) => ({ ...s, [id]: { status: 'error', error: String(e?.message || e) } }));
+      }
+      rebuildWithNear();
+    }));
+  }, [rebuildWithNear]);
+
+  // Returns an error string for the input, or null on success.
+  const addNearAcct = useCallback(async (raw) => {
+    const id = normalizeAccountId(raw);
+    if (!isNearAccountId(id)) return 'Enter a NEAR account like alice.near (or a 64-hex implicit account).';
+    if (getCluster().nearAccounts.includes(id)) return 'That NEAR account is already added.';
+    setCluster({ ...addNearAccount(id) });
+    if (stage !== 'ready') setStage('ready');
+    loadNearAccounts([id]);
+    return null;
+  }, [loadNearAccounts, stage]);
+
+  const removeNearAcct = useCallback((id) => {
+    setCluster({ ...removeNearAccount(id) });
+    nearRef.current = nearRef.current.filter((a) => a.accountId !== id);
+    setNearData(nearRef.current);
+    setNearStatus((s) => { const n = { ...s }; delete n[id]; return n; });
+    rebuildWithNear();
+  }, [rebuildWithNear]);
 
   // --- public actions ---
 
@@ -674,7 +733,9 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
   }, []);
 
   const refresh = useCallback(async () => {
-    const addresses = getCluster().addresses;
+    const { addresses, nearAccounts } = getCluster();
+    if (nearAccounts.length) loadNearAccounts(nearAccounts);
+    if (!addresses.length) return;
     patchRefreshing({ activity: true, holdings: true, defi: true, caps: true });
     const fresh = await fetchClusterData(addresses, {});
     setClusterData(fresh);
@@ -683,7 +744,7 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
     for (const a of addresses) if (fresh[a] && !fresh[a].error) setCachedData(a, fresh[a]);
     discoverShieldedRef.current?.(addresses);
     await enrichAndPrice(fresh);
-  }, [enrichAndPrice, patchRefreshing]);
+  }, [enrichAndPrice, patchRefreshing, loadNearAccounts]);
 
   // Portfolio value history for the summary sparkline. Cheap to call per range.
   // Resolves once with the full series — the chart is built only when complete.
@@ -849,7 +910,7 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
 
   return {
     stage, cluster, wallet, clusterData, facts, portfolio, pricing, refreshing,
-    shielded, shieldedStacks, nearIntents,
+    shielded, shieldedStacks, nearIntents, nearStatus, nearData, addNearAcct, removeNearAcct,
     model, prefs, voiceDownload, error, busy,
     connect, addAnother, connectMore, loadDemo, removeFromCluster, renameWallet, continueFromWallets,
     rebuildView, startModel: loadModel, retryModel, unloadModel, chooseVoice, refresh, loadHistory, revoke, updatePref,

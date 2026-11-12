@@ -148,7 +148,12 @@ export function privacyNote(sigFigs) {
 
 // facts + question → what is safe to send, plus restore() for the answer.
 export function pseudonymizeForRemote(facts, question, { sigFigs = 0 } = {}) {
-  const p = createPseudonymizer(facts?.addresses || [], { sigFigs });
+  // The user's own wallets: EVM addresses + NEAR account names → WALLET_n.
+  const own = [
+    ...(facts?.addresses || []),
+    ...(facts?.nearAccounts || []).map((a) => (typeof a === 'string' ? a : a?.account)).filter(Boolean),
+  ];
+  const p = createPseudonymizer(own, { sigFigs });
   const sent = p.value(facts || {});
   sent.dataNotes = [privacyNote(sigFigs), ...(Array.isArray(sent.dataNotes) ? sent.dataNotes : [])];
   return { facts: sent, question: p.text(question), restore: p.restore, labels: p.size, sigFigs };
