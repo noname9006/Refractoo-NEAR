@@ -4,6 +4,7 @@ import { describeOffload } from '../utils/offload-planner.js';
 import { probeGGUFArch } from '../utils/gguf-probe.js';
 import { recommendModel } from '../utils/resource-detector.js';
 import { applyEffects } from '../utils/theme.js';
+import { listConfidentialModels, NEARAI_DEFAULT_MODEL } from '../near/nearAiContext.js';
 import { MODE, PROFILE, IS_TESTNET, AVAILABLE_MODES, setModeOverride } from '../config/networks.js';
 import {
   detectResources, measureStorage, clearCategory, fmtBytes, fmtBytesBin, STORAGE_CATEGORIES,
@@ -72,6 +73,18 @@ export default function Settings({ flow, onClose }) {
   // Inference location: 'local' (on-device) vs 'external' (OpenAI-compatible API).
   const [infer, setInfer] = useState(prefs.inference || 'local');
   const [ext, setExt] = useState(() => ({ baseUrl: '', apiKey: '', model: '', ...(prefs.externalApi || {}) }));
+  // NEAR AI TEE tier config + the list of attested models (fetched once, public).
+  const [nai, setNai] = useState(() => ({ apiKey: '', model: '', ...(prefs.nearAi || {}) }));
+  const [naiModels, setNaiModels] = useState(null); // null = not loaded, [] = none
+  const [naiListErr, setNaiListErr] = useState('');
+  useEffect(() => {
+    if (infer !== 'nearai' || naiModels) return undefined;
+    let live = true;
+    listConfidentialModels()
+      .then((list) => { if (live) setNaiModels(list); })
+      .catch((e) => { if (live) setNaiListErr(String(e?.message || e)); });
+    return () => { live = false; };
+  }, [infer, naiModels]);
   // GPU/CPU offload planning for local inference.
   const [offloadMode, setOffloadMode] = useState(prefs.offloadMode || 'auto');
   const [gpuLayers, setGpuLayers] = useState(prefs.offloadGpuLayers); // null = all
@@ -118,6 +131,14 @@ export default function Settings({ flow, onClose }) {
     setInfer('local');
     flow.updatePref({ inference: 'local' });
     await flow.unloadModel();
+  };
+  const connectNearAi = async () => {
+    const cfg = { apiKey: nai.apiKey.trim(), model: nai.model || NEARAI_DEFAULT_MODEL };
+    if (!cfg.apiKey) return;
+    setNai(cfg);
+    flow.updatePref({ inference: 'nearai', nearAi: cfg });
+    await flow.unloadModel();
+    flow.startModel();
   };
   const connectExternal = async () => {
     const cfg = { baseUrl: ext.baseUrl.trim(), apiKey: ext.apiKey.trim(), model: ext.model.trim() };
@@ -348,11 +369,13 @@ export default function Settings({ flow, onClose }) {
             <div className="set-row">
               <div className="set-label">
                 <strong>Run inference</strong>
-                <span className="muted">On this device, or via an external OpenAI-compatible API.</span>
+                <span className="muted">On this device, in a verified NEAR AI enclave, or via an external OpenAI-compatible API.</span>
               </div>
               <div className="seg" role="tablist" aria-label="Inference location">
                 <button className={infer === 'local' ? 'on' : ''} role="tab" aria-selected={infer === 'local'}
                   onClick={chooseLocal}>On device</button>
+                <button className={infer === 'nearai' ? 'on' : ''} role="tab" aria-selected={infer === 'nearai'}
+                  onClick={() => setInfer('nearai')}>NEAR AI TEE</button>
                 <button className={infer === 'external' ? 'on' : ''} role="tab" aria-selected={infer === 'external'}
                   onClick={() => setInfer('external')}>External API</button>
               </div>
@@ -447,6 +470,51 @@ export default function Settings({ flow, onClose }) {
                 </div>
               )}
               </>
+            ) : infer === 'nearai' ? (
+              <div className="ext-cfg">
+                <div className="ext-warn tee">
+                  <strong>Private by verification, not by locality.</strong> Your question and wallet facts leave this
+                  device, end-to-end encrypted to a model running inside an Intel TDX + NVIDIA confidential-computing
+                  enclave. This browser checks the enclave's attestation before the session and its signature after
+                  every answer. Only NEAR-operated attested models are offered — relayed "Incognito" models (OpenAI,
+                  Anthropic, Gemini) run outside a TEE and are refused.
+                </div>
+                <label className="ext-field">
+                  <span>NEAR AI API key <em>(cloud.near.ai — stored only in this browser)</em></span>
+                  <input type="password" spellCheck={false} autoComplete="off" placeholder="sk-…"
+                    value={nai.apiKey} onChange={(e) => setNai((x) => ({ ...x, apiKey: e.target.value }))} />
+                </label>
+                <label className="ext-field">
+                  <span>Model <em>(attested NEAR AI models only)</em></span>
+                  <select value={nai.model || NEARAI_DEFAULT_MODEL}
+                    onChange={(e) => setNai((x) => ({ ...x, model: e.target.value }))}>
+                    {/* Always include the current choice so the select never
+                        displays one model while Connect would use another. */}
+                    {[
+                      ...(naiModels || []),
+                      ...((naiModels || []).some((x) => x.id === (nai.model || NEARAI_DEFAULT_MODEL))
+                        ? []
+                        : [{ id: nai.model || NEARAI_DEFAULT_MODEL, name: `${nai.model || NEARAI_DEFAULT_MODEL}${naiModels ? ' (not in current list)' : ''}` }]),
+                    ].map((mm) => (
+                      <option key={mm.id} value={mm.id}>
+                        {mm.name}{mm.outUsdPerM != null && mm.inUsdPerM != null ? ` · $${mm.inUsdPerM.toFixed(2)} / $${mm.outUsdPerM.toFixed(2)} per M tok` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {naiListErr && <div className="ext-status muted">Model list unavailable ({naiListErr}) — using the default.</div>}
+                <div className="ext-status muted">
+                  {model.mode === 'nearai' && model.status === 'ready' ? `Verified · ${model.externalName}`
+                    : model.mode === 'nearai' && model.status === 'loading' ? (model.statusText || 'Verifying attestation…')
+                    : model.mode === 'nearai' && model.status === 'error' ? `Failed: ${model.error || 'see console'}`
+                    : 'Not connected'}
+                </div>
+                <div className="set-actions end">
+                  <button className="btn sm" disabled={!nai.apiKey.trim() || (model.mode === 'nearai' && model.status === 'loading')} onClick={connectNearAi}>
+                    <IDownload /> {model.mode === 'nearai' && model.status === 'ready' ? 'Re-verify' : 'Verify & connect'}
+                  </button>
+                </div>
+              </div>
             ) : (
               <div className="ext-cfg">
                 <div className="ext-warn">

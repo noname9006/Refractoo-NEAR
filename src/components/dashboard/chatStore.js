@@ -84,10 +84,14 @@ export function saveStore(store) {
         updatedAt: c.updatedAt,
         msgs: (c.msgs || [])
           .slice(-MAX_MSGS_PER_CONV)
-          .map(({ role, text, think }) => ({
+          .map(({ role, text, think, verification }) => ({
             role,
             text: clampText(text, MAX_TEXT_CHARS),
             think: clampText(think, MAX_THINK_CHARS),
+            // NEAR AI receipt (attestation summary + signature result). Holds
+            // TCB statuses, truncated signer addresses and a completion id — no
+            // prompt or answer content.
+            ...(verification ? { verification } : {}),
             done: true,
           })),
       }));

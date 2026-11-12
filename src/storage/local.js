@@ -2,7 +2,9 @@
 // user preferences. Nothing here ever leaves the device.
 //
 // PRIVACY: only non-sensitive metadata lives here — addresses (already public),
-// and prefs. DECRYPTED CONFIDENTIAL AMOUNTS ARE NEVER PERSISTED, by any stack
+// and prefs — with ONE exception: prefs hold the user's own inference API keys
+// (externalApi.apiKey, nearAi.apiKey) in plaintext so the browser can call the
+// endpoint directly. Never export, sync or log prefs wholesale. DECRYPTED CONFIDENTIAL AMOUNTS ARE NEVER PERSISTED, by any stack
 // (Fhenix CoFHE, Zama, Inco): they live in React state for the session only.
 // The FHE SDKs would cache them to IndexedDB if allowed — src/fhe/memory-storage.js
 // is what prevents that. Wallet addresses and UI prefs are chain-agnostic and
@@ -115,8 +117,11 @@ const DEFAULT_PREFS = {
   // Where chat inference runs: 'local' (on-device wllama) or 'external' (an
   // OpenAI-compatible API the user configures). External is for self-hosted
   // servers — see the privacy badge, which warns when data leaves the device.
-  inference: 'local', // 'local' | 'external'
+  // 'nearai' is the middle tier: NEAR AI Cloud models running in attested TEEs,
+  // verified in the browser, prompts end-to-end encrypted to the model.
+  inference: 'local', // 'local' | 'nearai' | 'external'
   externalApi: { baseUrl: '', apiKey: '', model: '' },
+  nearAi: { apiKey: '', model: '' }, // model '' = NEARAI_DEFAULT_MODEL
   // GPU/CPU layer offload for on-device inference. 'auto' offloads everything to
   // the GPU and auto-degrades if it doesn't fit (the safe default). 'manual' pins
   // a specific GPU layer count (offloadGpuLayers; null = derive/all) so the user

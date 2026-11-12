@@ -10,6 +10,7 @@ import { startResourceMonitor, subscribeResources, getResourceSnapshot } from '.
 import { fmtBytesBin } from '../../utils/system-info.js';
 import { ISpark, IExpand, IShrink, IChevDown, IMic, ISend, IStop, IPower, IDownload, IPlus, IList, ITrash, IChat, PrismMark } from './icons.jsx';
 import { PrivacyBadge } from './PrivacyBadge.jsx';
+import { verificationChecks } from '../../near/nearAiContext.js';
 
 const THINK_KEY = 'pwai.thinking';
 // Default OFF to match Qwen3.5's documented behavior (reasoning is disabled by
@@ -108,7 +109,8 @@ export default function Assistant({ ctx, flow }) {
   const voiceOn = flow.prefs.voiceEnabled;
   // The toggle is only meaningful for Qwen models, which honor the /no_think
   // soft switch. Persist the choice across reloads.
-  const isQwen = /qwen/i.test(flow.model.id || '');
+  // NEAR AI models stream reasoning separately; the toggle shows/hides it.
+  const isQwen = /qwen/i.test(flow.model.id || '') || flow.model.mode === 'nearai';
   const toggleThinking = () =>
     setThinking((on) => {
       const next = !on;
@@ -148,14 +150,21 @@ export default function Assistant({ ctx, flow }) {
   const downloading = !modelReady && !modelError && m.progress > 0 && m.progress < 0.999;
   const sizeBytes = m.id ? getModel(m.id)?.sizeBytes : null;
   const sizeStr = sizeBytes ? ` of ${formatSize(sizeBytes)}` : '';
-  const isExternal = m.mode === 'external';
+  // Idle → the tier chosen in prefs (unloadModel resets model.mode to 'local');
+  // otherwise the tier that is actually loading/ready/failed.
+  const tier = m.status === 'idle' ? (flow.prefs.inference || 'local') : (m.mode || 'local');
+  const isExternal = tier === 'external';
+  const isNearAi = tier === 'nearai';
   const statusDot = modelReady ? 'var(--pos)' : modelError ? 'var(--neg)' : 'var(--warn)';
   const statusText = modelReady
-    ? isExternal
+    ? isNearAi
+      ? `NEAR AI TEE · attested${m.externalName ? ` · ${m.externalName}` : ''}`
+      : isExternal
       ? `External API${m.externalName ? ` · ${m.externalName}` : ''}`
       : `Running locally${modelName ? ` · ${modelName}` : ''}`
     : modelError ? 'Couldn’t load AI'
-    : m.status === 'idle' ? (isExternal ? 'External model — connects on first question' : 'Local AI loads when you connect a wallet')
+    : m.status === 'idle' ? (isNearAi ? 'NEAR AI TEE — verifies on first question' : isExternal ? 'External model — connects on first question' : 'Local AI loads when you connect a wallet')
+    : isNearAi ? (m.statusText || 'Verifying NEAR AI attestation…')
     : isExternal ? 'Connecting to external API…'
     : downloading ? `Downloading model… ${pct}%${sizeStr}` : 'Preparing locally…';
 
@@ -275,7 +284,9 @@ export default function Assistant({ ctx, flow }) {
     if (modelError) {
       appendImmediateReply(
         text,
-        `The local AI couldn't finish loading${flow.model.error ? ` (${flow.model.error})` : ''}. Use “Retry” above to try again — nothing is sent to a server.`
+        isNearAi
+          ? `NEAR AI verification failed${flow.model.error ? ` (${flow.model.error})` : ''}. Nothing was sent — your question is only sent after the enclave's attestation passes. Use “Retry” above.`
+          : `The AI couldn't finish loading${flow.model.error ? ` (${flow.model.error})` : ''}. Use “Retry” above to try again — this question was not sent anywhere.`
       );
       return;
     }
@@ -284,7 +295,9 @@ export default function Assistant({ ctx, flow }) {
       if (flow.model.status === 'idle') flow.startModel();
       appendImmediateReply(
         text,
-        "Starting your local AI now — I'll answer the moment it's ready. (Nothing is sent to a server.)"
+        isNearAi
+          ? "Verifying the NEAR AI enclave first — ask again once the status shows “attested”. (This question was not sent.)"
+          : "Starting your AI now — I'll answer the moment it's ready. (This question was not sent anywhere.)"
       );
       return;
     }
@@ -295,6 +308,7 @@ export default function Assistant({ ctx, flow }) {
     let finalText = '';
     let finalThink = '';
     let needsReload = false;
+    let verification = null;
     setLiveMsg({
       role: 'ai',
       text: '',
@@ -308,7 +322,7 @@ export default function Assistant({ ctx, flow }) {
     try {
       const facts = { ...(flow.facts || {}), usdPortfolio: portfolioFacts(flow.portfolio) };
       const messages = buildAnalysisMessages(facts, text);
-      console.info(`[assistant] Sending prompt (${messages.length} messages) to local model… thinking=${thinking}`);
+      console.info(`[assistant] Sending prompt (${messages.length} messages) via ${flow.model.mode || 'local'} backend… thinking=${thinking}`);
       const res = await ctx.analyze(messages, (visible, think, isThinking, _tps, thinkPreview = []) => {
         lastVisible = visible;
         finalText = visible;
@@ -327,6 +341,7 @@ export default function Assistant({ ctx, flow }) {
           liveTrimmed: liveText.trimmed || liveThink.trimmed,
         }));
       }, createThinkStreamParser, { thinking });
+      verification = res?.verification || null;
       // The model can burn its entire token budget inside <think> and stop
       // before emitting an answer (finish_reason === 'length'). Don't leave the
       // turn looking blank — say what happened.
@@ -361,6 +376,7 @@ export default function Assistant({ ctx, flow }) {
         isThinking: false,
         showThink: false,
         done: true,
+        ...(verification ? { verification } : {}),
       });
       setLiveMsg(null);
       setRunning(false);
@@ -451,7 +467,9 @@ export default function Assistant({ ctx, flow }) {
                   <div className="empty">
                     <div className="big"><PrismMark /></div>
                     <h4>Ask about your wallets</h4>
-                    <p>Computed from your real on-chain facts, answered by a model running on your device.</p>
+                    <p>{isNearAi
+                      ? 'Computed from your real on-chain facts, answered by an attested NEAR AI enclave — every answer comes with a receipt.'
+                      : 'Computed from your real on-chain facts, answered by a model running on your device.'}</p>
                   </div>
                 )}
                 {msgs.map((mm, i) => mm.role === 'user' ? (
@@ -515,17 +533,24 @@ export default function Assistant({ ctx, flow }) {
                   <div className="model-gate">
                     {modelError ? (
                       <>
-                        <span className="gate-msg err">Couldn’t load the local AI{flow.model.error ? `: ${flow.model.error}` : ''}</span>
-                        <button className="btn primary" onClick={() => flow.retryModel()}><IDownload /> Retry loading</button>
+                        <span className="gate-msg err">{isNearAi ? 'NEAR AI enclave not verified — nothing was sent' : isExternal ? 'Couldn’t connect to the external model' : 'Couldn’t load the local AI'}{flow.model.error ? `: ${flow.model.error}` : ''}</span>
+                        <button className="btn primary" onClick={() => flow.retryModel()}><IDownload /> {isNearAi ? 'Retry verification' : 'Retry loading'}</button>
                       </>
                     ) : modelIdle ? (
-                      <>
-                        <span className="gate-msg">The local AI isn’t loaded yet. It runs entirely on your device.</span>
-                        <button className="btn primary" onClick={() => flow.startModel()}><IDownload /> Load model{sizeBytes ? ` (~${formatSize(sizeBytes)})` : ''}</button>
-                      </>
+                      isNearAi ? (
+                        <>
+                          <span className="gate-msg">Answers come from a NEAR AI enclave. This browser verifies its attestation before anything is sent.</span>
+                          <button className="btn primary" onClick={() => flow.startModel()}><IDownload /> Verify &amp; connect</button>
+                        </>
+                      ) : (
+                        <>
+                          <span className="gate-msg">The local AI isn’t loaded yet. It runs entirely on your device.</span>
+                          <button className="btn primary" onClick={() => flow.startModel()}><IDownload /> Load model{sizeBytes ? ` (~${formatSize(sizeBytes)})` : ''}</button>
+                        </>
+                      )
                     ) : (
                       <>
-                        <span className="gate-msg">{downloading ? `Downloading model… ${pct}%${sizeStr}` : 'Warming up the model…'}</span>
+                        <span className="gate-msg">{isNearAi ? (m.statusText || 'Verifying NEAR AI attestation…') : downloading ? `Downloading model… ${pct}%${sizeStr}` : 'Warming up the model…'}</span>
                         <button className="btn" disabled>
                           <span className="mini-spin" /> {downloading ? `${pct}%` : 'Warming up…'}
                         </button>
@@ -624,7 +649,52 @@ const AssistantBubble = memo(function AssistantBubble({ msg, live = false, elaps
             {!normalized.done && <span className="caret" />}
           </div>
         )}
+        {normalized.done && normalized.verification && <VerifiedPanel receipt={normalized.verification} />}
       </div>
+    </div>
+  );
+});
+
+// "Verified" receipt under a NEAR AI answer: one collapsed summary line, the
+// individual checks on expand. Everything shown was checked in this browser.
+const VerifiedPanel = memo(function VerifiedPanel({ receipt }) {
+  const checks = verificationChecks(receipt);
+  const passed = checks.filter((c) => c.ok === true).length;
+  const all = passed === checks.length;
+  // A failed check is shown expanded, not hidden behind a chip.
+  const [open, setOpen] = useState(!all);
+  const sigFailed = receipt.response && receipt.response.ok === false;
+  const a = receipt.attestation;
+  return (
+    <div className={`verified ${all ? 'ok' : 'warn'}`}>
+      <button className="verified-head" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+        <span className="verified-mark">{all ? '✓' : '!'}</span>
+        <span className="verified-ttl">{all ? 'Verified' : 'Not fully verified'} · {passed}/{checks.length} checks</span>
+        <span className="verified-sub">{receipt.provider}{a?.model ? ` · ${a.model}` : ''}</span>
+        <span className="chev"><IChevDown /></span>
+      </button>
+      {sigFailed && (
+        <div className="verified-alert">
+          The answer above could not be tied to the attested enclave. Treat it as unverified.
+        </div>
+      )}
+      {open && (
+        <ul className="verified-list">
+          {checks.map((c) => (
+            <li key={c.id} className={c.ok === true ? 'ok' : c.ok === false ? 'bad' : 'na'}>
+              <span className="vi">{c.ok === true ? '✓' : c.ok === false ? '✗' : '–'}</span>
+              <span className="vl">{c.label}</span>
+              <span className="vd">{c.detail}</span>
+            </li>
+          ))}
+          {a?.models?.[0]?.signer && (
+            <li className="na meta"><span className="vi" /><span className="vl">Model signer</span><span className="vd mono">{a.models[0].signer} ({a.models[0].algo})</span></li>
+          )}
+          {receipt.response?.id && (
+            <li className="na meta"><span className="vi" /><span className="vl">Completion id</span><span className="vd mono">{receipt.response.id}</span></li>
+          )}
+        </ul>
+      )}
     </div>
   );
 });

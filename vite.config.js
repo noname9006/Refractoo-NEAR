@@ -28,11 +28,23 @@ export default defineConfig({
     proxy: { '/api': 'http://localhost:3001' },
   },
   build: { target: 'es2022' },
+  resolve: {
+    alias: {
+      // @nearai/inference-sdk does `import { Buffer } from "buffer"` and depends on
+      // the npm `buffer` polyfill, but Vite treats the bare name as the Node
+      // builtin and replaces it with an empty browser stub — Buffer is then
+      // undefined at runtime. The trailing slash forces the npm package.
+      buffer: 'buffer/',
+    },
+  },
   // @cofhe/sdk spawns a zk-prove worker with internal imports; the default
   // iife worker format can't code-split
   worker: { format: 'es' },
   optimizeDeps: {
     // wllama + transformers.js ship wasm assets that esbuild pre-bundling mangles
     exclude: ['@wllama/wllama', '@huggingface/transformers'],
+    // Only reached through a dynamic import; without this, the first use in dev
+    // triggers dependency re-optimisation and a full page reload mid-request.
+    include: ['@nearai/inference-sdk', 'buffer'],
   },
 });

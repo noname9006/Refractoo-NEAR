@@ -24,6 +24,7 @@ import { optimalThreads } from '../utils/offload-planner.js';
 import { fetchHostInfo } from '../utils/system-info.js';
 import { estimateStorage, requestPersistentStorage } from '../utils/storage-quota.js';
 import { getASR } from '../voice/index.js';
+import { NEARAI_DEFAULT_MODEL } from '../near/nearAiContext.js';
 
 // Central onboarding/workspace state machine. Transitions are EFFECT-driven:
 // entering a stage triggers its async work, which then advances the stage.
@@ -336,6 +337,37 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
       // configured endpoint and mark ready. The router sends chat through the
       // local /api/llm proxy. ──
       const prefs = getPrefs();
+      // ── NEAR AI TEE path: verify gateway + model attestation in the
+      // browser, then mark ready. Fails closed — no fallback to an
+      // unverified or Incognito model. ──
+      if (prefs.inference === 'nearai') {
+        const cfg = { apiKey: prefs.nearAi?.apiKey || '', model: prefs.nearAi?.model || NEARAI_DEFAULT_MODEL };
+        const base = { mode: 'nearai', id: 'nearai', externalName: cfg.model };
+        if (!cfg.apiKey) {
+          push('NEAR AI selected but no API key is set.');
+          setModel((m) => ({
+            ...m, ...base, status: 'error',
+            error: 'NEAR AI is selected but no API key is set. Open Settings → AI model to add one.',
+            log: [...log],
+          }));
+          return;
+        }
+        push(`Using NEAR AI Cloud TEE model "${cfg.model}"`);
+        setModel((m) => ({
+          ...m, ...base, status: 'loading', reason: 'NEAR AI TEE', progress: 1,
+          statusText: 'Verifying attestation…', error: null, log: [...log],
+        }));
+        try {
+          const status = await ctx.initializeNearAi(cfg, (s) => setModel((m) => ({ ...m, statusText: s })));
+          const a = status.attestation;
+          push(`✓ Attestation verified — gateway TCB ${a?.gateway?.tcbStatus}, ${a?.models?.length || 0} model quote(s), GPU ${a?.models?.map((x) => x.gpuEvidence).join('/')}`);
+          setModel((m) => ({ ...m, ...base, status: 'ready', ctxStatus: status, statusText: '', log: [...log] }));
+        } catch (e) {
+          push(`✗ NEAR AI verification failed: ${String(e?.message || e)}`);
+          setModel((m) => ({ ...m, ...base, status: 'error', error: String(e?.message || e), log: [...log] }));
+        }
+        return;
+      }
       if (prefs.inference === 'external') {
         const cfg = prefs.externalApi || {};
         if (!cfg.baseUrl || !cfg.model) {

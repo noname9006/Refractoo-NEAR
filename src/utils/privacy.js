@@ -44,6 +44,10 @@ function isKnownProvider(host) {
 
 export const PRIVACY_COPY = {
   green: 'Private — your questions and data never leave this device.',
+  tee:
+    // Worded to stay true in every state: nothing is sent until the attestation
+    // check passes, so the claim doesn't depend on whether it has run yet.
+    'NEAR AI TEE — nothing is sent until this browser verifies the model’s hardware enclave; prompts are then end-to-end encrypted to it and every answer’s signature is checked. NEAR AI cannot read them, but your data does leave this device.',
   yellow:
     'External model in use — make sure this endpoint is self-hosted on your own machine or server. Otherwise your wallet data is exposed to whoever operates it.',
   red: 'Third-party inference provider in use — your private wallet data may be exposed to the provider.',
@@ -51,6 +55,7 @@ export const PRIVACY_COPY = {
 
 const PRIVACY_SHORT = {
   green: 'On-device',
+  tee: 'NEAR AI TEE',
   yellow: 'External API',
   red: '3rd-party API',
 };
@@ -58,6 +63,9 @@ const PRIVACY_SHORT = {
 // Returns { level, label, short } for the given prefs. Defaults to green for any
 // missing/local config so the UI fails safe (claims privacy only when local).
 export function privacyState(prefs) {
+  if (prefs?.inference === 'nearai') {
+    return { level: 'tee', label: PRIVACY_COPY.tee, short: PRIVACY_SHORT.tee };
+  }
   const external = prefs?.inference === 'external';
   if (!external) {
     return { level: 'green', label: PRIVACY_COPY.green, short: PRIVACY_SHORT.green };

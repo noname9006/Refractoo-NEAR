@@ -7,12 +7,21 @@
 
 import { WllamaContext } from './wllama-context.js';
 import { ExternalContext } from './external-context.js';
+import { NearAiContext } from '../near/nearAiContext.js';
 
 export class InferenceRouter {
   constructor() {
     this.local = new WllamaContext();
     this.external = new ExternalContext();
+    this.nearai = new NearAiContext();
     this.active = this.local;
+  }
+
+  // Connect NEAR AI Cloud (TEE tier): verifies gateway + model attestation in
+  // the browser before marking ready. No download.
+  async initializeNearAi(config, onStatus) {
+    this.active = this.nearai;
+    return this.nearai.initialize(config, onStatus);
   }
 
   // Load the on-device model (wllama). Mirrors WllamaContext.initialize.
