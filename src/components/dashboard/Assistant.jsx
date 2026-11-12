@@ -12,7 +12,7 @@ import { ISpark, IExpand, IShrink, IChevDown, IMic, ISend, IStop, IPower, IDownl
 import { PrivacyBadge } from './PrivacyBadge.jsx';
 import TierPanel from './TierPanel.jsx';
 import { verificationChecks } from '../../near/nearAiContext.js';
-import { pseudonymizeForRemote, SIG_FIGS } from '../../utils/pseudonymize.js';
+import { pseudonymizeForRemote, precisionFor } from '../../utils/pseudonymize.js';
 
 const THINK_KEY = 'pwai.thinking';
 // Default OFF to match Qwen3.5's documented behavior (reasoning is disabled by
@@ -331,10 +331,10 @@ export default function Assistant({ ctx, flow, onOpenSettings }) {
       let messages;
       let restore = (s) => s;
       if (remote && flow.prefs.redactRemote !== false) {
-        const r = pseudonymizeForRemote(facts, text);
+        const r = pseudonymizeForRemote(facts, text, { sigFigs: precisionFor(flow.prefs, flow.model.mode) });
         messages = buildAnalysisMessages(r.facts, r.question);
         restore = r.restore;
-        redacted = { labels: r.labels };
+        redacted = { labels: r.labels, sigFigs: r.sigFigs };
         if (import.meta.env.DEV) window.__lastRemotePrompt = messages; // dev-only inspection
       } else {
         messages = buildAnalysisMessages(facts, text);
@@ -677,7 +677,7 @@ const AssistantBubble = memo(function AssistantBubble({ msg, live = false, elaps
           <div className={`redact-note${normalized.redacted.off ? ' off' : ''}`}>
             {normalized.redacted.off
               ? 'Sent with real addresses and exact amounts (pseudonymization is off).'
-              : `Sent pseudonymized: ${normalized.redacted.labels} identifier${normalized.redacted.labels === 1 ? '' : 's'} replaced with placeholders, amounts rounded to ${SIG_FIGS} significant figures. Real addresses above were restored on this device.`}
+              : `Sent pseudonymized: ${normalized.redacted.labels} identifier${normalized.redacted.labels === 1 ? '' : 's'} replaced with placeholders, ${normalized.redacted.sigFigs === 0 ? 'exact amounts' : `amounts rounded to ${normalized.redacted.sigFigs ?? 3} significant figures`}. Real addresses above were restored on this device.`}
           </div>
         )}
       </div>

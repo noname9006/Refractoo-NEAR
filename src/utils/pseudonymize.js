@@ -6,10 +6,14 @@
 //     addresses → ADDR_1.., tx hashes → TX_1.., NEAR accounts → NEAR_1..
 //     (full 0x…40-hex, the short "0x1234…abcd" form used in risk flags, and
 //     NEAR named/implicit accounts)
-//   • numbers → 3 significant figures (61.7566 → 61.8, 124515 → 125000), so an
-//     exact balance can't be matched back to one address on a block explorer
-//   • ISO dates → year-month
-//   • a dataNote telling the model the figures are rounded
+//   • numbers → N significant figures, per tier (default: exact for the NEAR AI
+//     TEE, whose operator can't read the prompt; 4 for an external API, ≤0.05%
+//     error). An exact multi-asset balance set is a fingerprint that can be
+//     matched back to one address on a block explorer.
+//     Rounding, not random noise: noise of the same size hides no more, fresh
+//     noise per request can be averaged away, and it reads as an exact figure.
+//   • ISO dates → year-month (only when rounding)
+//   • a dataNote telling the model what was replaced / rounded
 // The user's question is pseudonymized with the same map, and restore() swaps
 // placeholders in the model's answer back to the real short addresses —
 // locally, so the user reads their own addresses and the provider never does.
@@ -28,9 +32,17 @@ const ISO_DATE = /^(\d{4}-\d{2})-\d{2}(?:T[\d:.]+Z?)?$/;
 // Keys whose numbers are small counts or shares that identify nothing; kept exact.
 const KEEP_EXACT = /(count|Count|walletCount|txTotal|txCount|Pct|pct)$/;
 
-export const SIG_FIGS = 3;
+// Amount precision for off-device prompts: significant figures, 0 = exact.
+export const PRECISION_OPTIONS = [0, 4, 3, 2];
+export const DEFAULT_PRECISION = { nearai: 0, external: 4 };
 
-export function roundSig(n, sig = SIG_FIGS) {
+// prefs → significant figures for a tier (0 = exact). Pure, for tests and UI.
+export function precisionFor(prefs, tier) {
+  const v = prefs?.roundRemote?.[tier];
+  return PRECISION_OPTIONS.includes(v) ? v : (DEFAULT_PRECISION[tier] ?? 4);
+}
+
+export function roundSig(n, sig = 4) {
   if (!Number.isFinite(n) || n === 0) return n;
   const mag = Math.floor(Math.log10(Math.abs(n)));
   const factor = 10 ** (sig - 1 - mag);
@@ -41,7 +53,8 @@ export function roundSig(n, sig = SIG_FIGS) {
 
 const shortAddr = (a) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 
-export function createPseudonymizer(clusterAddresses = []) {
+// sigFigs: 0 = keep numbers and dates exact (identifiers are still replaced).
+export function createPseudonymizer(clusterAddresses = [], { sigFigs = 0 } = {}) {
   const toLabel = new Map(); // canonical id (lowercase) → label
   const fromLabel = new Map(); // label → display string for restore()
   const counters = { WALLET: 0, ADDR: 0, TX: 0, NEAR: 0 };
@@ -91,9 +104,9 @@ export function createPseudonymizer(clusterAddresses = []) {
   }
 
   function value(v, key = '') {
-    if (typeof v === 'number') return KEEP_EXACT.test(key) ? v : roundSig(v);
+    if (typeof v === 'number') return !sigFigs || KEEP_EXACT.test(key) ? v : roundSig(v, sigFigs);
     if (typeof v === 'string') {
-      const d = ISO_DATE.exec(v);
+      const d = sigFigs ? ISO_DATE.exec(v) : null;
       return d ? d[1] : text(v);
     }
     if (Array.isArray(v)) return v.map((x) => value(x, key));
@@ -119,18 +132,24 @@ export function createPseudonymizer(clusterAddresses = []) {
   return { text, value, restore, get size() { return fromLabel.size; } };
 }
 
-export const ROUNDING_NOTE =
-  `PRIVACY: identifiers in these FACTS are placeholders (WALLET_n = the user's own wallets, ` +
-  `ADDR_n / NEAR_n = other accounts, TX_n = transactions) and all amounts and USD values are ` +
-  `rounded to ${SIG_FIGS} significant figures. Write placeholders exactly as given (e.g. WALLET_1) ` +
-  `as if they were the real addresses — the app swaps the real ones back in before the user reads ` +
-  `your answer — and never mention placeholders, pseudonymization or this note. Present figures ` +
-  `as approximate (e.g. "~$125,000"). This overrides the "use EXACTLY" rules.`;
+// Note for the model, matching what was actually done.
+export function privacyNote(sigFigs) {
+  const ids =
+    `PRIVACY: identifiers in these FACTS are placeholders (WALLET_n = the user's own wallets, ` +
+    `ADDR_n / NEAR_n = other accounts, TX_n = transactions). Write placeholders exactly as given ` +
+    `(e.g. WALLET_1) as if they were the real addresses — the app swaps the real ones back in ` +
+    `before the user reads your answer — and never mention placeholders, pseudonymization or this note.`;
+  if (!sigFigs) return ids;
+  return (
+    `${ids} All amounts and USD values are rounded to ${sigFigs} significant figures: present ` +
+    `them as approximate (e.g. "~$124,500"). This overrides the "use EXACTLY" rules.`
+  );
+}
 
 // facts + question → what is safe to send, plus restore() for the answer.
-export function pseudonymizeForRemote(facts, question) {
-  const p = createPseudonymizer(facts?.addresses || []);
+export function pseudonymizeForRemote(facts, question, { sigFigs = 0 } = {}) {
+  const p = createPseudonymizer(facts?.addresses || [], { sigFigs });
   const sent = p.value(facts || {});
-  sent.dataNotes = [ROUNDING_NOTE, ...(Array.isArray(sent.dataNotes) ? sent.dataNotes : [])];
-  return { facts: sent, question: p.text(question), restore: p.restore, labels: p.size };
+  sent.dataNotes = [privacyNote(sigFigs), ...(Array.isArray(sent.dataNotes) ? sent.dataNotes : [])];
+  return { facts: sent, question: p.text(question), restore: p.restore, labels: p.size, sigFigs };
 }

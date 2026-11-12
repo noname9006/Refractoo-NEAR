@@ -900,6 +900,7 @@ label.check input{width:auto;padding:0;margin:0}
 .tier-table tbody th{width:24%;color:var(--ink-3);font-weight:500}
 .tier-table .cur{background:var(--accent-wash)}
 .tier-table thead th .privacy-light{display:inline-block;vertical-align:middle;margin-right:4px}
+.tier-prec{height:26px;padding:0 6px;border-radius:var(--r-sm);border:1px solid var(--line-2);background:var(--surface);color:var(--ink);font:inherit;font-size:12px;max-width:100%}
 .tier-cur{font-size:11px;color:var(--accent);font-weight:600}
 .tier-redact{margin-top:10px;align-items:flex-start;line-height:1.4;color:var(--ink-2)}
 .tier-foot{margin:8px 0 0;font-size:11px;line-height:1.4}

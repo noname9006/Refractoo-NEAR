@@ -125,9 +125,12 @@ const DEFAULT_PREFS = {
   // 0 = unlimited. Applies only when the Think toggle is on.
   nearAi: { apiKey: '', model: '' },
   // Pseudonymize FACTS + question for off-device tiers (nearai, external):
-  // addresses → placeholders, amounts → 3 significant figures. See
-  // utils/pseudonymize.js. On-device inference always sees real data.
+  // addresses → placeholders. See utils/pseudonymize.js. On-device inference
+  // always sees real data.
   redactRemote: true,
+  // Amount precision per off-device tier, in significant figures (0 = exact).
+  // Missing keys fall back to DEFAULT_PRECISION: TEE exact, external 4.
+  roundRemote: {},
   // GPU/CPU layer offload for on-device inference. 'auto' offloads everything to
   // the GPU and auto-degrades if it doesn't fit (the safe default). 'manual' pins
   // a specific GPU layer count (offloadGpuLayers; null = derive/all) so the user
