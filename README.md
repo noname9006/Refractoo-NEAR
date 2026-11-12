@@ -1,16 +1,90 @@
-# Privacy Wallet AI
+# Refractoo — private AI analysis of your whole portfolio, NEAR included
 
-Browser-based DeFi wallet analyzer. A local LLM (wllama: llama.cpp → WebGPU /
-WASM) analyzes deterministic on-chain facts; confidential (FHE-encrypted) token
-balances are decrypted client-side. Inference data never leaves the device.
+Refractoo reads your wallets — EVM chains, public NEAR accounts and your
+**NEAR Confidential Intents (private-shard) balances** — computes the numbers
+deterministically in the browser, and lets an AI explain them. You choose where
+that AI runs, and the app shows exactly who can see what:
+
+| Tier | Where the model runs | What this browser verifies |
+|---|---|---|
+| **On device** | wllama (llama.cpp → WebGPU/WASM) in this tab | nothing leaves the device |
+| **NEAR AI TEE** | NEAR AI Cloud, Intel TDX + NVIDIA confidential-computing enclave | gateway + model attestation before sending, end-to-end encryption to the model, a signature on every answer |
+| **External API** | any OpenAI-compatible endpoint | nothing — you trust the operator |
+
+For the two off-device tiers the prompt is **pseudonymized**: wallet addresses,
+NEAR account names, staking pools and tx hashes become placeholders
+(`WALLET_1`, `ADDR_2`, `NEAR_1`…), and the answer is mapped back to your real
+addresses locally.
+
+Submitted to **NEAR HACKATHON — Privacy & Private AI track**.
+
+## Try it in 3 minutes — no wallet, no keys
+
+Requires Node 22+ and Chrome/Edge (WebGPU only matters for the on-device model).
+
+```bash
+npm ci
+npm run dev
+```
+
+Open http://localhost:5173/app, then:
+
+| Do | You should see |
+|---|---|
+| Click **Explore a demo** | A dashboard with an EVM demo wallet and the public NEAR account `root.near`, read live: NEAR balance, FT tokens and NEAR staked in `shitzu.pool.near` (Holdings, DeFi), a **NEAR** chain pill |
+| In the assistant, click **Verify NEAR AI gateway now** | Within a few seconds: "Intel TDX quote verified against Intel collateral · TCB UpToDate", the fresh nonce it is bound to, and the gateway signing key — a real attestation check run in your browser, no API key |
+| Click the privacy line under the chat box (**Compare tiers**) | The three tiers side by side: where the model runs, what leaves the device, who can read it, what is checked, what is pseudonymized |
+| Scroll to **Shielded balances → NEAR Confidential Intents**, click **Show sample private balances (demo)** | Sample private-shard balances (USDC, wNEAR, BTC, ZEC) clearly tagged **sample** — with a wallet connected this button instead asks for one signature of an empty intent and reads your real ones |
+| Click **+ NEAR** in the toolbar, enter any account (e.g. `randomname1001.near`) | That account's NEAR / FT / staking added to the portfolio, read-only |
+
+With a NEAR AI key (https://cloud.near.ai): **Settings → AI model → NEAR AI TEE**,
+paste the key, **Verify & connect**, then ask anything. Every answer gets a
+**Verified · 6/6 checks** panel (gateway TDX, model TDX, NVIDIA GPU, fresh nonce,
+E2EE, enclave signature) and a note of what was pseudonymized.
+
+Tests: `npm test` — unit tests plus live checks against public endpoints (NEAR
+RPC, FastNEAR, the key-less NEAR AI gateway check). Tests that spend NEAR AI
+credit run only when `NEARAI_API_KEY` is set (env or `.env`).
+
+## Built during the hackathon (scored work)
+
+Everything before the tag [`pre-hackathon`](https://github.com/noname9006/Refractoo-NEAR/tree/pre-hackathon)
+(commit `e44f03c`) is pre-existing work — see [Baseline](#baseline-pre-hackathon-work).
+The hackathon diff: [`pre-hackathon...main`](https://github.com/noname9006/Refractoo-NEAR/compare/pre-hackathon...main).
+
+| NEAR feature | Code |
+|---|---|
+| **NEAR AI TEE inference tier**: browser-side gateway + model attestation, E2EE chat, per-answer signature check, "Verified" receipt; refuses non-attested (Incognito) models | [`src/near/nearAiContext.js`](src/near/nearAiContext.js) |
+| NVIDIA NRAS verdict check with bounded clock tolerance (the SDK has none; a few seconds of client clock lag failed every verification) | [`src/near/nrasVerifier.js`](src/near/nrasVerifier.js) |
+| **Key-less live gateway check** for people without a NEAR AI key | `verifyGatewayNow()` in `nearAiContext.js`, [`GatewayCheck.jsx`](src/components/dashboard/GatewayCheck.jsx) |
+| **NEAR Confidential Intents**: one signature of an empty intent → private-shard balances + swap history, held in memory only | [`src/near/confidentialIntents.js`](src/near/confidentialIntents.js) |
+| **Public NEAR accounts** by name: balance, FTs, per-pool staking, priced | [`src/near/nearAccount.js`](src/near/nearAccount.js) |
+| **Pseudonymization** of off-device prompts, per-tier amount precision (TEE exact, external 4 significant figures), local restore of real addresses | [`src/utils/pseudonymize.js`](src/utils/pseudonymize.js) |
+| Tier switcher with the who-sees-what table | [`TierPanel.jsx`](src/components/dashboard/TierPanel.jsx) |
+| Demo mode for reviewers (live NEAR account, labelled sample private-shard data) | [`src/near/demoFixtures.js`](src/near/demoFixtures.js) |
+| Tests | [`tests/`](tests) |
+
+Also in the window: reasoning budget for NEAR AI models (Settings), token-name
+sanitizing before anything reaches a prompt (deployer-chosen names are
+untrusted text), and fixes found along the way — see the commit log.
+
+## Baseline (pre-hackathon work)
+
+Built June–July 2026, before the hackathon, and not part of the scored work: the
+dashboard and design, EVM portfolio + DeFi + approvals, FHE confidential tokens
+(Zama, Fhenix CoFHE, Inco), the on-device model (wllama) with voice, and the
+external-API tier. The sections below document that baseline.
 
 ## Run
 
 ```bash
-npm install
-cp .env.example .env   # add VITE_ETHERSCAN_KEY (optional but recommended)
+npm ci
+cp .env.example .env   # optional: VITE_ETHERSCAN_KEY for tx history
 npm run dev
 ```
+
+Every key in `.env.example` is optional for the demo. `VITE_AURORA_INTENTS_API_KEY`
+is needed only to read real Confidential Intents balances with a wallet.
 
 ## Network modes
 
@@ -183,7 +257,11 @@ have (8192–32768 depending on model size, in the current registry).
 
 | Data | Where it goes |
 |------|---------------|
-| LLM inference (queries, analysis) | never leaves the browser |
+| LLM inference — **on-device** tier | never leaves the browser |
+| LLM inference — **NEAR AI TEE** tier | end-to-end encrypted to an attested NEAR AI model enclave (verified in the browser first); pseudonymized; NEAR's gateway relays ciphertext |
+| LLM inference — **external API** tier | the endpoint operator reads it (pseudonymized, amounts rounded) — use only for self-hosted servers |
+| NEAR Confidential Intents balances | the NEAR Intents API sees your address and amounts; the private shard's validators run in TEEs; amounts stay in this tab's memory |
+| Public NEAR account reads | FastNEAR, NEAR RPC and DefiLlama see the account names you look up |
 | Confidential-balance **discovery** | ordinary public chain reads — no signature, no decryption, no relayer |
 | Confidential-balance **plaintext** | produced in-browser; never transmitted, never written to disk |
 | Confidential-balance **metadata, on reveal** | ⚠️ the decryption service learns your address + which token you asked about |

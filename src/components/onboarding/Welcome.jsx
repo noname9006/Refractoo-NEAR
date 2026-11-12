@@ -7,8 +7,8 @@ export default function Welcome({ onConnect, busy, error, returningCount }) {
       <div>
         <h1>Your private DeFi consultant</h1>
         <p className="muted" style={{ marginTop: 8, maxWidth: 360 }}>
-          Analyze your wallets with an AI that runs entirely on your device.
-          Inference and private-data unsealing never leave this browser.
+          Analyze your wallets with an AI on your device, or in a NEAR AI enclave
+          this browser verifies. Private-data unsealing never leaves this browser.
         </p>
       </div>
 

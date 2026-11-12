@@ -131,8 +131,8 @@ export default function Landing() {
           <div>
             <h1>Your privacy-first DeFi analyst</h1>
             <p className="muted" style={{ marginTop: 18, maxWidth: 400, color: 'color-mix(in srgb, var(--ink-2) 35%, var(--ink-3))', letterSpacing: '0.04em', lineHeight: 1.7 }}>
-              Analyze your wallets with an AI that runs entirely on your device<br />
-              Your data stays in your browser unless you choose to encrypt and store it on-chain
+              Analyze your wallets — NEAR private balances included — with an AI on your device<br />
+              or in a NEAR AI enclave your browser verifies first. You choose; the app shows who sees what
             </p>
           </div>
 
