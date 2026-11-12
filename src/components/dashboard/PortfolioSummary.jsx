@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Sparkline from './Sparkline.jsx';
 import { usdParts, usd, pct, pctAbs, seriesMinMax } from './format.js';
-import { IArrowUp, IArrowDown, IUnlock, ILock, IChevDown } from './icons.jsx';
+import { IArrowUp, IArrowDown, IUnlock, ILock, IChevDown, IRefresh } from './icons.jsx';
 import { getLayout, setCardCollapsed } from '../../storage/local.js';
 
 const RANGES = ['24H', '7D', '30D', '90D'];
@@ -91,6 +91,10 @@ export default function PortfolioSummary({ flow, view }) {
           <div className="sum-inline-val num">{dollars}<span className="sum-inline-cents">{cents}</span></div>
         )}
         <span className="spacer" />
+        <button className={`icon-btn${updating ? ' spinning' : ''}`} title="Refresh all balances (auto every minute)"
+          aria-label="Refresh all balances" onClick={() => { flow.refresh()?.catch?.(() => {}); }}>
+          <IRefresh />
+        </button>
         <button className="icon-btn" title={collapsed ? 'Expand' : 'Collapse'}
           aria-label={collapsed ? 'Expand portfolio details' : 'Collapse portfolio details'}
           onClick={toggleCollapsed}>

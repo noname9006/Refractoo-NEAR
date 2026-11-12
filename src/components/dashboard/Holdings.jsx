@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { amount, usdHolding, usd, pct, tokenPrice, CHAIN_META } from './format.js';
+import { amount, usdHolding, usd, pct, tokenPrice, CHAIN_META, originChainName } from './format.js';
+import { symbolName } from '../../data/coinIcons.js';
 import { ILock, IChevDown } from './icons.jsx';
 import TokenIcon from './TokenIcon.jsx';
 import { getLayout, setCardCollapsed, setLayout } from '../../storage/local.js';
@@ -13,7 +14,7 @@ function TokenGlyph({ h, shield }) {
       </div>
     );
   }
-  return <TokenIcon chainId={h.chainId} address={h.address} symbol={h.symbol} glyph={h.glyph} color={h.color} />;
+  return <TokenIcon chainId={h.chainId} address={h.address} symbol={h.symbol} glyph={h.glyph} color={h.color} bySymbol={!!h.private} locked={!!h.private} />;
 }
 
 const DEFAULT_SMALL_USD = 0.02;
@@ -43,9 +44,15 @@ export default function Holdings({ view, loading, updating, smallUsd = DEFAULT_S
 
   const toggleCollapsed = () => setCollapsed((c) => { setCardCollapsed('holdings', !c); return !c; });
   const toggleCompact = () => setCompact((c) => { setLayout({ holdingsCompact: !c }); return !c; });
-  const holdings = view?.holdings || [];
-  const shielded = view?.shielded || [];
-  const priceSub = (h) => `${amount(h.amount)} ${h.symbol} · ${CHAIN_META[h.chainId]?.name || ''}`;
+  // NEAR Intents (private-shard) balances render exactly like public tokens —
+  // same icon (with a lock dot), same lines — but name their ORIGIN chain.
+  const allShielded = view?.shielded || [];
+  const shielded = allShielded.filter((s) => s.stack !== 'near-intents');
+  const privateRows = allShielded
+    .filter((s) => s.stack === 'near-intents' && s.amount != null)
+    .map((s) => ({ ...s, chainId: 'near', name: symbolName(s.symbol), private: true }));
+  const holdings = [...(view?.holdings || []), ...privateRows].sort((a, b) => (b.usd ?? -1) - (a.usd ?? -1));
+  const priceSub = (h) => `${amount(h.amount)} ${h.symbol} · ${h.private ? originChainName(h.originChain) : CHAIN_META[h.chainId]?.name || ''}`;
 
   // Hidden by default: dust (priced under the user's small-balance threshold)
   // AND unpriced tokens (usd === null, shown as "—") — these are almost always
@@ -77,7 +84,7 @@ export default function Holdings({ view, loading, updating, smallUsd = DEFAULT_S
           {!loading && displayed.length === 0 && holdings.length === 0 && <div className="empty-note">No token balances found on the selected chains.</div>}
           {displayed.map((h) => {
             const c = pct(h.change24h);
-            const key = `${h.chainId}:${h.symbol}:${h.address || 'native'}`;
+            const key = h.private ? h.key : `${h.chainId}:${h.symbol}:${h.address || 'native'}`;
             const tp = tokenPrice(h.price);
             // Detail rows stay mounted and collapse via CSS so the show/hide
             // animates; `compact` is the same value for every row.
@@ -86,7 +93,7 @@ export default function Holdings({ view, loading, updating, smallUsd = DEFAULT_S
                 <div className="asset">
                   <TokenGlyph h={h} />
                   <div className="meta">
-                    <div className="nm">{h.name} <span className="tag">{h.symbol}</span></div>
+                    <div className="nm">{h.name} <span className="tag">{h.symbol}</span>{h.demo && <span className="tag demo-tag">sample</span>}</div>
                     <div className="sub num collapse">{priceSub(h)}</div>
                   </div>
                 </div>
@@ -108,9 +115,7 @@ export default function Holdings({ view, loading, updating, smallUsd = DEFAULT_S
                 <div className="meta">
                   <div className="nm">{s.symbol || 'Shielded balance'} <span className="tag shield-tag">private</span></div>
                   <div className="sub num">
-                    {s.stack === 'near-intents'
-                      ? (s.demo ? 'NEAR private shard · sample data (demo)' : 'NEAR private shard · read locally')
-                      : `${s.stack} · ${s.state === 'revealed' ? 'decrypted locally' : 'encrypted'}`}
+                    {`${s.stack} · ${s.state === 'revealed' ? 'decrypted locally' : 'encrypted'}`}
                   </div>
                 </div>
               </div>

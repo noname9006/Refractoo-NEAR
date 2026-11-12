@@ -1,9 +1,16 @@
 import { useState, useEffect } from 'react';
 import { amount, timeAgo, shortAddr, usdHolding, explorerTx, CHAIN_META } from './format.js';
-import { IIn, IOut, ISwap, IArrowRight, IChevDown, IFlag } from './icons.jsx';
+import { IIn, IOut, ISwap, IArrowRight, IChevDown, IFlag, ILock } from './icons.jsx';
+import { fetchNearTxs } from '../../near/nearTxs.js';
 import { fetchHistoricalPrices } from '../../data/prices.js';
 import { llamaKey, nativeFor } from '../../data/tokens.js';
 import { PRICE_MODE } from '../../config/networks.js';
+
+const NEAR_KEY = 'coingecko:near';
+const nativeSym = (chainId) => (chainId === 'near' ? 'NEAR' : 'ETH');
+const nativeKey = (chainId) => (chainId === 'near' ? NEAR_KEY : nativeFor(chainId).key);
+// Named NEAR accounts (alice.near) read better in full; hex ids get shortened.
+const counterName = (chainId, a) => (chainId === 'near' && a && a.length <= 24 && !/^[0-9a-f]{64}$/.test(a) ? a : shortAddr(a));
 import { getLayout, setCardCollapsed, setLayout } from '../../storage/local.js';
 
 const SMALL_USD = 0.01;
@@ -17,7 +24,7 @@ function valueParts(tx) {
   }
   const v = Number(tx.valueEth || 0);
   if (!(v > 0)) return null;
-  return { key: nativeFor(tx.chainId).key, amt: v };
+  return { key: nativeKey(tx.chainId), amt: v };
 }
 
 function SkeletonRows() {
@@ -50,6 +57,18 @@ export default function Activity({ flow, selectedChains, selectedWallets, loadin
 
   const toggleCollapsed = () => setCollapsed((c) => { setCardCollapsed('activity', !c); return !c; });
 
+  // Public NEAR transactions (NearBlocks). Re-read whenever the NEAR account
+  // data refreshes (manual Refresh or the 1-minute auto-refresh).
+  const nearIds = (flow.cluster?.nearAccounts || []).join(',');
+  const [nearTxs, setNearTxs] = useState({});
+  useEffect(() => {
+    if (!nearIds) { setNearTxs({}); return undefined; }
+    let alive = true;
+    Promise.all(nearIds.split(',').map((id) => fetchNearTxs(id).then((t) => [id, t]).catch((e) => { console.warn('[activity] NEAR txs', id, e); return [id, []]; })))
+      .then((pairs) => { if (alive) setNearTxs(Object.fromEntries(pairs)); });
+    return () => { alive = false; };
+  }, [nearIds, flow.nearData]);
+
   const cluster = flow.clusterData || {};
   const walletOn = (addr) => !selectedWallets || selectedWallets.size === 0 || selectedWallets.has(addr.toLowerCase());
 
@@ -75,6 +94,14 @@ export default function Activity({ flow, selectedChains, selectedWallets, loadin
           dir, token: tt.token, tokenName: tt.tokenName, contract: tt.contract,
           tokenAmount: tt.amount, from: tt.from, to: tt.to,
         });
+      }
+    }
+  }
+  if (selectedChains.has('near')) {
+    for (const [id, list] of Object.entries(nearTxs)) {
+      if (!walletOn(id)) continue;
+      for (const tx of list) {
+        txs.push({ ...tx, valueEth: tx.valueNear, id: `n:${tx.hash}`, kind: 'native', chainId: 'near', owner: id.toLowerCase() });
       }
     }
   }
@@ -139,13 +166,13 @@ export default function Activity({ flow, selectedChains, selectedWallets, loadin
     else if (isApprove) { title = 'Token approval'; Icon = IArrowRight; cls = 'exec'; }
     else if (isExec) { title = method; Icon = IArrowRight; cls = 'exec'; }
     else if (g.tokens.length === 1) { const t = g.tokens[0]; title = `${t.dir === 'out' ? 'Sent' : 'Received'} ${t.token || 'tokens'}`; Icon = t.dir === 'out' ? IOut : IIn; cls = t.dir === 'out' ? 'out' : 'in'; }
-    else if (nativeVal > 0) { title = out ? 'Sent ETH' : 'Received ETH'; Icon = out ? IOut : IIn; cls = out ? 'out' : 'in'; }
+    else if (nativeVal > 0) { title = `${out ? 'Sent' : 'Received'} ${nativeSym(g.chainId)}`; Icon = out ? IOut : IIn; cls = out ? 'out' : 'in'; }
     else if (g.tokens.length > 1) { title = 'Transfer'; Icon = IArrowRight; cls = 'exec'; }
     else { title = 'Contract interaction'; Icon = IArrowRight; cls = 'exec'; }
 
     // Value lines: native value (if any) + each token transfer.
     const legs = [];
-    if (nativeVal > 0) legs.push({ key: nativeFor(g.chainId).key, amt: nativeVal, ts: nativeTx.timestamp, label: 'ETH', dir: out ? 'out' : 'in', contract: null });
+    if (nativeVal > 0) legs.push({ key: nativeKey(g.chainId), amt: nativeVal, ts: nativeTx.timestamp, label: nativeSym(g.chainId), dir: out ? 'out' : 'in', contract: null });
     for (const t of g.tokens) {
       if (!(t.tokenAmount > 0)) continue;
       legs.push({ key: t.contract ? llamaKey(g.chainId, t.contract) : null, amt: t.tokenAmount, ts: t.timestamp, label: t.token || 'tokens', dir: t.dir, contract: t.contract });
@@ -168,7 +195,33 @@ export default function Activity({ flow, selectedChains, selectedWallets, loadin
     return { g, title, Icon, cls, out, counter, legs, small, scam, addrs };
   };
 
-  const decorated = [...groupsMap.values()].sort((a, b) => b.timestamp - a.timestamp).map(decorate);
+  // Private (NEAR Intents) history — only after the user signed in. Each item
+  // already carries formatted amounts and USD values from the Intents API.
+  const ni = flow.nearIntents || {};
+  const symOf = new Map((flow.shielded || []).filter((t) => t.stack === 'near-intents').map((t) => [t.address, t.symbol]));
+  const assetSym = (id) => symOf.get(id) || String(id || '').replace(/^nep\d+:/, '').split('.')[0].toUpperCase().slice(0, 10);
+  const privDecorated = (ni.status === 'unlocked' && selectedChains.has('near') && ni.address && walletOn(ni.address) && Array.isArray(ni.history) ? ni.history : [])
+    .filter((h) => h && h.createdAt)
+    .map((h, i) => {
+      const inSym = assetSym(h.originAsset);
+      const outSym = assetSym(h.destinationAsset);
+      const swap = h.originAsset && h.destinationAsset && h.originAsset !== h.destinationAsset;
+      const legs = [];
+      if (Number(h.amountInFormatted) > 0) legs.push({ amt: Number(h.amountInFormatted), label: inSym, dir: 'out', usd: h.amountInUsd != null ? Number(h.amountInUsd) : null });
+      if (swap && Number(h.amountOutFormatted) > 0) legs.push({ amt: Number(h.amountOutFormatted), label: outSym, dir: 'in', usd: h.amountOutUsd != null ? Number(h.amountOutUsd) : null });
+      const toPrivate = h.recipientType === 'CONFIDENTIAL_INTENTS' || h.recipientType === 'INTENTS';
+      const title = swap ? `Swap ${inSym} → ${outSym}` : toPrivate ? `Deposited ${inSym}` : `Withdrew ${inSym}`;
+      const status = h.status && h.status !== 'SUCCESS' ? ` · ${String(h.status).toLowerCase().replace(/_/g, ' ')}` : '';
+      const hash = h.quoteTransactions?.[0]?.txHash || null;
+      const g = { hash: hash || `priv:${h.depositAddress}:${i}`, chainId: 'near', timestamp: Date.parse(h.createdAt), private: true, explorerHash: hash };
+      const hasValue = legs.some((l) => l.usd != null && l.usd >= SMALL_USD);
+      return {
+        g, title: title + status, Icon: swap ? ISwap : toPrivate ? IIn : IOut, cls: swap ? 'swap' : toPrivate ? 'in' : 'out',
+        out: false, counter: null, legs, small: legs.length > 0 && !hasValue, scam: false, addrs: new Set(),
+      };
+    });
+
+  const decorated = [...[...groupsMap.values()].map(decorate), ...privDecorated].sort((a, b) => b.g.timestamp - a.g.timestamp);
   const smallCount = decorated.filter((d) => d.small).length;
   const visible = (showSmall ? decorated : decorated.filter((d) => !d.small)).slice(0, 12);
 
@@ -201,7 +254,7 @@ export default function Activity({ flow, selectedChains, selectedWallets, loadin
           )}
           {visible.map(({ g, title, Icon, cls, out, counter, legs, scam, addrs }) => {
             const counterLc = counter?.toLowerCase();
-            const href = explorerTx(g.chainId, g.hash);
+            const href = g.private ? (g.explorerHash ? explorerTx('near', g.explorerHash) : null) : explorerTx(g.chainId, g.hash);
             const timeText = absTime ? new Date(g.timestamp).toLocaleString() : timeAgo(g.timestamp);
             const dimmed = addrFilter && !addrs.has(addrFilter);
             return (
@@ -211,10 +264,12 @@ export default function Activity({ flow, selectedChains, selectedWallets, loadin
                 <div>
                   <div className="t1">{title}{scam && <span className="scam-flag" title="Unknown token — possible scam"><IFlag /></span>}</div>
                   <div className="t2">
-                    <span className={`cd ${CHAIN_META[g.chainId]?.cd}`} style={{ width: 7, height: 7, borderRadius: '50%' }} />
-                    {CHAIN_META[g.chainId]?.name}{counter ? <> · {out ? 'to' : 'from'}{' '}
+                    {g.private
+                      ? <span className={`cd ${CHAIN_META[g.chainId]?.cd} lockdot`} title="Private (NEAR Intents)"><ILock /></span>
+                      : <span className={`cd ${CHAIN_META[g.chainId]?.cd}`} style={{ width: 7, height: 7, borderRadius: '50%' }} />}
+                    {CHAIN_META[g.chainId]?.name}{g.private ? ' · private' : ''}{counter ? <> · {out ? 'to' : 'from'}{' '}
                       <button className={`addr-link${addrFilter && counterLc === addrFilter ? ' on' : ''}`}
-                        title="Filter by this address" onClick={() => toggleAddr(counterLc)}>{shortAddr(counter)}</button></> : null}
+                        title="Filter by this address" onClick={() => toggleAddr(counterLc)}>{counterName(g.chainId, counter)}</button></> : null}
                   </div>
                 </div>
                 <div className="amt num">

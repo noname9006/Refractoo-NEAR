@@ -15,7 +15,7 @@ export const chainMeta = (chainId) => CHAIN_META[chainId] || { name: `Chain ${ch
 
 export const shortAddr = (a) => (a ? `${a.slice(0, 6)}…${a.slice(-4)}` : '');
 
-export const explorerTx = (chainId, hash) => (EXPLORER[chainId] && hash ? `${EXPLORER[chainId]}/tx/${hash}` : null);
+export const explorerTx = (chainId, hash) => (EXPLORER[chainId] && hash ? `${EXPLORER[chainId]}/${chainId === 'near' ? 'txns' : 'tx'}/${hash}` : null);
 export const explorerAddr = (chainId, addr) => (EXPLORER[chainId] && addr ? `${EXPLORER[chainId]}/address/${addr}` : null);
 
 // "$128,430.27" → { dollars: "$128,430", cents: ".27" } for the big total.
@@ -121,3 +121,12 @@ export function timeAgo(ts) {
   if (h < 24) return `${Math.round(h)}h ago`;
   return `${Math.round(h / 24)}d ago`;
 }
+
+// NEAR Intents `blockchain` ids → display names (origin chain of a private-shard asset).
+const ORIGIN_NAMES = {
+  near: 'NEAR', eth: 'Ethereum', btc: 'Bitcoin', sol: 'Solana', zec: 'Zcash', arb: 'Arbitrum',
+  base: 'Base', op: 'Optimism', pol: 'Polygon', bsc: 'BNB Chain', avax: 'Avalanche', tron: 'Tron',
+  ton: 'TON', doge: 'Dogecoin', xrp: 'XRP Ledger', sui: 'Sui', aptos: 'Aptos', gnosis: 'Gnosis',
+  bera: 'Berachain', stellar: 'Stellar', cardano: 'Cardano', ltc: 'Litecoin', bch: 'Bitcoin Cash',
+};
+export const originChainName = (b) => (b ? ORIGIN_NAMES[String(b).toLowerCase()] || String(b).toUpperCase() : 'NEAR');

@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { amount, usdHolding, shortAddr, explorerAddr, chainMeta } from './format.js';
+import { amount, usdHolding, shortAddr, explorerAddr, chainMeta, originChainName } from './format.js';
+import TokenIcon from './TokenIcon.jsx';
+import { symbolName } from '../../data/coinIcons.js';
 import { IChevDown, IUnlock, ILock } from './icons.jsx';
 import { getLayout, setCardCollapsed } from '../../storage/local.js';
 import { TRUST } from '../../fhe/index.js';
@@ -230,6 +232,9 @@ function NearIntentsBlock({ flow, rows, hasWallet }) {
             Since Aug 2026 NEAR Intents balances are confidential by default — invisible to
             explorers and to this app until you prove you own them.
             {ni.status === 'error' && <div className="warn" style={{ marginTop: 6 }}>{ni.error}</div>}
+            {ni.expired && ni.status === 'idle' && (
+              <div className="warn" style={{ marginTop: 6 }}>Your NEAR Intents session expired. Sign in again to keep balances updating.</div>
+            )}
           </div>
           <div className="shield-actions">
             {/* NEAR wallet: NEP-413 signMessage of an empty intent. */}
@@ -273,25 +278,21 @@ function NearIntentsBlock({ flow, rows, hasWallet }) {
           )}
           {rows.map((t) => (
             <div className="shield-row" key={t.key}>
-              <div className="proto" title={t.name}>🔒</div>
+              <TokenIcon chainId="near" symbol={t.symbol} bySymbol locked />
               <div className="shield-main">
                 <div className="nm">
-                  {t.symbol}
-                  <span className="tag">NEAR private shard</span>
-                  {t.originChain && <span className="tag">{t.originChain}</span>}
+                  {symbolName(t.symbol)} <span className="tag">{t.symbol}</span>
                   {t.demo && <span className="tag demo-tag">sample</span>}
                 </div>
-                <div className="sub">
-                  {t.address}
+                <div className="sub num">
+                  {t.amount != null ? `${amount(t.amount)} ${t.symbol}` : `${t.rawAmount} raw`} · {originChainName(t.originChain)}
                   {t.state === 'error' && <> · <span className="warn">{t.error}</span></>}
                 </div>
               </div>
               <span className="spacer" />
               <div className="shield-vals">
                 <div className="num" style={{ fontWeight: 600 }}>{usdHolding(t.usd)}</div>
-                <div className="sub num">
-                  {t.amount != null ? `${amount(t.amount)} ${t.symbol}` : `${t.rawAmount} raw`}
-                </div>
+
               </div>
               <span className="shield-btn done" title="Read in this browser · never stored"><ILock /></span>
             </div>
@@ -300,6 +301,11 @@ function NearIntentsBlock({ flow, rows, hasWallet }) {
             <div className="empty-note" style={{ paddingTop: 6 }}>
               {rows.length} private balance{rows.length === 1 ? '' : 's'} · {usdHolding(total)}
               {Array.isArray(ni.history) && <> · {ni.history.length} swap{ni.history.length === 1 ? '' : 's'} in history</>}
+            </div>
+          )}
+          {!ni.demo && ni.refreshError && (
+            <div className="empty-note" style={{ paddingTop: 2 }}>
+              <span className="warn">Last refresh failed: {ni.refreshError}</span>
             </div>
           )}
         </div>
@@ -340,3 +346,4 @@ const stackName = (id, stacks) => stacks.find((s) => s.id === id)?.name || id;
 // Trust model per stack id. Kept here rather than on the token so the adapter
 // stays the single source for its own meta (see src/fhe/index.js → TRUST).
 const stackTrust = (id) => (id === 'inco' ? 'tee' : 'threshold-fhe');
+

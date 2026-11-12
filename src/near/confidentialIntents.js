@@ -269,6 +269,26 @@ export async function loadConfidentialHoldings(who) {
   return { address, kind: identity.kind, tokens: rows, history };
 }
 
+// Re-read the balances of an account that already signed in this page load,
+// WITHOUT a wallet prompt: reuses the in-memory session (or its refresh token).
+// If neither is usable it throws { code: 'SESSION_EXPIRED' } before anything is
+// sent — the caller asks the user to sign again; we never prompt on a timer.
+export const SESSION_EXPIRED = 'SESSION_EXPIRED';
+export function hasIntentsSession(kind, id) {
+  return sessions.has(`${kind}:${id}`);
+}
+export function refreshConfidentialHoldings(kind, id) {
+  return loadConfidentialHoldings({
+    kind,
+    id,
+    async signedData() {
+      const e = new Error('NEAR Intents session expired — sign in again to refresh.');
+      e.code = SESSION_EXPIRED;
+      throw e;
+    },
+  });
+}
+
 // Forget every session (e.g. on disconnect). Amounts held by callers are theirs
 // to drop.
 export function clearIntentsSessions() {

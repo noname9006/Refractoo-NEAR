@@ -743,7 +743,9 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
     }
   }, []);
 
+  const refreshNearIntentsRef = useRef(null);
   const refresh = useCallback(async () => {
+    refreshNearIntentsRef.current?.();
     const { addresses, nearAccounts } = getCluster();
     if (nearAccounts.length) loadNearAccounts(nearAccounts);
     if (!addresses.length) return;
@@ -901,7 +903,7 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
       const { address, tokens, history, kind } = await ci.loadConfidentialHoldings(identity);
       const rest = (shieldedRef.current || []).filter((t) => !(t.stack === 'near-intents' && t.wallet === address));
       commitShielded([...rest, ...tokens]);
-      setNearIntents({ status: 'unlocked', error: null, address, history, via: kind });
+      setNearIntents({ status: 'unlocked', error: null, address, history, via: kind, updatedAt: Date.now() });
     } catch (e) {
       const msg = String(e?.message || e);
       const friendly = /user rejected|rejected the request|ACTION_REJECTED|4001|cancel/i.test(msg)
@@ -913,6 +915,61 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
       setNearIntents((s) => ({ ...s, status: 'error', error: friendly }));
     }
   }, [wallet, commitShielded, demo, loadNearAccounts]);
+
+  // Re-read the private-shard balances with the session from the sign-in above —
+  // no wallet prompt. Runs with every Refresh (manual or the 1-minute auto-refresh). If the session is gone, the block goes back to
+  // "sign in" instead of popping a signature request on its own.
+  const nearIntentsRef = useRef(nearIntents);
+  nearIntentsRef.current = nearIntents;
+  const nearRefreshing = useRef(false);
+  const refreshNearIntents = useCallback(async () => {
+    const ni = nearIntentsRef.current;
+    if (ni.status !== 'unlocked' || ni.demo || !ni.address || nearRefreshing.current) return;
+    nearRefreshing.current = true;
+    try {
+      const ci = await import('../near/confidentialIntents.js');
+      const kind = ni.via || 'evm';
+      if (!ci.hasIntentsSession(kind, ni.address)) throw Object.assign(new Error('expired'), { code: ci.SESSION_EXPIRED });
+      const { address, tokens, history } = await ci.refreshConfidentialHoldings(kind, ni.address);
+      if (nearIntentsRef.current.address !== address) return; // user switched account meanwhile
+      const rest = (shieldedRef.current || []).filter((t) => !(t.stack === 'near-intents' && t.wallet === address));
+      commitShielded([...rest, ...tokens]);
+      setNearIntents((s) => ({ ...s, history: history ?? s.history, updatedAt: Date.now(), refreshError: null }));
+    } catch (e) {
+      if (e?.code === 'SESSION_EXPIRED') {
+        setNearIntents((s) => ({ ...s, status: 'idle', error: null, expired: true }));
+      } else {
+        console.warn('[flow] NEAR Intents refresh failed', e);
+        setNearIntents((s) => ({ ...s, refreshError: String(e?.message || e) }));
+      }
+    } finally {
+      nearRefreshing.current = false;
+    }
+  }, [commitShielded]);
+  refreshNearIntentsRef.current = refreshNearIntents;
+
+  // Every balance (public chains, NEAR accounts, private shard) refreshes once a
+  // minute while the dashboard is visible, and when the tab comes back.
+  const refreshRef = useRef(null);
+  refreshRef.current = refresh;
+  useEffect(() => {
+    if (stage !== 'ready') return undefined;
+    let last = Date.now();
+    let running = false; // a slow refresh (many chains, rate-limited APIs) must not stack up
+    const tick = (force) => {
+      if (running || document.visibilityState !== 'visible') return;
+      if (!force && Date.now() - last < 55_000) return;
+      last = Date.now();
+      running = true;
+      Promise.resolve(refreshRef.current?.())
+        .catch((e) => console.warn('[flow] auto-refresh failed', e))
+        .finally(() => { running = false; });
+    };
+    const id = setInterval(() => tick(true), 60_000);
+    const onVis = () => tick(false);
+    document.addEventListener('visibilitychange', onVis);
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVis); };
+  }, [stage]);
 
   // Revoke a token approval (approve(spender, 0)). Switches the wallet to the
   // approval's chain first if needed.
@@ -953,6 +1010,6 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
     model, prefs, voiceDownload, error, busy,
     connect, addAnother, connectMore, loadDemo, removeFromCluster, renameWallet, continueFromWallets,
     rebuildView, startModel: loadModel, retryModel, unloadModel, chooseVoice, refresh, loadHistory, revoke, updatePref,
-    discoverShieldedTokens, revealShieldedToken, revealAllShielded, unlockNearIntents,
+    discoverShieldedTokens, revealShieldedToken, revealAllShielded, unlockNearIntents, refreshNearIntents,
   };
 }

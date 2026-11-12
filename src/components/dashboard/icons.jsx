@@ -58,3 +58,4 @@ export const PrismMark = ({ className = 'prism-mark', ...p }) => (
     <path d="M32 14L62 20" stroke="#8a5bd0" strokeWidth="1.8" />
   </svg>
 );
+export const IRefresh = (p) => (<svg {...S(p)}><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8M4 4v4h4M4 13a8 8 0 0 0 14.3 4.9L20 16M20 20v-4h-4" /></svg>);
