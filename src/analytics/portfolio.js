@@ -325,6 +325,7 @@ export function portfolioFacts(p) {
         chain: CHAIN_SLUG[t.chainId] || t.chainName,
         amount: t.amount != null ? Number(t.amount.toPrecision(6)) : null,
         usd: money(t.usd),
+        ...(t.demo ? { sampleData: 'DEMO SAMPLE — illustrative, not a real balance; say so if you cite it' } : {}),
       })),
       encrypted: stillEncrypted.map((t) => ({
         asset: t.symbol,

@@ -169,7 +169,10 @@ export async function loadConfidentialHoldings(signer) {
       const amount = decimals != null ? Number(BigInt(b.available)) / 10 ** decimals : null;
       return {
         stack: STACK_ID,
-        chainId: STACK_ID,
+        // The NEAR view chain, so the dashboard's chain filter keeps these rows
+        // (an unknown chainId was filtered out of every view). `stack` still
+        // marks them as private-shard balances.
+        chainId: 'near',
         chainName: CHAIN_NAME,
         wallet: address,
         address: b.tokenId,

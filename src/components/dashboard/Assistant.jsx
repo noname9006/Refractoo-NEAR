@@ -11,6 +11,7 @@ import { fmtBytesBin } from '../../utils/system-info.js';
 import { ISpark, IExpand, IShrink, IChevDown, IMic, ISend, IStop, IPower, IDownload, IPlus, IList, ITrash, IChat, PrismMark } from './icons.jsx';
 import { PrivacyBadge } from './PrivacyBadge.jsx';
 import TierPanel from './TierPanel.jsx';
+import GatewayCheck from './GatewayCheck.jsx';
 import { verificationChecks } from '../../near/nearAiContext.js';
 import { pseudonymizeForRemote, precisionFor } from '../../utils/pseudonymize.js';
 import { nearAccountFacts } from '../../near/nearAccount.js';
@@ -588,6 +589,11 @@ export default function Assistant({ ctx, flow, onOpenSettings }) {
                       </>
                     )}
                   </div>
+                )}
+                {/* No NEAR AI key yet (demo visitors, or the TEE tier picked
+                    without a key): offer the key-less live gateway check. */}
+                {!modelReady && !flow.prefs.nearAi?.apiKey && (flow.demo || isNearAi) && (
+                  <GatewayCheck compact onOpenSettings={onOpenSettings} />
                 )}
                 <div className="talk-hint">{hint}</div>
                 <PrivacyBadge prefs={flow.prefs} onClick={() => setTiersOpen((o) => !o)} />

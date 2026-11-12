@@ -36,6 +36,8 @@ import { loadNearAccount, isNearAccountId, normalizeAccountId } from '../near/ne
 export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
   const [stage, setStage] = useState(initialStage);
   const [cluster, setCluster] = useState(() => getCluster());
+  // Demo mode = the cluster holds a session-only "Demo · …" entry (see loadDemo).
+  const demo = Object.values(cluster.labels || {}).some((l) => String(l).startsWith('Demo · '));
   const [wallet, setWallet] = useState(null); // {address, provider, signer, chainId}
   const [clusterData, setClusterData] = useState({});
   const [facts, setFacts] = useState(null);
@@ -668,15 +670,24 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
     try {
       const DEMO_ADDRESS = '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'; // vitalik.eth
       addWallet(DEMO_ADDRESS);
-      const cl = persistRename(DEMO_ADDRESS, 'Demo · vitalik.eth');
+      let cl = persistRename(DEMO_ADDRESS, 'Demo · vitalik.eth');
+      // Plus a public NEAR account (live, read-only). Skipped if the visitor
+      // already added it themselves — the demo label would purge it on reload.
+      const { DEMO_NEAR_ACCOUNT } = await import('../near/demoFixtures.js');
+      const nearAdded = !cl.nearAccounts.includes(DEMO_NEAR_ACCOUNT);
+      if (nearAdded) {
+        addNearAccount(DEMO_NEAR_ACCOUNT);
+        cl = persistRename(DEMO_NEAR_ACCOUNT, `Demo · ${DEMO_NEAR_ACCOUNT}`);
+      }
       setCluster({ ...cl });
+      if (nearAdded) loadNearAccounts([DEMO_NEAR_ACCOUNT]);
       await loadCluster();
     } catch (e) {
       setError(String(e.message || e));
     } finally {
       setBusy(false);
     }
-  }, [loadCluster]);
+  }, [loadCluster, loadNearAccounts]);
 
   const removeFromCluster = useCallback((addr) => {
     setCluster({ ...removeWallet(addr) });
@@ -857,6 +868,15 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
   // signature of a no-op intent (moves nothing) → session → private balances.
   // Rows replace any previous near-intents rows; amounts stay in memory only.
   const unlockNearIntents = useCallback(async () => {
+    // Demo without a wallet: show clearly-labelled SAMPLE private-shard rows
+    // (no signature, no API call) so the flow can be seen end to end.
+    if (!wallet && demo) {
+      const { demoIntentsHoldings, DEMO_INTENTS_HISTORY, DEMO_NEAR_ACCOUNT } = await import('../near/demoFixtures.js');
+      const rest = (shieldedRef.current || []).filter((t) => t.stack !== 'near-intents');
+      commitShielded([...rest, ...demoIntentsHoldings(DEMO_NEAR_ACCOUNT)]); // owned by a demo wallet id, so the wallet filter keeps them
+      setNearIntents({ status: 'unlocked', error: null, address: DEMO_NEAR_ACCOUNT, history: DEMO_INTENTS_HISTORY, demo: true });
+      return;
+    }
     if (!wallet) throw new Error('Connect a wallet to read NEAR confidential balances');
     setNearIntents((s) => ({ ...s, status: 'signing', error: null }));
     try {
@@ -873,7 +893,7 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
       console.warn('[flow] NEAR Intents unlock failed', e);
       setNearIntents((s) => ({ ...s, status: 'error', error: friendly }));
     }
-  }, [wallet, commitShielded]);
+  }, [wallet, commitShielded, demo]);
 
   // Revoke a token approval (approve(spender, 0)). Switches the wallet to the
   // approval's chain first if needed.
@@ -910,7 +930,7 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
 
   return {
     stage, cluster, wallet, clusterData, facts, portfolio, pricing, refreshing,
-    shielded, shieldedStacks, nearIntents, nearStatus, nearData, addNearAcct, removeNearAcct,
+    shielded, shieldedStacks, nearIntents, nearStatus, nearData, addNearAcct, removeNearAcct, demo,
     model, prefs, voiceDownload, error, busy,
     connect, addAnother, connectMore, loadDemo, removeFromCluster, renameWallet, continueFromWallets,
     rebuildView, startModel: loadModel, retryModel, unloadModel, chooseVoice, refresh, loadHistory, revoke, updatePref,

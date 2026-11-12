@@ -1,4 +1,5 @@
 import { PRECISION_OPTIONS, precisionFor } from '../../utils/pseudonymize.js';
+import GatewayCheck from './GatewayCheck.jsx';
 
 const precisionLabel = (n) => (n === 0 ? 'Exact' : `${n} significant figures`);
 
@@ -113,6 +114,10 @@ export default function TierPanel({ flow, onClose, onOpenSettings }) {
         Pseudonymize what leaves this device (addresses → placeholders; amounts as set above). Answers are mapped back to your real addresses locally.
         Exact balances across several assets can identify a wallet on a block explorer, so rounding matters most where the operator can read the prompt.
       </label>
+      <div className="tier-gw">
+        <strong>Check the NEAR AI enclave yourself</strong>
+        <GatewayCheck compact showKeyHint={!nearReady} onOpenSettings={() => { onClose(); onOpenSettings?.(); }} />
+      </div>
       <p className="tier-foot muted">
         All tiers: balances and history are read from public RPCs and block explorers, which see the addresses you query.
         Confidential balances are decrypted only in this browser.

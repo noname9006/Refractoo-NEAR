@@ -186,6 +186,31 @@ export function outputTokenLimit(thinking, budget) {
   return (Number.isFinite(b) && b > 0 ? Math.round(b) : DEFAULT_REASONING_BUDGET) + ANSWER_TOKENS;
 }
 
+// --- Key-less live check ------------------------------------------------------
+// Gateway attestation is public: anyone can fetch the NEAR AI gateway's TDX
+// quote, bound to a fresh nonce from this browser, and verify it against
+// Intel's collateral right here — no API key, no inference, no cost. This is
+// what the demo offers people (e.g. judges) who have no NEAR AI key. It proves
+// the gateway is a genuine, up-to-date TDX enclave; checking the MODEL enclave
+// and getting an answer still needs a key.
+export async function verifyGatewayNow() {
+  const t0 = performance.now();
+  const { AttestationClient, verifyGatewayAttestation } = await import('@nearai/inference-sdk');
+  const fetched = await new AttestationClient().fetchGatewayAttestation({ signingAlgo: 'ed25519' });
+  const v = await verifyGatewayAttestation(fetched);
+  return {
+    ok: true,
+    tcbStatus: v.tcbStatus,
+    advisoryIds: [...(v.advisoryIds || [])],
+    signer: short(v.signer?.signingAddress, 12),
+    algo: v.signer?.signingAlgo,
+    nonce: short(fetched.clientBinding?.nonce, 12),
+    measured: !!v.deployment,
+    ms: Math.round(performance.now() - t0),
+    at: Date.now(),
+  };
+}
+
 // Turns SDK errors into something a user can act on.
 function explain(err) {
   const code = err?.failure?.code || err?.code || '';

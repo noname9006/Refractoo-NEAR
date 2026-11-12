@@ -109,7 +109,7 @@ export default function Holdings({ view, loading, updating, smallUsd = DEFAULT_S
                   <div className="nm">{s.symbol || 'Shielded balance'} <span className="tag shield-tag">private</span></div>
                   <div className="sub num">
                     {s.stack === 'near-intents'
-                      ? 'NEAR private shard · read locally'
+                      ? (s.demo ? 'NEAR private shard · sample data (demo)' : 'NEAR private shard · read locally')
                       : `${s.stack} · ${s.state === 'revealed' ? 'decrypted locally' : 'encrypted'}`}
                   </div>
                 </div>

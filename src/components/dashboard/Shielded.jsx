@@ -214,7 +214,9 @@ function NearIntentsBlock({ flow, rows, hasWallet }) {
   const [showTrust, setShowTrust] = useState(false);
   const ni = flow.nearIntents || { status: 'idle' };
   const signing = ni.status === 'signing';
-  const configured = intentsConfigured();
+  // Demo without a wallet: the button shows labelled sample data instead.
+  const demoMode = !!flow.demo && !hasWallet;
+  const configured = intentsConfigured() || demoMode;
   const total = rows.reduce((s, t) => s + (Number.isFinite(t.usd) ? t.usd : 0), 0);
 
   return (
@@ -229,14 +231,17 @@ function NearIntentsBlock({ flow, rows, hasWallet }) {
             {ni.status === 'error' && <div className="warn" style={{ marginTop: 6 }}>{ni.error}</div>}
           </div>
           <div className="shield-actions">
-            <button className="btn ghost sm" disabled={!configured || !hasWallet || signing}
-              title={!configured
-                ? 'NEAR Intents API key is not configured'
-                : hasWallet
-                  ? 'Sign a no-op intent (moves nothing) to read your private-shard balances'
-                  : 'Connect a wallet to read NEAR confidential balances'}
+            <button className="btn ghost sm" disabled={!configured || (!hasWallet && !demoMode) || signing}
+              title={demoMode
+                ? 'Demo: shows SAMPLE private-shard balances — no signature, nothing read'
+                : !configured
+                  ? 'NEAR Intents API key is not configured'
+                  : hasWallet
+                    ? 'Sign a no-op intent (moves nothing) to read your private-shard balances'
+                    : 'Connect a wallet to read NEAR confidential balances'}
               onClick={() => flow.unlockNearIntents()}>
-              {signing ? <span className="mini-spin" /> : <IUnlock />} Read private balances (1 signature)
+              {signing ? <span className="mini-spin" /> : <IUnlock />}
+              {demoMode ? ' Show sample private balances (demo)' : ' Read private balances (1 signature)'}
             </button>
           </div>
         </div>
@@ -244,6 +249,13 @@ function NearIntentsBlock({ flow, rows, hasWallet }) {
 
       {ni.status === 'unlocked' && (
         <div className="list">
+          {ni.demo && (
+            <div className="demo-note">
+              <strong>Sample data.</strong> In the demo no wallet signs anything, so these private-shard
+              balances are illustrative. With a wallet connected, one signature of an empty intent
+              reads your real ones.
+            </div>
+          )}
           {rows.length === 0 && (
             <div className="empty-note">No balances on the private shard for {shortAddr(ni.address)}.</div>
           )}
@@ -255,6 +267,7 @@ function NearIntentsBlock({ flow, rows, hasWallet }) {
                   {t.symbol}
                   <span className="tag">NEAR private shard</span>
                   {t.originChain && <span className="tag">{t.originChain}</span>}
+                  {t.demo && <span className="tag demo-tag">sample</span>}
                 </div>
                 <div className="sub">
                   {t.address}

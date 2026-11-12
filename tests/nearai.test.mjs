@@ -121,6 +121,14 @@ test('outputTokenLimit: Think off ignores the budget; 0 means no cap; bad values
   assert.equal(outputTokenLimit(true, 'abc'), DEFAULT_REASONING_BUDGET + ANSWER_TOKENS);
 });
 
+test('live, no key: verifyGatewayNow verifies the gateway TDX quote', { timeout: 60_000 }, async () => {
+  const { verifyGatewayNow } = await import('../src/near/nearAiContext.js');
+  const r = await verifyGatewayNow();
+  assert.equal(r.ok, true);
+  assert.match(r.tcbStatus, /UpToDate|OutOfDate|TDRelaunchAdvised/);
+  assert.ok(r.signer && r.nonce, JSON.stringify(r));
+});
+
 function readKey() {
   if (process.env.NEARAI_API_KEY) return process.env.NEARAI_API_KEY;
   try {
