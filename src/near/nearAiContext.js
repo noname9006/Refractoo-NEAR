@@ -260,7 +260,15 @@ export class NearAiContext {
     console.info(`[nearai] E2EE request → ${model}`);
     try {
       const stream = await client.chat.completions.create(
-        { model, messages, stream: true, temperature: 0.7, top_p: 0.8, max_tokens: 4096 },
+        {
+          model, messages, stream: true, temperature: 0.7, top_p: 0.8,
+          // Reasoning models otherwise think by default; with the toggle off the
+          // trace is hidden anyway, and on a full wallet-facts prompt Qwen 3.8
+          // spent the entire 4096-token budget thinking (2+ min, no answer).
+          // vLLM honours this chat-template switch; E2EE leaves it intact.
+          chat_template_kwargs: { enable_thinking: !!thinking },
+          max_tokens: thinking ? 8192 : 4096,
+        },
         { signal: this._abort.signal }
       );
       for await (const chunk of stream) {
