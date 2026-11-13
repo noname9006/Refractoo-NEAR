@@ -174,8 +174,14 @@ const DEFAULT_PREFS = {
   reduceEffects: false, // true = drop backdrop blur + paper textures (faster render)
 };
 
+const INFERENCE_TIERS = ['nearai', 'local', 'external'];
+
 export function getPrefs() {
-  return { ...DEFAULT_PREFS, ...read(PREFS_KEY, {}) };
+  const p = { ...DEFAULT_PREFS, ...read(PREFS_KEY, {}) };
+  // The user's last choice is remembered; anything missing/unknown (fresh
+  // install, an old or corrupted value) falls back to the NEAR AI default.
+  if (!INFERENCE_TIERS.includes(p.inference)) p.inference = DEFAULT_PREFS.inference;
+  return p;
 }
 
 export function setPrefs(patch) {

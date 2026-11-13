@@ -129,11 +129,16 @@ export default function Settings({ flow, onClose }) {
   // therefore the privacy light everywhere) updates live, and unloads whatever
   // was active. The newly-selected backend does NOT auto-load — the user starts
   // it explicitly with the "Load model" button.
-  const chooseLocal = async () => {
-    setInfer('local');
-    flow.updatePref({ inference: 'local' });
+  // Every tier switch is remembered immediately (not only after Connect), so the
+  // last tier the user picked is the one used next time. NEAR AI is the default
+  // only until they choose otherwise (storage/local.js DEFAULT_PREFS).
+  const chooseTier = async (id) => {
+    setInfer(id);
+    if ((prefs.inference || 'nearai') === id) return;
+    flow.updatePref({ inference: id });
     await flow.unloadModel();
   };
+  const chooseLocal = () => chooseTier('local');
   // Reasoning budget: saved immediately (read per request, no reconnect).
   const naiBudget = prefs.nearAi?.reasoningBudget ?? DEFAULT_REASONING_BUDGET;
   const chooseBudget = (b) => flow.updatePref({ nearAi: { ...(prefs.nearAi || {}), reasoningBudget: b } });
@@ -391,11 +396,11 @@ export default function Settings({ flow, onClose }) {
               </div>
               <div className="seg" role="tablist" aria-label="Inference location">
                 <button className={infer === 'nearai' ? 'on' : ''} role="tab" aria-selected={infer === 'nearai'}
-                  onClick={() => setInfer('nearai')}>NEAR AI TEE · Recommended</button>
+                  onClick={() => chooseTier('nearai')}>NEAR AI TEE · Recommended</button>
                 <button className={infer === 'local' ? 'on' : ''} role="tab" aria-selected={infer === 'local'}
                   onClick={chooseLocal}>On device</button>
                 <button className={infer === 'external' ? 'on' : ''} role="tab" aria-selected={infer === 'external'}
-                  onClick={() => setInfer('external')}>External API</button>
+                  onClick={() => chooseTier('external')}>External API</button>
               </div>
             </div>
             <div className="ext-cfg">
