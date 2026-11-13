@@ -88,6 +88,7 @@ export async function fetchApprovals(owner, chain, rpcOverride) {
       decimals: tk.decimals,
       glyph: tk.glyph,
       color: tk.color,
+      owner,
       spender,
       allowance: current,
       unlimited,

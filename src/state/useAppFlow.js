@@ -974,17 +974,30 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
   // Revoke a token approval (approve(spender, 0)). Switches the wallet to the
   // approval's chain first if needed.
   const revoke = useCallback(async (approval) => {
-    if (!wallet) throw new Error('Connect a wallet first');
-    if (Number(wallet.chainId) !== Number(approval.chainId)) {
+    // `wallet` lives only in memory: after a reload the cluster is restored but
+    // no signer exists yet. Connect on demand instead of failing.
+    let w = wallet;
+    if (!w) {
+      w = await connectWallet();
+      setWallet(w);
+    }
+    const signerAddr = (await (await w.provider.getSigner()).getAddress()).toLowerCase();
+    if (approval.owner && approval.owner.toLowerCase() !== signerAddr) {
+      throw new Error(`Switch your wallet to account ${approval.owner.slice(0, 6)}…${approval.owner.slice(-4)} to revoke this approval`);
+    }
+    const net = await w.provider.getNetwork();
+    if (Number(net.chainId) !== Number(approval.chainId)) {
       try {
-        await wallet.provider.send('wallet_switchEthereumChain', [
+        await w.provider.send('wallet_switchEthereumChain', [
           { chainId: '0x' + Number(approval.chainId).toString(16) },
         ]);
       } catch (e) {
         throw new Error(`Switch your wallet to ${approval.chainName} to revoke (${e.message || e})`);
       }
     }
-    const signer = await wallet.provider.getSigner();
+    // Fresh provider after a chain switch (ethers' BrowserProvider pins the network).
+    const { BrowserProvider } = await import('ethers');
+    const signer = await new BrowserProvider(window.ethereum).getSigner();
     const hash = await revokeApproval(approval.token, approval.spender, signer);
     // optimistic: drop it from the portfolio view
     setPortfolio((p) =>

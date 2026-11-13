@@ -36,7 +36,10 @@ export default function SpendingCaps({ flow, view, loading, updating }) {
     try {
       await flow.revoke(a);
     } catch (e) {
-      setErr({ id, msg: String(e.message || e) });
+      // User cancelled in the wallet: not an error, just stop quietly.
+      if (e?.code === 'ACTION_REJECTED' || e?.code === 4001 || e?.info?.error?.code === 4001) return;
+      // ethers errors carry a huge JSON dump in .message; prefer the short reason.
+      setErr({ id, msg: e?.shortMessage || e?.reason || String(e?.message || e).split(' (')[0] });
     } finally {
       setBusy(null);
     }
