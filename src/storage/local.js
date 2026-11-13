@@ -151,6 +151,9 @@ const DEFAULT_PREFS = {
   // addresses → placeholders. See utils/pseudonymize.js. On-device inference
   // always sees real data.
   redactRemote: true,
+  // Show the exact outgoing request (OutboundReview) and wait for "Send" before
+  // every off-device request.
+  reviewRemote: true,
   // Amount precision per off-device tier, in significant figures (0 = exact).
   // Missing keys fall back to DEFAULT_PRECISION: TEE exact, external 4.
   roundRemote: {},

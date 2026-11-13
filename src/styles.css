@@ -1084,3 +1084,22 @@ label.check input{width:auto;padding:0;margin:0}
 .tx .lockdot svg{width:7px;height:7px;stroke-width:3}
 .icon-btn.spinning svg{animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+
+/* Review before sending (OutboundReview) */
+.ob-scrim{position:fixed;inset:0;z-index:80;background:rgba(28,22,12,.38);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;padding:16px}
+.ob-dialog{width:min(760px,100%);max-height:calc(100vh - 32px);display:flex;flex-direction:column;gap:10px;background:var(--surface);border:1px solid var(--line-2);border-radius:var(--r);box-shadow:var(--shadow-lg);padding:16px 18px;font-size:13px;color:var(--ink)}
+.ob-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.ob-head strong{font-size:15px}
+.ob-dest{display:flex;align-items:center;gap:7px;margin-top:4px;color:var(--ink-2);font-size:12.5px;flex-wrap:wrap}
+.ob-transport{margin:0;color:var(--ink-2);line-height:1.45}
+.ob-facts{margin:0;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:6px}
+.ob-facts li{padding:3px 9px;border-radius:var(--pill);background:var(--surface-2);border:1px solid var(--line);font-size:12px;color:var(--ink-2)}
+.ob-facts li.ok{color:var(--pos);background:var(--pos-wash);border-color:color-mix(in srgb,var(--pos) 30%,transparent)}
+.ob-facts li.warn{color:var(--neg);background:var(--neg-wash);border-color:color-mix(in srgb,var(--neg) 30%,transparent);font-weight:550}
+.ob-label{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11.5px;font-weight:600;letter-spacing:.02em;color:var(--ink-3);text-transform:uppercase}
+.ob-question{padding:9px 11px;border-radius:var(--r-sm);background:var(--surface-2);border:1px solid var(--line);line-height:1.45;overflow-wrap:anywhere}
+.ob-json{margin:0;flex:1 1 auto;min-height:120px;overflow:auto;padding:10px 12px;border-radius:var(--r-sm);background:var(--surface-inset);border:1px solid var(--line);font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:11.5px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
+mark.ph{background:var(--accent-wash-2);color:var(--ink);border-radius:3px;padding:0 2px}
+.ob-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.ob-actions{display:flex;gap:8px;margin-left:auto}
+@media (max-width:560px){.ob-dialog{padding:14px 14px}.ob-actions{width:100%}.ob-actions .btn{flex:1}}

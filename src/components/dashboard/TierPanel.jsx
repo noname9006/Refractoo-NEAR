@@ -118,6 +118,10 @@ export default function TierPanel({ flow, onClose, onOpenSettings }) {
         Pseudonymize what leaves this device (addresses → placeholders; amounts as set above). Answers are mapped back to your real addresses locally.
         Exact balances across several assets can identify a wallet on a block explorer, so rounding matters most where the operator can read the prompt.
       </label>
+      <label className="check tier-redact">
+        <input type="checkbox" checked={prefs.reviewRemote !== false} onChange={(e) => flow.updatePref({ reviewRemote: e.target.checked })} />
+        Show the exact request before it is sent to NEAR AI or an external API, and send only after I click “Send”.
+      </label>
       <div className="tier-gw">
         <strong>Check the NEAR AI enclave yourself</strong>
         <GatewayCheck compact showKeyHint={!nearReady} onOpenSettings={() => { onClose(); onOpenSettings?.(); }} />

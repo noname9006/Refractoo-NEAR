@@ -42,6 +42,12 @@ export class InferenceRouter {
     return this.active.analyze(...args);
   }
 
+  // Off-device backends only: the exact request analyze() would send. null for
+  // the on-device model (nothing leaves the browser).
+  previewRequest(...args) {
+    return this.active.previewRequest?.(...args) ?? null;
+  }
+
   warmup(...args) {
     return this.active.warmup?.(...args);
   }

@@ -15,6 +15,8 @@ import GatewayCheck from './GatewayCheck.jsx';
 import { verificationChecks } from '../../near/nearAiContext.js';
 import { pseudonymizeForRemote, precisionFor } from '../../utils/pseudonymize.js';
 import { nearAccountFacts } from '../../near/nearAccount.js';
+import { describeOutbound } from '../../utils/outbound.js';
+import OutboundReview from './OutboundReview.jsx';
 
 const THINK_KEY = 'pwai.thinking';
 // Default OFF to match Qwen3.5's documented behavior (reasoning is disabled by
@@ -74,6 +76,16 @@ export default function Assistant({ ctx, flow, onOpenSettings }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [thinking, setThinking] = useState(loadThinking); // Qwen <think> on/off
   const [liveMsg, setLiveMsg] = useState(null);
+  // Off-device review step: { info, resolve } while the dialog is open.
+  const [review, setReview] = useState(null);
+  const reviewRef = useRef(null);
+  const askReview = (info) => new Promise((resolve) => {
+    const done = (ok) => { reviewRef.current = null; setReview(null); resolve(ok); };
+    reviewRef.current = done;
+    setReview({ info, resolve: done });
+  });
+  // Unmounting with the dialog open counts as "cancel": nothing is sent.
+  useEffect(() => () => reviewRef.current?.(false), []);
   const threadRef = useRef(null);
   const recRef = useRef(null);
   const taRef = useRef(null);
@@ -281,7 +293,7 @@ export default function Assistant({ ctx, flow, onOpenSettings }) {
 
   const send = async (raw) => {
     const text = (raw ?? input).trim();
-    if (!text || running) return;
+    if (!text || running || reviewRef.current) return;
     setInput('');
     stick.current = true; // a new turn — follow it to the bottom
     if (taRef.current) taRef.current.style.height = 'auto';
@@ -307,6 +319,62 @@ export default function Assistant({ ctx, flow, onOpenSettings }) {
       return;
     }
 
+    // Build the prompt first: for an off-device tier the user reviews it before
+    // anything is sent.
+    let redacted = null; // { labels } when pseudonymized, { off: true } when sent raw off-device
+    let messages;
+    let restore = (s) => s;
+    let sentQuestion = text;
+    const remote = flow.model.mode === 'nearai' || flow.model.mode === 'external';
+    try {
+      const nearAccounts = nearAccountFacts(flow.nearData || []);
+      const facts = {
+        ...(flow.facts || {}),
+        usdPortfolio: portfolioFacts(flow.portfolio),
+        // usdPortfolio.holdings aggregates across accounts; this says whose is what.
+        ...(nearAccounts.length ? { nearAccounts } : {}),
+      };
+      // Off-device tiers get pseudonymized FACTS + question; the answer is
+      // mapped back to real addresses here, locally. On-device sees real data.
+      if (remote && flow.prefs.redactRemote !== false) {
+        const r = pseudonymizeForRemote(facts, text, { sigFigs: precisionFor(flow.prefs, flow.model.mode) });
+        messages = buildAnalysisMessages(r.facts, r.question);
+        restore = r.restore;
+        sentQuestion = r.question;
+        redacted = { labels: r.labels, sigFigs: r.sigFigs };
+        if (import.meta.env.DEV) window.__lastRemotePrompt = messages; // dev-only inspection
+      } else {
+        messages = buildAnalysisMessages(facts, text);
+        if (remote) redacted = { off: true };
+      }
+    } catch (e) {
+      appendImmediateReply(text, `Error preparing the request: ${String(e?.message || e)}. Nothing was sent.`);
+      return;
+    }
+
+    // Review step (on by default for both off-device tiers): show the exact
+    // request — the same object the backend sends — and send only on "Send".
+    const analyzeOpts = { thinking, reasoningBudget: flow.prefs.nearAi?.reasoningBudget };
+    if (remote && flow.prefs.reviewRemote !== false) {
+      const request = ctx.previewRequest?.(messages, analyzeOpts);
+      if (request) {
+        const ok = await askReview(describeOutbound({
+          mode: flow.model.mode, request, question: sentQuestion, redacted: redacted?.off ? null : redacted,
+        }));
+        if (!ok) {
+          appendImmediateReply(text, 'Not sent — you cancelled at the review step. Nothing left this device.');
+          return;
+        }
+        // The tier or its settings could have changed while the dialog was
+        // open; send only if the request is still exactly the one reviewed.
+        const again = ctx.previewRequest?.(messages, analyzeOpts);
+        if (!again || JSON.stringify(again) !== JSON.stringify(request)) {
+          appendImmediateReply(text, 'Not sent — the AI tier or its settings changed during review. Ask again to review the new request.');
+          return;
+        }
+      }
+    }
+
     appendUserMessage(text);
     setRunning(true);
     let lastVisible = '';
@@ -314,7 +382,6 @@ export default function Assistant({ ctx, flow, onOpenSettings }) {
     let finalThink = '';
     let needsReload = false;
     let verification = null;
-    let redacted = null; // { labels } when pseudonymized, { off: true } when sent raw off-device
     setLiveMsg({
       role: 'ai',
       text: '',
@@ -326,28 +393,6 @@ export default function Assistant({ ctx, flow, onOpenSettings }) {
       liveTrimmed: false,
     });
     try {
-      const nearAccounts = nearAccountFacts(flow.nearData || []);
-      const facts = {
-        ...(flow.facts || {}),
-        usdPortfolio: portfolioFacts(flow.portfolio),
-        // usdPortfolio.holdings aggregates across accounts; this says whose is what.
-        ...(nearAccounts.length ? { nearAccounts } : {}),
-      };
-      // Off-device tiers get pseudonymized FACTS + question; the answer is
-      // mapped back to real addresses here, locally. On-device sees real data.
-      const remote = flow.model.mode === 'nearai' || flow.model.mode === 'external';
-      let messages;
-      let restore = (s) => s;
-      if (remote && flow.prefs.redactRemote !== false) {
-        const r = pseudonymizeForRemote(facts, text, { sigFigs: precisionFor(flow.prefs, flow.model.mode) });
-        messages = buildAnalysisMessages(r.facts, r.question);
-        restore = r.restore;
-        redacted = { labels: r.labels, sigFigs: r.sigFigs };
-        if (import.meta.env.DEV) window.__lastRemotePrompt = messages; // dev-only inspection
-      } else {
-        messages = buildAnalysisMessages(facts, text);
-        if (remote) redacted = { off: true };
-      }
       console.info(`[assistant] Sending prompt (${messages.length} messages) via ${flow.model.mode || 'local'} backend… thinking=${thinking}${redacted?.labels != null ? ` · pseudonymized (${redacted.labels} identifiers)` : ''}`);
       const res = await ctx.analyze(messages, (rawVisible, rawThink, isThinking, _tps, rawPreview = []) => {
         const visible = restore(rawVisible);
@@ -369,7 +414,7 @@ export default function Assistant({ ctx, flow, onOpenSettings }) {
           done: false,
           liveTrimmed: liveText.trimmed || liveThink.trimmed,
         }));
-      }, createThinkStreamParser, { thinking, reasoningBudget: flow.prefs.nearAi?.reasoningBudget });
+      }, createThinkStreamParser, analyzeOpts);
       verification = res?.verification || null;
       // The model can burn its entire token budget inside <think> and stop
       // before emitting an answer (finish_reason === 'length'). Don't leave the
@@ -598,6 +643,15 @@ export default function Assistant({ ctx, flow, onOpenSettings }) {
                 <div className="talk-hint">{hint}</div>
                 <PrivacyBadge prefs={flow.prefs} onClick={() => setTiersOpen((o) => !o)} />
                 {tiersOpen && <TierPanel flow={flow} onClose={() => setTiersOpen(false)} onOpenSettings={onOpenSettings} />}
+                {review && (
+                  <OutboundReview
+                    info={review.info}
+                    reviewOn={flow.prefs.reviewRemote !== false}
+                    onToggleReview={(on) => flow.updatePref({ reviewRemote: on })}
+                    onCancel={() => review.resolve(false)}
+                    onSend={() => review.resolve(true)}
+                  />
+                )}
               </div>
             </div>
           </div>

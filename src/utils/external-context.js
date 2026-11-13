@@ -10,6 +10,8 @@
 // warmup/getStatus) so the assistant UI and the InferenceRouter treat both
 // backends identically.
 
+import { externalRequestBody } from './outbound.js';
+
 const PROXY_URL = '/api/llm';
 
 export class ExternalContext {
@@ -88,14 +90,8 @@ export class ExternalContext {
           'x-llm-base-url': this.config.baseUrl,
           'x-llm-api-key': this.config.apiKey,
         },
-        body: JSON.stringify({
-          model: this.config.model,
-          messages,
-          stream: true,
-          temperature: 0.7,
-          top_p: 0.8,
-          max_tokens: 4096,
-        }),
+        // Same builder as previewRequest(): the review dialog shows this body.
+        body: JSON.stringify(externalRequestBody(this.config.model, messages)),
         signal: this._abort.signal,
       });
       if (!res.ok || !res.body) {
@@ -159,6 +155,12 @@ export class ExternalContext {
 
     const truncated = finishReason === 'length';
     return { text, finishReason, truncated, stopped: this._userStopped };
+  }
+
+  // The exact JSON body analyze() would POST (the proxy forwards it verbatim)
+  // and where it goes. The API key is deliberately not part of the preview.
+  previewRequest(messages) {
+    return { body: externalRequestBody(this.config?.model || '', messages), baseUrl: this.config?.baseUrl || '' };
   }
 
   stop() {

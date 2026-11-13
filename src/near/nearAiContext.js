@@ -22,6 +22,8 @@
 // the assistant treat all three backends the same. analyze() additionally
 // returns `verification`, a JSON-safe receipt the UI renders as "Verified".
 
+import { nearAiRequestBody } from '../utils/outbound.js';
+
 // Verifier (and jose) load lazily with the SDK, keeping both out of the entry chunk.
 export const CLOCK_TOLERANCE_S = 120;
 
@@ -305,17 +307,9 @@ export class NearAiContext {
 
     console.info(`[nearai] E2EE request → ${model}`);
     try {
+      // Same builder as previewRequest(): the review dialog shows this body.
       const stream = await client.chat.completions.create(
-        {
-          model, messages, stream: true, temperature: 0.7, top_p: 0.8,
-          // Reasoning models otherwise think by default; with the toggle off the
-          // trace is hidden anyway, and on a full wallet-facts prompt Qwen 3.8
-          // spent the entire 4096-token budget thinking (2+ min, no answer).
-          // vLLM honours this chat-template switch; E2EE leaves it intact.
-          chat_template_kwargs: { enable_thinking: !!thinking },
-          // Omitted (unlimited) → vLLM allows up to the rest of the context window.
-          ...(maxTokens != null ? { max_tokens: maxTokens } : {}),
-        },
+        nearAiRequestBody(model, messages, { thinking, maxTokens }),
         { signal: this._abort.signal }
       );
       for await (const chunk of stream) {
@@ -369,6 +363,13 @@ export class NearAiContext {
     };
     console.info(`[nearai] done in ${((performance.now() - startedAt) / 1000).toFixed(1)}s, signature=${response?.ok ? response.kind : 'unverified'}`);
     return { text, finishReason, truncated: finishReason === 'length', stopped: this._userStopped, verification };
+  }
+
+  // The exact request analyze() would send for these args (plaintext, before
+  // the SDK encrypts it to the enclave). Nothing is sent.
+  previewRequest(messages, { thinking = true, reasoningBudget } = {}) {
+    const model = this.config?.model || '';
+    return { body: nearAiRequestBody(model, messages, { thinking, maxTokens: outputTokenLimit(thinking, reasoningBudget) }) };
   }
 
   stop() {
