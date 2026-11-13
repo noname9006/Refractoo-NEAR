@@ -47,7 +47,7 @@ export const PRIVACY_COPY = {
   tee:
     // Worded to stay true in every state: nothing is sent until the attestation
     // check passes, so the claim doesn't depend on whether it has run yet.
-    'NEAR AI TEE — nothing is sent until this browser verifies the model’s hardware enclave; prompts are then end-to-end encrypted to it and every answer’s signature is checked. NEAR AI cannot read them, but your data does leave this device.',
+    'NEAR AI TEE — prompts are end-to-end encrypted to the enclave and every answer’s signature is checked.',
   yellow:
     'External model in use — make sure this endpoint is self-hosted on your own machine or server. Otherwise your wallet data is exposed to whoever operates it.',
   red: 'Third-party inference provider in use — your private wallet data may be exposed to the provider.',
