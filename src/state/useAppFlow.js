@@ -113,7 +113,24 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
     patchRefreshing({ holdings: true, defi: true, caps: true });
 
     // Re-render from a given enriched set, reusing whatever prices we have so far.
-    const render = (enriched) => {
+    // Aave positions and approvals of a slot whose phase-1b fetch hasn't landed
+    // yet are carried over from the previous pass, so those cards keep their
+    // values during a refresh instead of blanking and re-filling.
+    const prevEnriched = enrichedRef.current || {};
+    const withCarry = (enriched) => {
+      const out = {};
+      for (const [a, slots] of Object.entries(enriched)) {
+        const prev = prevEnriched[a] || [];
+        out[a] = slots.map((s) => {
+          if (s.extrasDone !== false) return s;
+          const p = prev.find((x) => x.chainId === s.chainId);
+          return p ? { ...s, aave: p.aave, approvals: p.approvals || [] } : s;
+        });
+      }
+      return out;
+    };
+    const render = (raw) => {
+      const enriched = withCarry(raw);
       enrichedRef.current = enriched;
       setPortfolio(buildPortfolio({
         clusterData: clusterDataFresh, enriched,

@@ -109,7 +109,7 @@ export async function enrichCluster(addresses, { rpcOverrides = {}, clusterData 
   const out = {};
   for (const a of addresses) {
     out[a] = CHAINS.map((c) => ({
-      chainId: c.chainId, chainName: c.name, balances: [], ok: false, aave: null, approvals: [],
+      chainId: c.chainId, chainName: c.name, balances: [], ok: false, aave: null, approvals: [], extrasDone: false,
     }));
   }
   const slotOf = (a, cid) => out[a].find((s) => s.chainId === cid);
@@ -149,6 +149,7 @@ export async function enrichCluster(addresses, { rpcOverrides = {}, clusterData 
       const slot = slotOf(a, chain.chainId);
       slot.aave = aave;
       slot.approvals = approvals;
+      slot.extrasDone = true;
       emit('partial');
     })
   ));
