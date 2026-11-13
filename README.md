@@ -42,6 +42,10 @@ paste the key, **Verify & connect**, then ask anything. Every answer gets a
 **Verified · 6/6 checks** panel (gateway TDX, model TDX, NVIDIA GPU, fresh nonce,
 E2EE, enclave signature) and a note of what was pseudonymized.
 
+**Judges: [JUDGES.md](JUDGES.md)** maps every privacy claim to its code and the
+test that proves it. `npm run test:offline` runs them all — no keys, no network,
+about 2 seconds.
+
 Tests: `npm test` — unit tests plus live checks against public endpoints (NEAR
 RPC, FastNEAR, the key-less NEAR AI gateway check). Tests that spend NEAR AI
 credit run only when `NEARAI_API_KEY` is set (env or `.env`).
@@ -57,12 +61,15 @@ The hackathon diff: [`pre-hackathon...main`](https://github.com/noname9006/Refra
 | **NEAR AI TEE inference tier**: browser-side gateway + model attestation, E2EE chat, per-answer signature check, "Verified" receipt; refuses non-attested (Incognito) models | [`src/near/nearAiContext.js`](src/near/nearAiContext.js) |
 | NVIDIA NRAS verdict check with bounded clock tolerance (the SDK has none; a few seconds of client clock lag failed every verification) | [`src/near/nrasVerifier.js`](src/near/nrasVerifier.js) |
 | **Key-less live gateway check** for people without a NEAR AI key | `verifyGatewayNow()` in `nearAiContext.js`, [`GatewayCheck.jsx`](src/components/dashboard/GatewayCheck.jsx) |
-| **NEAR Confidential Intents**: one signature of an empty intent → private-shard balances + swap history, held in memory only. Sign with a **NEAR wallet (NEP-413**, via near-connect: HOT, Meteor, Intear, MyNearWallet, Ledger…) or an EVM wallet (ERC-191). NEP-413 payloads are built and the wallet's signature verified locally before anything is sent | [`confidentialIntents.js`](src/near/confidentialIntents.js), [`nep413.js`](src/near/nep413.js), [`nearWallet.js`](src/near/nearWallet.js) |
+| **NEAR Confidential Intents**: one signature of an empty intent → private-shard balances (and swap history, which the API currently opens by invitation only), held in memory only. Sign with a **NEAR wallet (NEP-413**, via near-connect: HOT, Meteor, Intear, MyNearWallet, Ledger…) or an EVM wallet (ERC-191). NEP-413 payloads are built and the wallet's signature verified locally before anything is sent | [`confidentialIntents.js`](src/near/confidentialIntents.js), [`nep413.js`](src/near/nep413.js), [`nearWallet.js`](src/near/nearWallet.js) |
 | **Public NEAR accounts** by name: balance, FTs, per-pool staking, priced | [`src/near/nearAccount.js`](src/near/nearAccount.js) |
 | **Pseudonymization** of off-device prompts, per-tier amount precision (TEE exact, external 4 significant figures), local restore of real addresses | [`src/utils/pseudonymize.js`](src/utils/pseudonymize.js) |
 | Tier switcher with the who-sees-what table | [`TierPanel.jsx`](src/components/dashboard/TierPanel.jsx) |
+| **Review before sending**: the exact request body for NEAR AI / external API, sent only on "Send"; one builder makes both the preview and the request | [`OutboundReview.jsx`](src/components/dashboard/OutboundReview.jsx), [`outbound.js`](src/utils/outbound.js) |
+| **Every party, and what it sees**: hosting, RPCs, your wallet, the Intents API, private-shard validators, NEAR AI gateway/enclave, external operator — tested against the code | [`trustBoundaries.js`](src/data/trustBoundaries.js) |
+| Private-shard activity: invite-only history explained, never a second wallet prompt | [`historyNote.js`](src/near/historyNote.js) |
 | Demo mode for reviewers (live NEAR account, labelled sample private-shard data) | [`src/near/demoFixtures.js`](src/near/demoFixtures.js) |
-| Tests | [`tests/`](tests) |
+| Tests — claim by claim in [JUDGES.md](JUDGES.md) | [`tests/`](tests) |
 
 **Confidential Intents sign-in needs a versioned nonce.** The Intents auth
 APIs reject a plain random nonce — Aurora with a bare `401 Signature
