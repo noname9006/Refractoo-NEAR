@@ -1,12 +1,20 @@
 import { guardString } from '../prompts/untrusted.js';
+import { rpcView, rpcAccount, pool, fromBaseUnits } from './rpc.js';
+import { lstProtocol, fetchLstUnstakes } from './defi/lst.js';
+import { fetchIntentsBalances } from './defi/intents.js';
+import { fetchRheaLend, rheaLendTokens, rheaLendPosition } from './defi/rheaLend.js';
 // Public NEAR account, read-only by account name — no wallet, no signature.
 //
 //   balances + FT list + staking pools   FastNEAR  api.fastnear.com/v1/account/{id}/full
 //   staked amount per pool               NEAR RPC  get_account_total_balance (view call)
 //   FT decimals/symbol (unpriced only)   NEAR RPC  ft_metadata (view call)
 //   USD prices + 24h change              DefiLlama coingecko:near, near:<contract>
+//   DeFi positions (src/near/defi/)      NEAR RPC  view calls on the protocol contracts:
+//     liquid staking unstakes            meta-pool.near, linear-protocol.near, lst.rhealab.near
+//     public NEAR Intents balances       intents.near (NEP-245)
+//     Rhea Lend supplied/borrowed/HF     contract.main.burrow.near
 //
-// All three are public, CORS-enabled endpoints called from the browser. They
+// All are public, CORS-enabled endpoints called from the browser. They
 // see the account name you look up — the same exposure as the EVM explorers,
 // stated in the "who sees what" panel. Nothing here is cached to disk.
 //
@@ -21,11 +29,10 @@ export const NEAR_CHAIN_ID = 'near';
 export const NEAR_CHAIN_NAME = 'NEAR';
 export const NEAR_PRICE_KEY = 'coingecko:near';
 const FASTNEAR = 'https://api.fastnear.com/v1/account';
-const RPC = 'https://rpc.mainnet.fastnear.com';
 const YOCTO = 24;
 const MAX_TOKENS = 40; // FT lists can be long with airdrop spam
 const MAX_POOLS = 10;
-const MAX_METADATA = 15;
+const MAX_METADATA = 25;
 
 // Named accounts (alice.near, app.alice.near, x.tg) or 64-hex implicit accounts.
 // Bare top-level names ("near") and 0x-style eth-implicit accounts are excluded
@@ -38,58 +45,42 @@ export function isNearAccountId(s) {
 }
 export const normalizeAccountId = (s) => String(s || '').trim().toLowerCase();
 
-// Integer string in base units → JS number (enough precision for display/USD).
-export function fromBaseUnits(raw, decimals) {
-  const s = String(raw ?? '0').replace(/^0+(?=\d)/, '');
-  if (!/^\d+$/.test(s)) return 0;
-  if (!decimals) return Number(s);
-  const pad = s.padStart(decimals + 1, '0');
-  return Number(`${pad.slice(0, -decimals)}.${pad.slice(-decimals)}`);
-}
+export { fromBaseUnits };
 
-const b64 = (obj) => btoa(JSON.stringify(obj));
-
-async function rpcView(fetchImpl, contract, method, args = {}) {
-  const r = await fetchImpl(RPC, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0', id: 1, method: 'query',
-      params: { request_type: 'call_function', finality: 'final', account_id: contract, method_name: method, args_base64: b64(args) },
-    }),
-  });
-  const j = await r.json();
-  if (j.error || !Array.isArray(j.result?.result)) throw new Error(j.error?.cause?.name || 'rpc view failed');
-  return JSON.parse(new TextDecoder().decode(new Uint8Array(j.result.result)));
-}
-
-// Limited-concurrency map.
-async function pool(items, n, fn) {
-  const out = new Array(items.length);
-  let i = 0;
-  await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => {
-    while (i < items.length) { const k = i++; out[k] = await fn(items[k]).catch(() => null); }
-  }));
-  return out;
-}
-
-// → { accountId, exists, nativeYocto, tokens: [{contract, raw}], pools: [{pool, yocto}] }
+// → { accountId, exists, nativeYocto, tokens: [{contract, raw}], pools: [{pool, yocto}],
+//     unstakes: [{contract, protocol, yocto, withdrawable}], intents: {tokens, otherCount}, rheaLend }
+// Each DeFi read is independent: one failing protocol leaves its field empty
+// (and its name in `defiErrors`), never the whole account.
 export async function fetchNearAccountRaw(accountId, { fetchImpl = (...a) => fetch(...a) } = {}) {
   const id = normalizeAccountId(accountId);
   if (!isNearAccountId(id)) throw new Error(`"${accountId}" is not a NEAR account id`);
   const r = await fetchImpl(`${FASTNEAR}/${encodeURIComponent(id)}/full`);
   if (!r.ok) throw new Error(`FastNEAR ${r.status}`);
   const full = await r.json();
-  if (!full?.state) return { accountId: id, exists: false, nativeYocto: '0', tokens: [], pools: [] };
+  // FastNEAR's index sometimes has no `state` for an account that exists on
+  // chain (seen on contract sub-accounts); confirm with RPC before saying "not found".
+  let state = full?.state || null;
+  if (!state) {
+    const acc = await rpcAccount(fetchImpl, id).catch(() => null);
+    if (!acc) return { accountId: id, exists: false, nativeYocto: '0', tokens: [], pools: [] };
+    state = { balance: acc.amount, locked: acc.locked };
+  }
 
   // Spendable = balance; `locked` is validator stake of this account itself.
-  const tokens = (full.tokens || [])
+  const tokens = (full?.tokens || [])
     .filter((t) => t?.contract_id && /^\d+$/.test(String(t.balance || '')) && BigInt(t.balance) > 0n)
     .slice(0, MAX_TOKENS)
     .map((t) => ({ contract: t.contract_id, raw: String(t.balance) }));
 
-  const poolIds = (full.pools || []).map((p) => p?.pool_id).filter(Boolean).slice(0, MAX_POOLS);
-  const staked = await pool(poolIds, 4, (p) => rpcView(fetchImpl, p, 'get_account_total_balance', { account_id: id }));
+  const defiErrors = [];
+  const guard = (name, p) => p.catch((e) => { defiErrors.push(name); console.warn(`[near] ${name} read failed:`, e?.message || e); return null; });
+  const poolIds = (full?.pools || []).map((p) => p?.pool_id).filter(Boolean).slice(0, MAX_POOLS);
+  const [staked, unstakes, intents, rheaLend] = await Promise.all([
+    pool(poolIds, 4, (p) => rpcView(fetchImpl, p, 'get_account_total_balance', { account_id: id })),
+    guard('Liquid staking', fetchLstUnstakes(id, { fetchImpl })),
+    guard('NEAR Intents', fetchIntentsBalances(id, { fetchImpl })),
+    guard('Rhea Lend', fetchRheaLend(id, { fetchImpl })),
+  ]);
   const pools = poolIds
     .map((p, i) => ({ pool: p, yocto: typeof staked[i] === 'string' ? staked[i] : null }))
     .filter((p) => p.yocto && BigInt(p.yocto) > 0n);
@@ -97,23 +88,39 @@ export async function fetchNearAccountRaw(accountId, { fetchImpl = (...a) => fet
   return {
     accountId: id,
     exists: true,
-    nativeYocto: String(full.state.balance || '0'),
-    lockedYocto: String(full.state.locked || '0'),
+    nativeYocto: String(state.balance || '0'),
+    lockedYocto: String(state.locked || '0'),
     tokens,
     pools,
+    unstakes: unstakes || [],
+    intents: intents || { tokens: [], otherCount: 0 },
+    rheaLend: rheaLend || null,
+    defiErrors,
   };
 }
 
-// Raw account → priced holdings in buildPortfolio()'s shape.
+// Raw account → priced holdings in buildPortfolio()'s shape, plus DeFi
+// positions (Rhea Lend) in data/defi.js's position shape.
 export async function priceNearAccount(raw, { fetchImpl = (...a) => fetch(...a), fetchPricesImpl = fetchPrices } = {}) {
-  const keys = [NEAR_PRICE_KEY, ...raw.tokens.map((t) => `near:${t.contract}`)];
-  const prices = await fetchPricesImpl(keys).catch(() => new Map());
+  const intentTokens = raw.intents?.tokens || [];
+  const lendTokens = rheaLendTokens(raw.rheaLend);
+  const contracts = [...new Set([...raw.tokens.map((t) => t.contract), ...intentTokens.map((t) => t.contract), ...lendTokens])];
+  const prices = await fetchPricesImpl([NEAR_PRICE_KEY, ...contracts.map((c) => `near:${c}`)]).catch(() => new Map());
   const nearPrice = prices.get(NEAR_PRICE_KEY) || null;
 
   // Decimals: DefiLlama has them for priced tokens; ask the contract otherwise.
-  const missing = raw.tokens.filter((t) => !Number.isInteger(prices.get(`near:${t.contract}`)?.decimals)).slice(0, MAX_METADATA);
-  const metas = await pool(missing, 4, (t) => rpcView(fetchImpl, t.contract, 'ft_metadata'));
-  const metaBy = new Map(missing.map((t, i) => [t.contract, metas[i]]));
+  const missing = contracts.filter((c) => !Number.isInteger(prices.get(`near:${c}`)?.decimals)).slice(0, MAX_METADATA);
+  const metas = await pool(missing, 4, (c) => rpcView(fetchImpl, c, 'ft_metadata'));
+  const metaBy = new Map(missing.map((c, i) => [c, metas[i]]));
+
+  // contract → { decimals, price, symbol, name } | null (can't size it)
+  const sizeOf = (c) => {
+    const p = prices.get(`near:${c}`) || null;
+    const meta = metaBy.get(c);
+    const decimals = Number.isInteger(p?.decimals) ? p.decimals : Number.isInteger(meta?.decimals) ? meta.decimals : null;
+    if (decimals == null) return null;
+    return { decimals, price: p, symbol: p?.symbol || meta?.symbol || c.split('.')[0], name: meta?.name || p?.symbol || c };
+  };
 
   const base = { chainId: NEAR_CHAIN_ID, chainName: NEAR_CHAIN_NAME, wallet: raw.accountId };
   const holdings = [];
@@ -122,20 +129,15 @@ export async function priceNearAccount(raw, { fetchImpl = (...a) => fetch(...a),
     holdings.push({ ...base, address: null, symbol: 'NEAR', name: 'NEAR', amount: native, kind: 'near', price: nearPrice });
   }
   for (const t of raw.tokens) {
-    const p = prices.get(`near:${t.contract}`) || null;
-    const meta = metaBy.get(t.contract);
-    const decimals = Number.isInteger(p?.decimals) ? p.decimals : Number.isInteger(meta?.decimals) ? meta.decimals : null;
-    if (decimals == null) continue; // can't size it — skip rather than show a wrong amount
-    const amount = fromBaseUnits(t.raw, decimals);
+    const s = sizeOf(t.contract);
+    if (!s) continue; // can't size it — skip rather than show a wrong amount
+    const amount = fromBaseUnits(t.raw, s.decimals);
     if (!(amount > 0)) continue;
+    // Liquid-staking tokens (stNEAR, LiNEAR, rNEAR) are staking positions.
+    const lst = lstProtocol(t.contract);
     holdings.push({
-      ...base,
-      address: t.contract,
-      symbol: p?.symbol || meta?.symbol || t.contract.split('.')[0],
-      name: meta?.name || p?.symbol || t.contract,
-      amount,
-      kind: 'ft',
-      price: p,
+      ...base, address: t.contract, symbol: s.symbol, name: s.name, amount, kind: 'ft', price: s.price,
+      ...(lst ? { protocol: lst, label: 'Staking' } : {}),
     });
   }
   for (const s of raw.pools) {
@@ -151,7 +153,43 @@ export async function priceNearAccount(raw, { fetchImpl = (...a) => fetch(...a),
       price: nearPrice,
     });
   }
-  return { accountId: raw.accountId, exists: raw.exists, holdings, fetchedAt: Date.now() };
+  // NEAR unstaked inside an LST contract: owned, not in the wallet yet.
+  for (const u of raw.unstakes || []) {
+    const state = u.withdrawable ? 'withdrawable' : 'unstaking';
+    holdings.push({
+      ...base,
+      address: `unstake:${u.contract}:${state}`,
+      symbol: 'NEAR',
+      name: `${u.withdrawable ? 'Withdrawable' : 'Unstaking'} NEAR · ${u.protocol}`,
+      amount: fromBaseUnits(u.yocto, YOCTO),
+      kind: 'near',
+      protocol: `${u.protocol} (${state})`,
+      label: 'Staking',
+      price: nearPrice,
+    });
+  }
+  // Public NEAR Intents balances: FTs held on intents.near for this account.
+  for (const t of intentTokens) {
+    const s = sizeOf(t.contract);
+    if (!s) continue;
+    const amount = fromBaseUnits(t.raw, s.decimals);
+    if (!(amount > 0)) continue;
+    holdings.push({
+      ...base, address: `intents:${t.contract}`, symbol: s.symbol, name: `${s.name} · NEAR Intents`,
+      amount, kind: 'ft', price: s.price, protocol: 'NEAR Intents', label: 'Intents',
+    });
+  }
+
+  const positions = [rheaLendPosition(raw.rheaLend, sizeOf, { accountId: raw.accountId })].filter(Boolean);
+  return {
+    accountId: raw.accountId,
+    exists: raw.exists,
+    holdings,
+    positions,
+    intentsOtherCount: raw.intents?.otherCount || 0,
+    defiErrors: raw.defiErrors || [],
+    fetchedAt: Date.now(),
+  };
 }
 
 // Per-account breakdown for the AI facts (holdings in the portfolio are
@@ -179,7 +217,24 @@ export function nearAccountFacts(accounts = []) {
         amount: r(h.amount),
         usd: r(h.amount * h.price.price),
         ...(h.label === 'Staking' ? { staked: true, stakedIn: h.protocol } : {}),
+        ...(h.label === 'Intents' ? { heldIn: 'NEAR Intents (public balance on intents.near)' } : {}),
       })),
+      // Lending positions: listed tokens are set by the protocol's governance,
+      // but symbols still come from token contracts, so they are sanitized too.
+      ...(a.positions?.length
+        ? {
+          positions: a.positions.map((p) => ({
+            protocol: p.protocol,
+            kind: p.kind,
+            netUsd: r(p.usd),
+            healthFactor: p.healthFactor != null ? r(p.healthFactor) : null,
+            legs: p.legs.map((l) => ({ side: l.kind, asset: cleanSymbol(l.symbol), amount: r(l.amount), usd: r(l.usd) })),
+            ...(p.unpricedLegs ? { unpricedLegs: p.unpricedLegs } : {}),
+          })),
+        }
+        : {}),
+      ...(a.intentsOtherCount ? { intentsNonFungibleCount: a.intentsOtherCount } : {}),
+      ...(a.defiErrors?.length ? { unreadProtocols: a.defiErrors } : {}),
       ...(unpriced
         ? { unpricedTokenCount: unpriced, unpricedNote: 'Tokens with no market price — often airdrop spam; names withheld. Advise not to interact with them.' }
         : {}),

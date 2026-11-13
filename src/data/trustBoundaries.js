@@ -47,7 +47,7 @@ export function trustRows(prefs = {}) {
       ids: yes('Yes — every address or account you look up'),
       amounts: part('Only public on-chain balances, which anyone can read'),
       question: no(),
-      other: 'Your IP. The provider list is fixed in src/config (there is no in-app RPC setting yet); self-hosters can change it there.',
+      other: 'Your IP. For a NEAR account, the FastNEAR RPC also sees which DeFi contracts are asked about it (Meta Pool, LiNEAR, RHEA LST, intents.near, Rhea Lend) — read-only view calls, the same for every account. The provider list is fixed in src/config (there is no in-app RPC setting yet); self-hosters can change it there.',
     },
     {
       id: 'prices', group: 'public', party: 'Price and token-metadata APIs (DefiLlama)',

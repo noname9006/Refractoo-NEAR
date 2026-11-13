@@ -80,16 +80,21 @@ export function buildPortfolio({ clusterData = {}, enriched = {}, prices = new M
     }
   }
 
-  // NEAR accounts (read-only by name): native, FTs and per-pool staking rows.
+  // NEAR accounts (read-only by name): native, FTs, staking, Intents rows.
   for (const acct of near) {
     for (const h of acct?.holdings || []) addHolding(holdingsMap, h);
+    // Protocol positions (Rhea Lend): value held in the protocol, not the
+    // wallet, so it adds to the total like Aave does.
+    for (const p of acct?.positions || []) defiPositions.push(p);
   }
 
   // finalize holdings: compute usd + change
   const holdings =[...holdingsMap.values()].map(finalizeHolding).sort((a, b) => num(b.usd) - num(a.usd));
 
   // staking positions are derived from the priced holdings
-  const staking = stakingPositionsFromHoldings(holdings.filter((h) => h.protocol && h.label === 'Staking'));
+  // Dust (priced below a cent, e.g. 1e-24 stNEAR left after a swap) stays in
+  // holdings but doesn't get a position row; unpriced rows are kept.
+  const staking = stakingPositionsFromHoldings(holdings.filter((h) => h.protocol && h.label === 'Staking' && !(h.usd != null && h.usd < 0.01)));
   const positions = [...defiPositions, ...staking].sort((a, b) => num(b.usd) - num(a.usd));
 
   // sums
@@ -348,6 +353,7 @@ export function portfolioFacts(p) {
       change24hPct: h.change24h != null ? Number(h.change24h.toFixed(2)) : null,
       // Staked rows (e.g. NEAR in a staking pool) must not read as liquid balance.
       ...(h.label === 'Staking' ? { staked: true, stakedIn: h.protocol } : {}),
+      ...(h.label === 'Intents' ? { heldIn: 'NEAR Intents (public balance)' } : {}),
     })),
     defiPositions: p.positions.map((d) => ({
       protocol: d.protocol,
