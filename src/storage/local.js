@@ -149,6 +149,9 @@ const DEFAULT_PREFS = {
   // model '' = NEARAI_DEFAULT_MODEL; reasoningBudget undefined = default (32k),
   // 0 = unlimited. Applies only when the Think toggle is on.
   nearAi: { apiKey: '', model: '' },
+  // Models offered in the Assistant header's quick-switch list: an array of
+  // "<tier>:<model id>" keys (see models/hotlist.js). null = not curated yet.
+  hotModels: null,
   // Pseudonymize FACTS + question for off-device tiers (nearai, external):
   // addresses → placeholders. See utils/pseudonymize.js. On-device inference
   // always sees real data.

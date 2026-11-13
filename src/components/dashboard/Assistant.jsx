@@ -8,9 +8,10 @@ import { LiveMarkdownView, MarkdownView } from './MarkdownRenderer.jsx';
 import { loadStore, saveStore, clearStore, newConversation, titleFrom, loadScrollPositions, saveScrollPositions } from './chatStore.js';
 import { startResourceMonitor, subscribeResources, getResourceSnapshot } from '../../utils/resource-monitor.js';
 import { fmtBytesBin } from '../../utils/system-info.js';
-import { ISpark, IExpand, IShrink, IChevDown, IMic, ISend, IStop, IPower, IDownload, IPlus, IList, ITrash, IChat, PrismMark } from './icons.jsx';
+import { ISpark, IExpand, IShrink, IChevDown, IMic, ISend, IStop, IPower, IGear, IDownload, IPlus, IList, ITrash, IChat, PrismMark } from './icons.jsx';
 import { PrivacyBadge } from './PrivacyBadge.jsx';
 import TierPanel from './TierPanel.jsx';
+import ModelSwitcher from './ModelSwitcher.jsx';
 import GatewayCheck from './GatewayCheck.jsx';
 import { verificationChecks } from '../../near/nearAiContext.js';
 import { pseudonymizeForRemote, precisionFor } from '../../utils/pseudonymize.js';
@@ -124,7 +125,6 @@ export default function Assistant({ ctx, flow, onOpenSettings }) {
   const modelReady = flow.model.status === 'ready';
   const modelError = flow.model.status === 'error';
   const modelIdle = flow.model.status === 'idle';
-  const modelName = flow.model.id ? getModel(flow.model.id)?.name : null;
   const voiceOn = flow.prefs.voiceEnabled;
   // The toggle is only meaningful for Qwen models, which honor the /no_think
   // soft switch. Persist the choice across reloads.
@@ -175,12 +175,11 @@ export default function Assistant({ ctx, flow, onOpenSettings }) {
   const isExternal = tier === 'external';
   const isNearAi = tier === 'nearai';
   const statusDot = modelReady ? 'var(--pos)' : modelError ? 'var(--neg)' : 'var(--warn)';
+  // The model name itself is the ModelSwitcher button next to this text.
   const statusText = modelReady
-    ? isNearAi
-      ? `NEAR AI TEE · attested${m.externalName ? ` · ${m.externalName}` : ''}`
-      : isExternal
-      ? `External API${m.externalName ? ` · ${m.externalName}` : ''}`
-      : `Running locally${modelName ? ` · ${modelName}` : ''}`
+    ? isNearAi ? 'NEAR AI TEE · attested'
+      : isExternal ? 'External API'
+      : 'Running locally'
     : modelError ? 'Couldn’t load AI'
     : m.status === 'idle' ? (isNearAi ? 'NEAR AI TEE — verifies on first question' : isExternal ? 'External model — connects on first question' : 'Local AI loads when you connect a wallet')
     : isNearAi ? (m.statusText || 'Verifying NEAR AI attestation…')
@@ -518,17 +517,23 @@ export default function Assistant({ ctx, flow, onOpenSettings }) {
             onClick={(e) => { e.stopPropagation(); setSidebarOpen((o) => !o); }}><IList /></button>
           <div className="ai"><PrismMark /></div>
           <div className="ttl">Wallet Assistant
-            <small><span className="dot" style={{ background: statusDot }} />{statusText}</small>
+            <small><span className="dot" style={{ background: statusDot }} />{statusText}
+              <ModelSwitcher flow={flow} disabled={running} onOpenSettings={onOpenSettings} />
+            </small>
           </div>
           <span className="spacer" />
           {modelError && (
             <button className="btn ghost sm" title="Retry loading the local AI"
               onClick={(e) => { e.stopPropagation(); flow.retryModel(); }}>Retry</button>
           )}
-          {modelReady && (
+          {modelReady && (tier === 'local' ? (
             <button className="btn ghost sm" title="Unload the model to free memory"
               onClick={(e) => { e.stopPropagation(); flow.unloadModel(); }}><IPower /> Unload</button>
-          )}
+          ) : (
+            // Nothing to free for a remote model — the useful action is its settings.
+            <button className="btn ghost sm" title="Open AI model settings"
+              onClick={(e) => { e.stopPropagation(); onOpenSettings?.('ai'); }}><IGear /> Settings</button>
+          ))}
           <button className="icon-btn" title="Full screen" onClick={(e) => { e.stopPropagation(); setFull((f) => !f); setCollapsed(false); }}>
             {full ? <IShrink /> : <IExpand />}
           </button>

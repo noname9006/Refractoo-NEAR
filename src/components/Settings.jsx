@@ -4,10 +4,10 @@ import { describeOffload } from '../utils/offload-planner.js';
 import { probeGGUFArch } from '../utils/gguf-probe.js';
 import { recommendModel } from '../utils/resource-detector.js';
 import { applyEffects } from '../utils/theme.js';
+import { hotKey, effectiveHotlist, TIER_LABELS } from '../models/hotlist.js';
 import {
   listConfidentialModels, providerLabel, NEARAI_DEFAULT_MODEL, REASONING_BUDGETS, DEFAULT_REASONING_BUDGET, ANSWER_TOKENS, outputTokenLimit,
 } from '../near/nearAiContext.js';
-import { MODE, PROFILE, IS_TESTNET, AVAILABLE_MODES, setModeOverride } from '../config/networks.js';
 import {
   detectResources, measureStorage, clearCategory, fmtBytes, fmtBytesBin, STORAGE_CATEGORIES,
   fetchHostInfo, listCachedModels, deleteCachedModels,
@@ -60,7 +60,7 @@ function Donut({ byId, order }) {
   );
 }
 
-export default function Settings({ flow, onClose }) {
+export default function Settings({ flow, onClose, section = null }) {
   const { model, prefs } = flow;
   const [res, setRes] = useState(null);
   const [host, setHost] = useState(null);
@@ -79,14 +79,27 @@ export default function Settings({ flow, onClose }) {
   const [nai, setNai] = useState(() => ({ apiKey: '', model: '', ...(prefs.nearAi || {}) }));
   const [naiModels, setNaiModels] = useState(null); // null = not loaded, [] = none
   const [naiListErr, setNaiListErr] = useState('');
+  // Also feeds the model hotlist picker, so it loads whichever tier is selected.
   useEffect(() => {
-    if (infer !== 'nearai' || naiModels) return undefined;
+    if (naiModels) return undefined;
     let live = true;
     listConfidentialModels()
       .then((list) => { if (live) setNaiModels(list); })
       .catch((e) => { if (live) setNaiListErr(String(e?.message || e)); });
     return () => { live = false; };
-  }, [infer, naiModels]);
+  }, [naiModels]);
+
+  // Opened from the Assistant ("Settings" / model list) → land on AI model.
+  useEffect(() => {
+    if (section === 'ai') document.getElementById('set-ai-model')?.scrollIntoView({ block: 'start' });
+  }, [section]);
+
+  // Hotlist: the models offered by the Assistant header's model switcher.
+  const hotList = Array.isArray(prefs.hotModels) ? prefs.hotModels : effectiveHotlist(prefs, model.mode === 'local' && model.status === 'ready' ? model.id : null);
+  const toggleHot = (key) => {
+    const next = hotList.includes(key) ? hotList.filter((k) => k !== key) : [...hotList, key];
+    flow.updatePref({ hotModels: next });
+  };
   // GPU/CPU offload planning for local inference.
   const [offloadMode, setOffloadMode] = useState(prefs.offloadMode || 'auto');
   const [gpuLayers, setGpuLayers] = useState(prefs.offloadGpuLayers); // null = all
@@ -323,49 +336,6 @@ export default function Settings({ flow, onClose }) {
         </div>
 
         <div className="settings-body">
-          {/* ── Network ── */}
-          <section className="set-sec">
-            <h3>Network</h3>
-            <div className="set-row">
-              <div className="set-label">
-                <strong>{PROFILE.label} mode</strong>
-                <span className="muted">
-                  {PROFILE.chains.map((c) => c.name).join(' · ')}.
-                  {' '}Confidential tokens:{' '}
-                  {[...new Set(PROFILE.fheStacks.map((s) => s.name))].join(', ') || 'none'}.
-                  {IS_TESTNET && ' USD values are proxied from mainnet prices and are not real value.'}
-                </span>
-              </div>
-              <span className={`pill${IS_TESTNET ? ' testnet-badge' : ''}`}>{PROFILE.label}</span>
-            </div>
-
-            {/* Dev-only: VITE_NETWORK_MODE is inlined at build time, so without
-                this switching modes locally would mean a rebuild every time.
-                Production builds get the env value and nothing else. */}
-            {import.meta.env.DEV && (
-              <div className="set-row">
-                <div className="set-label">
-                  <strong>Switch mode (dev only)</strong>
-                  <span className="muted">
-                    Reloads the page. Cached chain data is namespaced per mode, so
-                    the two never mix. In production this follows VITE_NETWORK_MODE.
-                  </span>
-                </div>
-                <div className="set-actions end">
-                  {AVAILABLE_MODES.map((m) => (
-                    <button key={m.mode}
-                      className={`btn sm${m.mode === MODE ? '' : ' ghost'}`}
-                      disabled={m.mode === MODE}
-                      title={m.chains.join(', ')}
-                      onClick={() => setModeOverride(m.mode)}>
-                      {m.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </section>
-
           {/* ── Token holdings ── */}
           <section className="set-sec">
             <h3>Token holdings</h3>
@@ -386,7 +356,7 @@ export default function Settings({ flow, onClose }) {
           </section>
 
           {/* ── AI model ── */}
-          <section className="set-sec">
+          <section className="set-sec" id="set-ai-model">
             <h3>AI model</h3>
 
             <div className="set-row">
@@ -616,6 +586,35 @@ export default function Settings({ flow, onClose }) {
                 </div>
               </div>
             )}
+
+            <div className="hotlist">
+              <div className="set-label">
+                <strong>Quick-switch models</strong>
+                <span className="muted">
+                  Tick the models you want in the list that opens when you click the model name in the Wallet Assistant.
+                  Choosing one there switches to it in one click.
+                </span>
+              </div>
+              {[
+                { t: 'nearai', items: (naiModels || []).map((x) => ({ key: hotKey('nearai', x.id), name: x.name, note: x.tier === '3p' ? `3P TEE · ${providerLabel(x.provider)}` : 'NEAR TEE' })) },
+                { t: 'local', items: MODELS.map((x) => ({ key: hotKey('local', x.id), name: x.name, note: formatSize(x.sizeBytes) })) },
+                { t: 'external', items: prefs.externalApi?.model ? [{ key: hotKey('external', prefs.externalApi.model), name: prefs.externalApi.model, note: 'your endpoint' }] : [] },
+              ].map((g) => (
+                <div key={g.t} className="hot-group">
+                  <div className="hot-tier">{TIER_LABELS[g.t]}</div>
+                  {g.t === 'nearai' && !naiModels && !naiListErr && <div className="muted hot-empty">Loading NEAR AI models…</div>}
+                  {g.t === 'nearai' && naiListErr && <div className="muted hot-empty">NEAR AI model list unavailable ({naiListErr}).</div>}
+                  {g.t === 'external' && !g.items.length && <div className="muted hot-empty">Configure an external API above to list its model here.</div>}
+                  {g.items.map((it) => (
+                    <label key={it.key} className="check hot-row">
+                      <input type="checkbox" checked={hotList.includes(it.key)} onChange={() => toggleHot(it.key)} />
+                      <span className="hot-name">{it.name}</span>
+                      <span className="muted hot-note">{it.note}</span>
+                    </label>
+                  ))}
+                </div>
+              ))}
+            </div>
 
             <div className="set-actions">
               {model.status === 'ready' ? (

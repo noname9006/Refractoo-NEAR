@@ -33,14 +33,14 @@ export default function PortfolioSummary({ flow, view }) {
     lastRange.current = range;
     if (rangeChanged) setSeries([]);
     setChartLoading(true);
-    flow.loadHistory(range).then((s) => {
+    flow.loadHistory(range, view?.holdings || []).then((s) => {
       if (id === reqId.current) { setSeries(s || []); setChartLoading(false); }
     }).catch(() => {
       // On failure drop the spinner; only clear the curve if this was a range
       // change (a failed background refresh leaves the existing curve intact).
       if (id === reqId.current) { if (rangeChanged) setSeries([]); setChartLoading(false); }
     });
-  }, [range, flow.portfolio]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [range, flow.portfolio, view?.holdings]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const p = view;
   const delta = p?.change24h || { usd: 0, pct: 0 };
@@ -51,6 +51,10 @@ export default function PortfolioSummary({ flow, view }) {
   const chainCount = p?.chains?.length || 0;
   const walletCount = p?.walletCount || 0;
   const chartRange = seriesMinMax(series);
+  // Unfiltered total (all wallets, all chains) — shown smaller under the main
+  // value only when the selection actually narrows it.
+  const allTotal = flow.portfolio?.total;
+  const filtered = allTotal != null && p?.total != null && Math.abs(allTotal - p.total) > 0.005;
 
   // Progress shows only for a refresh the user started with the button; the
   // automatic one-minute refresh and the initial load update values silently.
@@ -104,6 +108,12 @@ export default function PortfolioSummary({ flow, view }) {
         <div className="sum-body">
           <div className="sum-main">
             <div className="total num">{dollars}<span className="cents">{cents}</span></div>
+            {filtered && (
+              <div className="muted num" style={{ fontSize: '.78rem', marginTop: 2 }}
+                title="Total across all wallets and chains, ignoring the current selection">
+                {usd(allTotal)} across all wallets &amp; chains
+              </div>
+            )}
             <div className="delta">
               <span className="period-24h">past 24h</span>
               <span className={`chip ${flat ? 'flat' : up ? 'up' : 'down'}`}>

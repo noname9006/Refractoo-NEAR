@@ -831,8 +831,10 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
 
   // Portfolio value history for the summary sparkline. Cheap to call per range.
   // Resolves once with the full series — the chart is built only when complete.
-  const loadHistory = useCallback(async (range) => {
-    const p = portfolio;
+  // `viewHoldings` (optional) is the already wallet/chain-filtered holdings list,
+  // so the curve matches the selection; omitted ⇒ whole portfolio.
+  const loadHistory = useCallback(async (range, viewHoldings) => {
+    const p = viewHoldings ? { holdings: viewHoldings } : portfolio;
     // Top holdings by value only: a full registry probe yields hundreds of dust
     // holdings; charting them all makes the request/response huge (the longer
     // ranges then fail and the chart flatlines). The top ~40 cover essentially

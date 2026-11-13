@@ -577,6 +577,32 @@ a.tx .ic,.tx a.ic{cursor:pointer}
 .asst-head .ttl small{display:flex;align-items:center;gap:5px;color:var(--ink-3);font-weight:450;font-size:11px;margin-top:1px}
 .asst-head .ttl .dot{width:6px;height:6px;border-radius:50%;background:var(--pos)}
 .asst-head .chev{transition:transform .25s var(--ease)}
+/* Model name → quick-switch list (portal'd to <body>, so not nested in .asst-head) */
+.model-chip{display:inline-flex;align-items:center;gap:3px;max-width:200px;height:18px;padding:0 6px;margin-left:2px;border:1px solid var(--line-2);border-radius:var(--pill);background:var(--surface);color:var(--ink-2);font:inherit;font-size:11px;font-weight:500;cursor:pointer}
+.model-chip:hover:not(:disabled),.model-chip.open{border-color:var(--accent);color:var(--accent)}
+.model-chip:disabled{opacity:.55;cursor:default}
+.model-chip svg{width:11px;height:11px;flex:none}
+.model-chip .mc-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.model-pop{position:fixed;z-index:70;max-height:min(70vh,420px);overflow-y:auto;padding:6px;border:1px solid var(--line-2);border-radius:var(--r-sm);background:var(--surface);box-shadow:var(--shadow-lg);font-size:12.5px}
+.mp-tier{padding:6px 8px 3px;font-size:10.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3)}
+.mp-item{display:flex;align-items:center;gap:6px;width:100%;padding:6px 8px;border:0;border-radius:6px;background:none;color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+.mp-item:hover{background:var(--accent-wash)}
+.mp-item.on{color:var(--accent);font-weight:600}
+.mp-ck{width:14px;flex:none;display:grid;place-items:center}
+.mp-ck svg{width:13px;height:13px}
+.mp-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mp-sub{font-size:10.5px;color:var(--ink-3)}
+.mp-manage{display:block;width:100%;margin-top:4px;padding:8px;border:0;border-top:1px solid var(--line);background:none;color:var(--ink-3);font:inherit;font-size:11.5px;text-align:left;cursor:pointer}
+.mp-manage:hover{color:var(--accent)}
+/* Settings → hotlist picker */
+.hotlist{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.hotlist .set-label{max-width:none}
+.hot-group{margin-top:8px;display:grid;grid-template-columns:1fr}
+.hot-tier{font-size:10.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3);margin-bottom:2px}
+.hot-row{display:flex;width:100%;align-items:center;gap:8px;padding:3px 0}
+.hot-name{min-width:0}
+.hot-note{font-size:11px;margin-left:auto;white-space:nowrap}
+.hot-empty{font-size:11.5px;padding:2px 0}
 .assistant.collapsed .chev{transform:rotate(-90deg)}
 .asst-body{display:flex;flex-direction:column;min-height:0;border-top:1px solid var(--line)}
 .assistant.collapsed .asst-body{display:none}
@@ -1196,3 +1222,12 @@ mark.ph{background:var(--accent-wash-2);color:var(--ink);border-radius:3px;paddi
 .last-used{margin-left:auto;font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-wash);padding:2px 8px;border-radius:var(--pill)}
 .connect-pop .connect-sub{align-self:flex-start;background:none;border:0;padding:2px 0;color:var(--ink-3);font:inherit;font-size:12px;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
 .connect-pop .connect-sub:hover{color:var(--ink-2)}
+
+/* "$" in token-holding values: smaller + lighter, slightly separated */
+.usd-sign { font-size: 0.75em; font-weight: 400; opacity: 0.7; margin-right: 0.2em; }
+
+/* Small-balance threshold input in the Token holdings header */
+.min-filter{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:var(--ink-3);cursor:text}
+.min-filter input{width:58px;font:inherit;font-weight:600;color:var(--ink);background:var(--surface-inset);border:1px solid transparent;border-radius:99px;padding:2px 8px;text-align:right;-moz-appearance:textfield}
+.min-filter input::-webkit-outer-spin-button,.min-filter input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.min-filter input:focus{outline:none;border-color:var(--accent)}

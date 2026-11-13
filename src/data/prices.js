@@ -21,7 +21,12 @@ export function holdingKeys(holdings) {
   // keyOf can be null for a token the active network profile can't price (a
   // testnet token with no declared mainnet twin); those keys are dropped so no
   // request is ever built around a "null" key.
-  const keyOf = (h) => (h.address ? llamaKey(h.chainId, h.address) : nativeFor(h.chainId).key);
+  // NEAR rows: native and per-pool staking rows (address "pool:…") are priced as
+  // NEAR; nativeFor('near') would wrongly fall back to ETH's key.
+  const keyOf = (h) => {
+    if (h.chainId === 'near' && (!h.address || String(h.address).startsWith('pool:'))) return 'coingecko:near';
+    return h.address ? llamaKey(h.chainId, h.address) : nativeFor(h.chainId).key;
+  };
   const keys = [...new Set(holdings.map(keyOf))].filter(Boolean);
   return { keys, keyOf };
 }
@@ -197,9 +202,11 @@ export async function fetchHistoricalPrices(items) {
 // candle misses the data and the chart flatlines. Using half the candle period
 // as the search window guarantees a hit as long as the token has ≥1 update/day.
 const RANGE = {
-  '24H': { span: 25, period: '1h', searchWidth: 1800  },
-  '7D':  { span: 14, period: '12h', searchWidth: 21600 },
-  '30D': { span: 30, period: '1d', searchWidth: 43200 },
+  // Dense grids (15m / 2h) give DeBank-like jagged detail; verified against the
+  // live /chart endpoint (returns exactly `span` points for these periods).
+  '24H': { span: 97, period: '15m', searchWidth: 600  },
+  '7D':  { span: 84, period: '2h', searchWidth: 3600 },
+  '30D': { span: 120, period: '6h', searchWidth: 10800 },
   // '1d' (not '2d') — DefiLlama's /chart endpoint only reliably parses standard
   // single-unit periods; multi-day periods returned empty, which is what broke
   // the 90D (and made 30D inconsistent) curves.
@@ -286,7 +293,11 @@ export async function fetchPortfolioHistory(holdings, range = '7D') {
   // The /chart endpoint only accepts chain:address format — coingecko: keys (used
   // for native ETH/POL) cause a 400. Those holdings fall back to h.price in
   // buildPortfolioSeries, which is an acceptable approximation for native tokens.
-  const chartKeys = keys.filter((k) => !k.startsWith('coingecko:'));
+  // coingecko: keys (native tokens) work on /chart too — verified live. A bad
+  // key in a batch is isolated by the bisection in fetchKeys, and any holding
+  // left without history still falls back to h.price. Excluding them made a
+  // native-only selection (e.g. NEAR alone) produce no chart at all.
+  const chartKeys = keys;
   const priceAt = new Map();
 
   // Fetch a set of keys, recording each key's price history into priceAt. A

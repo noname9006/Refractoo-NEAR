@@ -51,6 +51,9 @@ export default function Dashboard({ ctx, flow }) {
   const [dragging, setDragging] = useState(false);
   const [cardOrder, setCardOrder] = useState(loadOrder);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsSection, setSettingsSection] = useState(null); // e.g. 'ai' = scroll to AI model
+  // Callers may pass a section name; click handlers pass events, which we ignore.
+  const openSettings = (section) => { setSettingsSection(typeof section === 'string' ? section : null); setSettingsOpen(true); };
   const columnsRef = useRef(null);
   const knownRef = useRef(null);
 
@@ -156,7 +159,7 @@ export default function Dashboard({ ctx, flow }) {
   // progress, and only on the Total value card (see PortfolioSummary).
 
   const cardEls = {
-    holdings: <Holdings view={view} loading={loading} smallUsd={flow.prefs.smallBalanceUsd} />,
+    holdings: <Holdings view={view} loading={loading} smallUsd={flow.prefs.smallBalanceUsd} onSmallUsdChange={(n) => flow.updatePref({ smallBalanceUsd: n })} />,
     shielded: <Shielded flow={flow} view={view} />,
     defi: <DefiPositions view={view} loading={loading} />,
     activity: <Activity flow={flow} selectedChains={selectedChains} selectedWallets={deferredWallets} loading={loading} />,
@@ -168,15 +171,15 @@ export default function Dashboard({ ctx, flow }) {
 
   return (
     <>
-      <TopBar flow={flow} onOpenSettings={() => setSettingsOpen(true)} />
+      <TopBar flow={flow} onOpenSettings={() => openSettings()} />
       {noWallets && <ConnectOverlay flow={flow} />}
-      {!noWallets && <NavPanel onOpenSettings={() => setSettingsOpen(true)} />}
+      {!noWallets && <NavPanel onOpenSettings={() => openSettings()} />}
       <main className="app">
         <Toolbar flow={flow} selectedChains={selectedChains} onToggleChain={toggleChain} onToggleAll={toggleAll}
           selectedWallets={selectedWallets} onToggleWallet={toggleWallet} />
         <div className="app-stack">
           <div id="sec-summary"><PortfolioSummary flow={flow} view={view} /></div>
-          <div id="sec-assistant"><Assistant ctx={ctx} flow={flow} onOpenSettings={() => setSettingsOpen(true)} /></div>
+          <div id="sec-assistant"><Assistant ctx={ctx} flow={flow} onOpenSettings={openSettings} /></div>
           <div className="columns" ref={columnsRef}>
             <div className="col" style={{ flex: `${colRatio} 1 0` }}>
               {cardOrder.slice(0, COL1_SLOTS).map((id) => (
@@ -193,7 +196,7 @@ export default function Dashboard({ ctx, flow }) {
           <div id="sec-details"><DetailsDrawer flow={flow} /></div>
         </div>
       </main>
-      {settingsOpen && <Settings flow={flow} onClose={() => setSettingsOpen(false)} />}
+      {settingsOpen && <Settings flow={flow} section={settingsSection} onClose={() => setSettingsOpen(false)} />}
     </>
   );
 }

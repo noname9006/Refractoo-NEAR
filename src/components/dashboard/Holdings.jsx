@@ -35,7 +35,14 @@ function SkeletonRows({ count = 3 }) {
   ));
 }
 
-export default function Holdings({ view, loading, updating, smallUsd = DEFAULT_SMALL_USD }) {
+export default function Holdings({ view, loading, updating, smallUsd = DEFAULT_SMALL_USD, onSmallUsdChange }) {
+  // Draft text so typing "0." etc. isn't clobbered; committed on blur / Enter.
+  const [draft, setDraft] = useState(null);
+  const commitSmall = (v) => {
+    setDraft(null);
+    const n = Math.max(0, Number(v));
+    if (v !== "" && Number.isFinite(n) && n !== smallUsd) onSmallUsdChange?.(n);
+  };
   const [collapsed, setCollapsed] = useState(() => getLayout().collapsed.holdings);
   const [showSmall, setShowSmall] = useState(false);
   // Compact mode is global: clicking any row hides the amount/network/price/change
@@ -69,6 +76,16 @@ export default function Holdings({ view, loading, updating, smallUsd = DEFAULT_S
         <h3>Token holdings</h3>
         {updating && <span className="synced"><span className="mini-spin" />updating data…</span>}
         <span className="spacer" />
+        {onSmallUsdChange && (
+          <label className="min-filter" title="Hide tokens worth less than this (USD)" onClick={(e) => e.stopPropagation()}>
+            <span>min $</span>
+            <input type="number" min="0" step="0.01" inputMode="decimal"
+              value={draft ?? smallUsd}
+              onChange={(e) => setDraft(e.target.value)}
+              onBlur={(e) => commitSmall(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); if (e.key === "Escape") { setDraft(null); e.currentTarget.blur(); } }} />
+          </label>
+        )}
         <span className="count">
           {displayed.length} shown{hiddenCount > 0 ? ` · ${hiddenCount} hidden` : ''}{shielded.length ? ` · ${shielded.length} shielded` : ''}
         </span>

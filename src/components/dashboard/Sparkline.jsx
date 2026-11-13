@@ -13,10 +13,12 @@ function smoothPath(pts) {
     const p1 = pts[i];
     const p2 = pts[i + 1];
     const p3 = pts[i + 2] || p2;
-    const c1x = p1[0] + (p2[0] - p0[0]) / 14;
-    const c1y = p1[1] + (p2[1] - p0[1]) / 14;
-    const c2x = p2[0] - (p3[0] - p1[0]) / 14;
-    const c2y = p2[1] - (p3[1] - p1[1]) / 14;
+    // DeBank-style: nearly straight segments with only a hint of rounding
+    // (divisor 14 → 60 flattens the curve to keep the jagged, honest look).
+    const c1x = p1[0] + (p2[0] - p0[0]) / 60;
+    const c1y = p1[1] + (p2[1] - p0[1]) / 60;
+    const c2x = p2[0] - (p3[0] - p1[0]) / 60;
+    const c2y = p2[1] - (p3[1] - p1[1]) / 60;
     d += ` C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
   }
   return d;
@@ -101,7 +103,10 @@ export default function Sparkline({ series, loading, drawKey }) {
     const val = pts[i0].value + t * (pts[i0 + 1].value - pts[i0].value);
     const ni = Math.max(0, Math.min(pts.length - 1, Math.round(fi)));
     const date = pts[ni]?.t
-      ? new Date(pts[ni].t * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      ? new Date(pts[ni].t * 1000).toLocaleString('en-US',
+          drawKey === '24H' || drawKey === '7D' || drawKey === '30D'
+            ? { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }
+            : { month: 'short', day: 'numeric' })
       : null;
     setHover({ pctX, svgX: pctX * W, svgY, value: val, date });
   };

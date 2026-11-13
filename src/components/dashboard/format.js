@@ -1,4 +1,5 @@
 // Small presentation helpers shared by the dashboard cards.
+import { createElement, Fragment } from 'react';
 
 // Chain display metadata + block-explorer roots come from the active network
 // profile (see config/networks.js), so the chain pills and explorer links follow
@@ -42,9 +43,13 @@ export function usdHolding(n) {
   if (n == null || !isFinite(n)) return '—';
   const sign = n < 0 ? '-' : '';
   const a = Math.abs(n);
-  if (a >= 10) return `${sign}$ ${Math.round(a).toLocaleString('en-US')}`;
-  if (a >= 1) return `${sign}$ ${a.toFixed(2)}`;
-  return `${sign}$  ${a.toFixed(2).replace(/^0/, '')}`; // 0.57 → "$  .57"
+  let body;
+  if (a >= 10) body = Math.round(a).toLocaleString("en-US");
+  else if (a >= 1) body = a.toFixed(2);
+  else body = a.toFixed(2).replace(/^0/, ""); // 0.57 -> .57
+  // Returns a React node: the "$" is a smaller, lighter span (see .usd-sign).
+  return createElement(Fragment, null, sign,
+    createElement("span", { className: "usd-sign" }, "$"), body);
 }
 
 // Per-unit token price shown in grey under a holding's value. Keeps enough
