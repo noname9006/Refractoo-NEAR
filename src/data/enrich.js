@@ -109,7 +109,7 @@ export async function enrichCluster(addresses, { rpcOverrides = {}, clusterData 
   const out = {};
   for (const a of addresses) {
     out[a] = CHAINS.map((c) => ({
-      chainId: c.chainId, chainName: c.name, balances: [], ok: false, aave: null, approvals: [], extrasDone: false,
+      chainId: c.chainId, chainName: c.name, balances: [], ok: false, aave: null, approvals: [], extrasDone: false, tailDone: false,
     }));
   }
   const slotOf = (a, cid) => out[a].find((s) => s.chainId === cid);
@@ -144,7 +144,7 @@ export async function enrichCluster(addresses, { rpcOverrides = {}, clusterData 
       const rpc = rpcOverrides[chain.chainId];
       const [aave, approvals] = await Promise.all([
         fetchAavePosition(a, chain, rpc).catch(() => null),
-        fetchApprovals(a, chain, rpc).catch(() => []),
+        fetchApprovals(a, chain, rpc).catch(() => null), // null = scan failed, unknown
       ]);
       const slot = slotOf(a, chain.chainId);
       slot.aave = aave;
@@ -157,7 +157,8 @@ export async function enrichCluster(addresses, { rpcOverrides = {}, clusterData 
   // ── Phase 2: tier-2 long tail, background, accumulated onto tier-1 results ──
   await Promise.all(CHAINS.map(async (chain) => {
     const tokens = tier2.get(chain.chainId) || [];
-    if (!tokens.length) return;
+    const markTail = () => { for (const a of addresses) slotOf(a, chain.chainId).tailDone = true; };
+    if (!tokens.length) { markTail(); return; }
     const res = await probeBalances(addresses, chain, tokens, rpcOverrides[chain.chainId]).catch(() => null);
     if (res) {
       for (const a of addresses) {
@@ -166,6 +167,7 @@ export async function enrichCluster(addresses, { rpcOverrides = {}, clusterData 
         if (extra.length) slotOf(a, chain.chainId).balances = [...slotOf(a, chain.chainId).balances, ...extra];
       }
     }
+    markTail();
     emit('partial');
   }));
 

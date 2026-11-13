@@ -1,3 +1,4 @@
+import { getActiveProvider } from '../data/evmWallets.js';
 // Inco Lightning adapter.
 //
 // Inco went live on Base mainnet on 2026-06-15 (Base Sepolia for testnet). Its
@@ -131,7 +132,7 @@ async function getLightning(chain) {
 // viem-native; the app is ethers. Both talk to the same injected provider, so
 // this adds a client object, not a second wallet connection.
 async function getWalletClient(chain, provider) {
-  const eip1193 = provider?.provider ?? window.ethereum;
+  const eip1193 = provider?.provider ?? getActiveProvider();
   if (!eip1193) throw new Error('No EIP-1193 wallet provider available for Inco');
 
   const [{ createWalletClient, custom }, { getViemChain }] = await Promise.all([

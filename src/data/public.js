@@ -1,3 +1,4 @@
+import { getActiveProvider, setActiveProvider } from './evmWallets.js';
 // Public on-chain data: ethers v6 + Etherscan V2 unified API.
 //
 // Privacy note: every RPC/explorer request reveals the queried address to that
@@ -62,11 +63,12 @@ function withTimeout(promise, ms = CONNECT_TIMEOUT_MS) {
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
-export async function connectWallet() {
-  if (!window.ethereum) {
+export async function connectWallet(eip1193 = getActiveProvider()) {
+  if (!eip1193) {
     throw new Error('No web3 wallet detected. Install a browser wallet app to connect.');
   }
-  const provider = new BrowserProvider(window.ethereum);
+  setActiveProvider(eip1193);
+  const provider = new BrowserProvider(eip1193);
   await withTimeout(provider.send('eth_requestAccounts', []));
   const signer = await provider.getSigner();
   const network = await provider.getNetwork();
@@ -82,11 +84,12 @@ export async function connectWallet() {
 // authorize MORE THAN ONE account in a single step (plain eth_requestAccounts
 // only ever returns the one currently-selected account). Returns every
 // authorized address plus the active signer.
-export async function requestWalletAccounts() {
-  if (!window.ethereum) {
+export async function requestWalletAccounts(eip1193 = getActiveProvider()) {
+  if (!eip1193) {
     throw new Error('No web3 wallet detected. Install a browser wallet app to connect.');
   }
-  const provider = new BrowserProvider(window.ethereum);
+  setActiveProvider(eip1193);
+  const provider = new BrowserProvider(eip1193);
   // Re-prompting permissions forces the multi-account chooser in MetaMask &
   // most wallets. Not all wallets support it — fall back silently.
   try {

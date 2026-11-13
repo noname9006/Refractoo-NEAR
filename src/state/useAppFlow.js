@@ -124,9 +124,21 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
       for (const [a, slots] of Object.entries(enriched)) {
         const prev = prevEnriched[a] || [];
         out[a] = slots.map((s) => {
-          if (s.extrasDone !== false) return s;
           const p = prev.find((x) => x.chainId === s.chainId);
-          return p ? { ...s, aave: p.aave, approvals: p.approvals || [] } : s;
+          if (!p) return s;
+          let next = s;
+          if (s.extrasDone === false) next = { ...next, aave: p.aave, approvals: p.approvals || [] };
+          // A failed approvals scan (rate limit) is "unknown", not "none".
+          else if (s.approvals == null) next = { ...next, approvals: p.approvals || [] };
+          // Until this chain's long tail is re-probed, keep last pass's tokens
+          // that tier-1 didn't return, so holdings rows don't vanish and reappear.
+          if (s.tailDone === false && p.balances?.length) {
+            const key = (b) => String(b.address || b.token || b.symbol).toLowerCase();
+            const have = new Set((s.balances || []).map(key));
+            const keep = p.balances.filter((b) => !have.has(key(b)));
+            if (keep.length) next = { ...next, balances: [...(s.balances || []), ...keep] };
+          }
+          return next;
         });
       }
       return out;
@@ -155,7 +167,7 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
           const prices = await fetchPrices(
             holdingPriceTargets(clusterDataFresh, enriched, shieldedRef.current)
           );
-          pricesRef.current = prices;
+          pricesRef.current = new Map([...(pricesRef.current || []), ...prices]); // merge: a partial reprice must not drop known prices
           render(enriched);
         } catch (e) {
           console.warn('[flow] price failed', e);
@@ -225,7 +237,7 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
     try {
       const prices = await fetchPrices(holdingPriceTargets(rawData, cachedEn, shieldedRef.current));
       if (liveEnrichStarted.current) return; // live data took over — don't stomp it
-      pricesRef.current = prices;
+      pricesRef.current = new Map([...(pricesRef.current || []), ...prices]); // merge: a partial reprice must not drop known prices
       setPortfolio(buildPortfolio({
         clusterData: rawData, enriched: cachedEn,
         prices, shielded: shieldedRef.current, near: nearRef.current,
@@ -603,6 +615,23 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
     return null;
   }, [loadNearAccounts, stage]);
 
+  // Toolbar "Connect wallet" → NEAR tab: pick a NEAR wallet and add its account
+  // (read-only data; the wallet is only used later for NEP-413 signatures).
+  const connectNear = useCallback(async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const { connectNearWallet } = await import('../near/nearWallet.js');
+      const nw = await connectNearWallet();
+      const msg = await addNearAcct(nw.accountId);
+      if (msg) setError(msg);
+    } catch (e) {
+      setError(String(e.message || e));
+    } finally {
+      setBusy(false);
+    }
+  }, [addNearAcct]);
+
   const removeNearAcct = useCallback((id) => {
     setCluster({ ...removeNearAccount(id) });
     nearRef.current = nearRef.current.filter((a) => a.accountId !== id);
@@ -651,11 +680,11 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
   // user can authorize several accounts at once), adds every authorized address
   // to the cluster, then loads chain data for the whole cluster. This is what
   // makes balances actually appear after connecting on the dashboard.
-  const connectMore = useCallback(async () => {
+  const connectMore = useCallback(async (eip1193) => {
     setBusy(true);
     setError(null);
     try {
-      const w = await requestWalletAccounts();
+      const w = await requestWalletAccounts(eip1193?.request ? eip1193 : undefined);
       setWallet({ address: w.address, provider: w.provider, signer: w.signer, chainId: w.chainId });
       const before = new Set(getCluster().addresses.map((a) => a.toLowerCase()));
       let cl = getCluster();
@@ -848,7 +877,7 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
           const prices = await fetchPrices(
             holdingPriceTargets(clusterDataRef.current, enrichedRef.current, merged)
           );
-          pricesRef.current = prices;
+          pricesRef.current = new Map([...(pricesRef.current || []), ...prices]); // merge: a partial reprice must not drop known prices
           rebuildPortfolio(merged);
         } catch (e) {
           console.warn('[flow] shielded pricing failed', e);
@@ -1025,7 +1054,8 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
     }
     // Fresh provider after a chain switch (ethers' BrowserProvider pins the network).
     const { BrowserProvider } = await import('ethers');
-    const signer = await new BrowserProvider(window.ethereum).getSigner();
+    const { getActiveProvider } = await import('../data/evmWallets.js');
+    const signer = await new BrowserProvider(getActiveProvider()).getSigner();
     const hash = await revokeApproval(approval.token, approval.spender, signer);
     // optimistic: drop it from the portfolio view
     setPortfolio((p) =>
@@ -1047,7 +1077,7 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
 
   return {
     stage, cluster, wallet, clusterData, facts, portfolio, pricing, refreshing, manualRefresh,
-    shielded, shieldedStacks, nearIntents, nearStatus, nearData, addNearAcct, removeNearAcct, demo,
+    shielded, shieldedStacks, nearIntents, nearStatus, nearData, addNearAcct, connectNear, removeNearAcct, demo,
     model, prefs, voiceDownload, error, busy,
     connect, addAnother, connectMore, loadDemo, removeFromCluster, renameWallet, continueFromWallets,
     rebuildView, startModel: loadModel, retryModel, unloadModel, chooseVoice, refresh, refreshNow, loadHistory, revoke, updatePref,

@@ -38,10 +38,15 @@ export async function fetchApprovals(owner, chain, rpcOverride) {
       const res = await fetch(url);
       return res.json();
     });
-    logs = Array.isArray(json.result) ? json.result : [];
+    if (Array.isArray(json.result)) logs = json.result;
+    else if (/no records/i.test(String(json.message || json.result || ''))) logs = [];
+    // Rate limit / API error ("Max rate limit reached", …): the scan did NOT run.
+    // Report it as unknown (null), not as "no approvals", so the caller keeps
+    // the last-known list instead of blanking the card.
+    else throw new Error(String(json.result || json.message || 'Etherscan error'));
   } catch (err) {
     console.warn(`[approvals] log scan failed on ${chain.name}:`, err?.message || err);
-    return [];
+    return null;
   }
 
   // Keep the most recent log per (token, spender).
