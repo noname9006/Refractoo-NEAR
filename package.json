@@ -8,7 +8,8 @@
     "server": "node server/index.js",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "test:offline": "node --test --test-skip-pattern=\"^live\" tests/*.test.mjs"
   },
   "dependencies": {
     "@cofhe/sdk": "^0.6.0",
