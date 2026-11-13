@@ -15,17 +15,43 @@ const DB_NAME = cacheDbName();
 const STORE = 'chainData';
 let _dbPromise = null;
 
-function openDB() {
-  if (_dbPromise) return _dbPromise;
-  _dbPromise = new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 1);
+// Opens the DB, self-healing if it exists WITHOUT our store (e.g. something
+// opened the name with no version first, creating an empty v1 — then our
+// open(…, 1) never fires onupgradeneeded). In that case reopen at version+1.
+function openAt(version) {
+  return new Promise((resolve, reject) => {
+    const req = version ? indexedDB.open(DB_NAME, version) : indexedDB.open(DB_NAME);
     req.onupgradeneeded = () => {
       const db = req.result;
       if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
     };
-    req.onsuccess = () => resolve(req.result);
+    req.onsuccess = () => {
+      const db = req.result;
+      // Another tab upgrading must not be blocked by our open handle.
+      db.onversionchange = () => { db.close(); _dbPromise = null; };
+      resolve(db);
+    };
     req.onerror = () => reject(req.error);
+    // An older tab holding the DB open can block the upgrade indefinitely —
+    // don't hang the app on it; run uncached until that tab closes.
+    req.onblocked = () => {
+      console.warn('[dataCache] upgrade blocked by another open tab — close other app tabs');
+      reject(new Error('IndexedDB upgrade blocked'));
+    };
   });
+}
+
+function openDB() {
+  if (_dbPromise) return _dbPromise;
+  _dbPromise = (async () => {
+    let db = await openAt(); // current version, whatever it is
+    if (!db.objectStoreNames.contains(STORE)) {
+      const next = db.version + 1;
+      db.close();
+      db = await openAt(next);
+    }
+    return db;
+  })().catch((err) => { _dbPromise = null; throw err; });
   return _dbPromise;
 }
 

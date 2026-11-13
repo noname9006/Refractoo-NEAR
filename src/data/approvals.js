@@ -18,6 +18,11 @@ const APPROVAL_TOPIC = id('Approval(address,address,uint256)');
 // Treat anything at/above 2^255 as "unlimited" (covers MaxUint256 sentinels).
 const UNLIMITED = 1n << 255n;
 
+// Chains Etherscan's free tier refuses ("Free API access is not supported for
+// this chain" — e.g. Optimism, Base). Remembered for the session so the
+// 1-minute auto-refresh doesn't re-request and re-warn every cycle.
+const PLAN_BLOCKED = new Set();
+
 const ERC20_ALLOWANCE = ['function allowance(address owner, address spender) view returns (uint256)'];
 const ERC20_APPROVE = ['function approve(address spender, uint256 value) returns (bool)'];
 
@@ -26,6 +31,7 @@ const ERC20_APPROVE = ['function approve(address spender, uint256 value) returns
 export async function fetchApprovals(owner, chain, rpcOverride) {
   const apiKey = import.meta.env.VITE_ETHERSCAN_KEY || '';
   if (!apiKey) return []; // can't reliably scan without it
+  if (PLAN_BLOCKED.has(chain.chainId)) return null; // unknown, keep last-known
 
   const url =
     `${ETHERSCAN_V2}?chainid=${chain.chainId}&module=logs&action=getLogs` +
@@ -45,6 +51,11 @@ export async function fetchApprovals(owner, chain, rpcOverride) {
     // the last-known list instead of blanking the card.
     else throw new Error(String(json.result || json.message || 'Etherscan error'));
   } catch (err) {
+    if (/not supported for this chain|upgrade your api plan/i.test(String(err?.message))) {
+      PLAN_BLOCKED.add(chain.chainId);
+      console.info(`[approvals] ${chain.name}: not covered by the Etherscan free plan — approvals scan skipped`);
+      return null;
+    }
     console.warn(`[approvals] log scan failed on ${chain.name}:`, err?.message || err);
     return null;
   }

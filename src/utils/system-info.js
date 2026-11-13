@@ -1,3 +1,4 @@
+import { cacheDbName } from '../config/networks.js';
 // Device-resource probing and per-category local-storage accounting for the
 // Settings panel. Everything here reads the user's OWN machine/browser — nothing
 // is sent anywhere. Numbers are best-effort: browsers deliberately fuzz or hide
@@ -229,7 +230,10 @@ async function idbChainBytes() {
   try {
     if (!('indexedDB' in window)) return 0;
     const db = await new Promise((resolve, reject) => {
-      const req = indexedDB.open('pwai');
+      const req = indexedDB.open(cacheDbName());
+      // Never CREATE the DB from here — an empty v1 would block dataCache's
+      // store creation. Abort if it doesn't exist yet.
+      req.onupgradeneeded = () => req.transaction.abort();
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
     });
