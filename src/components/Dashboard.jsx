@@ -1,6 +1,6 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { filterPortfolioView } from '../analytics/portfolio.js';
-import { getLayout, setLayout } from '../storage/local.js';
+import { getLayout, setLayout, saveDeselected } from '../storage/local.js';
 import { VIEW_CHAIN_IDS } from '../config/networks.js';
 import TopBar from './dashboard/TopBar.jsx';
 import Toolbar from './dashboard/Toolbar.jsx';
@@ -42,7 +42,10 @@ const loadOrder = () => {
 };
 
 export default function Dashboard({ ctx, flow }) {
-  const [selectedChains, setSelectedChains] = useState(() => new Set(ALL_CHAINS));
+  const [selectedChains, setSelectedChains] = useState(() => {
+    const off = getLayout().deselectedChains;
+    return new Set(ALL_CHAINS.filter((id) => !off.includes(id)));
+  });
   const [selectedWallets, setSelectedWallets] = useState(() => new Set());
   const [colRatio, setColRatio] = useState(() => getLayout().colRatio);
   const [dragging, setDragging] = useState(false);
@@ -81,7 +84,12 @@ export default function Dashboard({ ctx, flow }) {
   useEffect(() => {
     const addrs = walletIds.map((a) => a.toLowerCase());
     setSelectedWallets((prev) => {
-      if (knownRef.current === null) { knownRef.current = new Set(addrs); return new Set(addrs); }
+      if (knownRef.current === null) {
+        // First load: restore the saved selection (deselected wallets stay off).
+        knownRef.current = new Set(addrs);
+        const off = getLayout().deselectedWallets;
+        return new Set(addrs.filter((a) => !off.includes(a)));
+      }
       const next = new Set([...prev].filter((a) => addrs.includes(a)));
       for (const a of addrs) if (!knownRef.current.has(a)) next.add(a);
       knownRef.current = new Set(addrs);
@@ -91,14 +99,20 @@ export default function Dashboard({ ctx, flow }) {
 
   // Clicking a chain isolates it; clicking the already-isolated chain again
   // restores the full selection.
+  const applyChains = (next) => { saveDeselected('deselectedChains', ALL_CHAINS, next); setSelectedChains(next); };
   const toggleChain = (id) =>
-    setSelectedChains((s) => (s.size === 1 && s.has(id) ? new Set(ALL_CHAINS) : new Set([id])));
+    applyChains(selectedChains.size === 1 && selectedChains.has(id) ? new Set(ALL_CHAINS) : new Set([id]));
   // "All chains" toggles: select everything, or — when everything is already
   // selected — deselect all (the dashboard then shows nothing).
   const toggleAll = () =>
-    setSelectedChains((s) => (ALL_CHAINS.every((id) => s.has(id)) ? new Set() : new Set(ALL_CHAINS)));
-  const toggleWallet = (addr) =>
-    setSelectedWallets((s) => { const a = addr.toLowerCase(); const n = new Set(s); n.has(a) ? n.delete(a) : n.add(a); return n; });
+    applyChains(ALL_CHAINS.every((id) => selectedChains.has(id)) ? new Set() : new Set(ALL_CHAINS));
+  const toggleWallet = (addr) => {
+    const a = addr.toLowerCase();
+    const n = new Set(selectedWallets);
+    n.has(a) ? n.delete(a) : n.add(a);
+    saveDeselected('deselectedWallets', walletIds.map((w) => w.toLowerCase()), n);
+    setSelectedWallets(n);
+  };
 
   // The chips read `selectedWallets` (urgent, so they react on the very next
   // frame); the heavy view rebuild reads the deferred copy and catches up after.

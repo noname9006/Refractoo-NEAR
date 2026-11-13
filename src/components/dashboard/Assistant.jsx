@@ -17,6 +17,7 @@ import { pseudonymizeForRemote, precisionFor } from '../../utils/pseudonymize.js
 import { nearAccountFacts } from '../../near/nearAccount.js';
 import { describeOutbound } from '../../utils/outbound.js';
 import OutboundReview from './OutboundReview.jsx';
+import { getLayout, setCardCollapsed } from '../../storage/local.js';
 
 const THINK_KEY = 'pwai.thinking';
 // Default OFF to match Qwen3.5's documented behavior (reasoning is disabled by
@@ -65,7 +66,8 @@ function scheduleIdleTask(callback, timeout = 400) {
 // list of conversations (Claude/ChatGPT-style) in a collapsible left sidebar.
 export default function Assistant({ ctx, flow, onOpenSettings }) {
   const [tiersOpen, setTiersOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => getLayout().collapsed.assistant);
+  useEffect(() => { setCardCollapsed('assistant', collapsed); }, [collapsed]);
   const [full, setFull] = useState(false);
   const [input, setInput] = useState('');
   const [store, setStore] = useState(loadStore); // { activeId, conversations:[{id,title,msgs,updatedAt}] }

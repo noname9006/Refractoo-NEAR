@@ -58,6 +58,7 @@ export function removeNearAccount(accountId) {
   delete cluster.labels[id];
   cluster.updatedAt = Date.now();
   write(CLUSTER_KEY, cluster);
+  forgetDeselectedWallet(id);
   return cluster;
 }
 
@@ -102,6 +103,7 @@ export function removeWallet(address) {
   if (cluster.labels) delete cluster.labels[key];
   cluster.updatedAt = Date.now();
   write(CLUSTER_KEY, cluster);
+  forgetDeselectedWallet(key);
   return cluster;
 }
 
@@ -198,9 +200,13 @@ const LAYOUT_KEY = 'pwai.layout';
 
 const DEFAULT_LAYOUT = {
   colRatio: 3 / 5,
-  collapsed: { summary: false, holdings: false, shielded: false, defi: false, activity: false, caps: false },
+  collapsed: { summary: false, holdings: false, shielded: false, defi: false, activity: false, caps: false, assistant: false },
   holdingsCompact: false,
   activityAbsTime: false,
+  // Wallet / chain filter chips. Stored as the DESELECTED ids so anything new
+  // (a freshly added wallet, a newly supported chain) defaults to selected.
+  deselectedWallets: [],
+  deselectedChains: [],
 };
 
 export function getLayout() {
@@ -212,6 +218,22 @@ export function setLayout(patch) {
   const next = { ...getLayout(), ...patch };
   write(LAYOUT_KEY, next);
   return next;
+}
+
+// Persist a selection as its complement. `key` is 'deselectedWallets' or
+// 'deselectedChains'; `allIds` is what exists right now, `selected` a Set.
+// Ids not in `allIds` (e.g. mainnet chains while on testnet) are kept as-is.
+export function saveDeselected(key, allIds, selected) {
+  const kept = (getLayout()[key] || []).filter((id) => !allIds.includes(id));
+  const off = allIds.filter((id) => !selected.has(id));
+  return setLayout({ [key]: [...kept, ...off] });
+}
+
+function forgetDeselectedWallet(id) {
+  const l = getLayout();
+  if (l.deselectedWallets.includes(id)) {
+    setLayout({ deselectedWallets: l.deselectedWallets.filter((x) => x !== id) });
+  }
 }
 
 export function setCardCollapsed(card, value) {
