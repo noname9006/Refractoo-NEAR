@@ -43,6 +43,12 @@ export default function TopBar({ flow, onOpenSettings }) {
         </div>
         <div className="spacer" />
 
+        {flow.portfolio?.priced && (
+          <span className="synced" title="Balances and prices refresh automatically every minute">
+            <span className="livedot" />live data
+          </span>
+        )}
+
         <button className={`pill${downloading ? ' downloading' : ''}`}
           style={downloading ? { '--p': m.progress } : undefined}
           title={m.status === 'error' && m.error ? m.error : m.status === 'idle' ? idleTitle : `${noun} status`}
