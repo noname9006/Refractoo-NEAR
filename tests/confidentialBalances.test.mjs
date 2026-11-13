@@ -322,9 +322,9 @@ test('classifyHistoryError: refusals vs transient failures', () => {
 test('historyNote: restricted explains what is and is not missing; ok shows no note', () => {
   const n = historyNote({ state: 'restricted', status: 403 });
   assert.equal(n.short, 'history: invite-only');
-  assert.match(n.body, /invited integrations/);
-  assert.match(n.body, /balances \(Shielded balances card\) are read and current/);
-  assert.match(n.body, /public explorers/);
+  assert.equal(n.title, 'Private-shard activity can’t be listed yet');
+  assert.equal(n.body, 'Your private NEAR balances are read; the list of past swaps is missing. You can view your activity on near.com');
+  assert.equal(n.link.href, 'https://near.com/activity');
   assert.equal(historyNote({ state: 'ok', count: 3 }), null);
   assert.equal(historyNote(null), null);
   assert.match(historyNote({ state: 'unavailable', status: 502 }).body, /HTTP 502/);

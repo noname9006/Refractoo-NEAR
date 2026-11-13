@@ -7,7 +7,7 @@
 // Throws only when every source failed and nothing was ever loaded.
 const NEARBLOCKS = 'https://api.nearblocks.io/v3';
 const FASTNEAR = 'https://tx.main.fastnear.com/v0';
-const NB_KEY = import.meta.env.VITE_NEARBLOCKS_KEY || '';
+const NB_KEY = import.meta.env?.VITE_NEARBLOCKS_KEY || '';
 
 // yocto (10^-24) → NEAR via BigInt: a float divide turns 2.5 into 2.5000000000000004.
 // Kept to 6 decimals; anything smaller is a security deposit, not a transfer.
