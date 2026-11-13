@@ -246,6 +246,56 @@ function thirdPartyChecks(receipt, tcbOk) {
   ];
 }
 
+// --- Tamper test -------------------------------------------------------------
+// The receipt's "Simulate tampered answer" button. Re-runs the SDK's own
+// signature check (verifyModelResponse / verifyGatewayResponse, the functions
+// client.verifyResponse() uses) on the exact request/response bytes of this
+// answer, once as received and once with ONE byte of the response flipped.
+// Nothing is faked: the red result is the real verifier rejecting real bytes.
+// Evidence lives in memory only (never stored), for the last few answers.
+const EVIDENCE = new Map();
+const EVIDENCE_MAX = 20;
+function keepEvidence(id, e) {
+  if (!id) return;
+  EVIDENCE.delete(id);
+  EVIDENCE.set(id, e);
+  while (EVIDENCE.size > EVIDENCE_MAX) EVIDENCE.delete(EVIDENCE.keys().next().value);
+}
+export function hasTamperEvidence(id) {
+  return EVIDENCE.has(id);
+}
+// Test seam: lets tests register evidence made with a local key.
+export const _keepEvidenceForTest = keepEvidence;
+
+export async function tamperTest(id, byteIndex) {
+  const e = EVIDENCE.get(id);
+  if (!e) throw new Error('No evidence for this answer in memory (answers from before a reload cannot be re-checked).');
+  const { verifyModelResponse, verifyGatewayResponse } = await import('@nearai/inference-sdk');
+  const verify = e.kind === 'provider_tee' ? verifyModelResponse : verifyGatewayResponse;
+  const run = (responseBody) => {
+    try {
+      verify({ requestBody: e.requestBody, responseBody, signature: e.signature, attestation: e.attestation });
+      return { ok: true, code: null };
+    } catch (err) {
+      return { ok: false, code: err?.failure?.code || err?.code || String(err?.message || err) };
+    }
+  };
+  const n = e.responseBody.length;
+  const i = Number.isInteger(byteIndex) && byteIndex >= 0 && byteIndex < n ? byteIndex : n >> 1;
+  const forged = Uint8Array.from(e.responseBody);
+  forged[i] ^= 0x01;
+  return { original: run(e.responseBody), tampered: { ...run(forged), byteIndex: i, length: n }, kind: e.kind };
+}
+
+// A copy of the receipt as it would look had the tampered bytes arrived:
+// the panel renders it through the same verificationChecks().
+export function tamperedReceipt(receipt, result) {
+  return {
+    ...receipt,
+    response: { ...receipt.response, ok: false, error: `${result.tampered.code} (simulated: byte ${result.tampered.byteIndex} of ${result.tampered.length} flipped)` },
+  };
+}
+
 export function receiptVerified(receipt) {
   return verificationChecks(receipt).every((c) => c.ok === true);
 }
@@ -480,8 +530,15 @@ export class NearAiContext {
     const aborted = this._userStopped || this._abort?.signal?.aborted;
     if (completionId && !aborted && client) {
       try {
+        // Grab the exact bytes the SDK captured BEFORE verifyResponse() drops
+        // them, so the receipt's tamper test can re-run the same check later.
+        const captured = client.getResponseRecord?.(completionId)?.captured;
+        const [reqBytes, resBytes] = captured
+          ? await Promise.all([captured.requestBody, captured.responseBody]).catch(() => [])
+          : [];
         const v = await client.verifyResponse(completionId);
         response = { ok: true, kind: v.signatureKind, id: v.id };
+        if (reqBytes && resBytes) keepEvidence(v.id, { requestBody: reqBytes, responseBody: resBytes, signature: v.signature, attestation: v.attestation, kind: v.signatureKind });
       } catch (e) {
         response = { ok: false, kind: null, id: completionId, error: e?.failure?.code || String(e?.message || e) };
       }

@@ -156,6 +156,13 @@ test('live: verified E2EE stream, receipt passes, stop() aborts', { skip: !KEY &
   const checks = verificationChecks(res.verification);
   for (const c of checks) assert.equal(c.ok, true, `${c.id}: ${c.detail}`);
 
+  // Tamper demo on a real answer: the real bytes re-verify, one flipped byte fails.
+  const { tamperTest } = await import('../src/near/nearAiContext.js');
+  const t = await tamperTest(res.verification.response.id);
+  assert.equal(t.original.ok, true, t.original.code);
+  assert.equal(t.tampered.ok, false);
+  assert.equal(t.tampered.code, 'signature.payload_mismatch');
+
   // Stop mid-stream: resolves (no throw), marks stopped, receipt not "verified".
   const p = ctx.analyze([{ role: 'user', content: 'Count from 1 to 300, one number per line.' }], () => {}, null, { thinking: false });
   setTimeout(() => ctx.stop(), 2500);

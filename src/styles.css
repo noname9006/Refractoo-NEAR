@@ -959,6 +959,13 @@ label.check input{width:auto;padding:0;margin:0}
 .verified-list .vd{grid-column:2;color:var(--ink-3);overflow-wrap:anywhere}
 .verified-list .mono{font-family:var(--mono,ui-monospace,monospace);font-size:11px}
 .verified-list li.meta .vl{color:var(--ink-3)}
+.verified.bad{border-color:color-mix(in srgb,var(--neg) 50%,transparent);background:color-mix(in srgb,var(--neg) 8%,transparent)}
+.verified.bad .verified-mark{background:var(--neg)}
+.verified-alert.tamper-note{font-weight:450;color:var(--ink-2)}
+.verified-alert.tamper-note code{font-family:var(--mono,ui-monospace,monospace);font-size:11px;color:var(--neg)}
+.verified-list li.tamper-row{align-items:center;margin-top:2px}
+.verified-list li.tamper-row .btn{justify-self:start;margin-left:-11px}
+.linklike{background:none;border:0;padding:0;font:inherit;color:var(--accent);text-decoration:underline;cursor:pointer}
 /* Privacy line as a button → tier comparison panel */
 .chat-foot.as-btn{width:100%;background:none;border:0;padding:0;cursor:pointer;text-align:left;font:inherit;font-size:11px}
 .chat-foot.as-btn:hover span:nth-child(2){color:var(--ink-2)}

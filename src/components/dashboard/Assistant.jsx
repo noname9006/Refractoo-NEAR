@@ -13,7 +13,7 @@ import { PrivacyBadge } from './PrivacyBadge.jsx';
 import TierPanel from './TierPanel.jsx';
 import ModelSwitcher from './ModelSwitcher.jsx';
 import GatewayCheck from './GatewayCheck.jsx';
-import { verificationChecks } from '../../near/nearAiContext.js';
+import { verificationChecks, hasTamperEvidence, tamperTest, tamperedReceipt } from '../../near/nearAiContext.js';
 import { pseudonymizeForRemote, precisionFor } from '../../utils/pseudonymize.js';
 import { nearAccountFacts } from '../../near/nearAccount.js';
 import { describeOutbound } from '../../utils/outbound.js';
@@ -778,7 +778,17 @@ const AssistantBubble = memo(function AssistantBubble({ msg, live = false, elaps
 
 // "Verified" receipt under a NEAR AI answer: one collapsed summary line, the
 // individual checks on expand. Everything shown was checked in this browser.
-const VerifiedPanel = memo(function VerifiedPanel({ receipt }) {
+const VerifiedPanel = memo(function VerifiedPanel({ receipt: real }) {
+  // Tamper demo: re-runs the real signature check on this answer's bytes with
+  // one byte flipped (nearAiContext.tamperTest). While shown, the panel renders
+  // the receipt those bytes would have produced, through the same checks.
+  const [tamper, setTamper] = useState(null); // null | { result } | { error }
+  const canTamper = real.response?.ok === true && hasTamperEvidence(real.response.id);
+  const receipt = tamper?.result && !tamper.result.tampered.ok ? tamperedReceipt(real, tamper.result) : real;
+  const runTamper = async () => {
+    try { setTamper({ result: await tamperTest(real.response.id) }); setOpen(true); }
+    catch (e) { setTamper({ error: String(e?.message || e) }); }
+  };
   const checks = verificationChecks(receipt);
   const passed = checks.filter((c) => c.ok === true).length;
   // 3P TEE: "–" rows (no model E2EE) are by design, not failures, but the
@@ -792,18 +802,27 @@ const VerifiedPanel = memo(function VerifiedPanel({ receipt }) {
   const sigFailed = receipt.response && receipt.response.ok === false;
   const a = receipt.attestation;
   return (
-    <div className={`verified ${all ? 'ok' : 'warn'}`}>
+    <div className={`verified ${tamper?.result && !tamper.result.tampered.ok ? 'bad' : all ? 'ok' : 'warn'}`}>
       <button className="verified-head" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
         <span className="verified-mark">{all ? '✓' : '!'}</span>
         <span className="verified-ttl">{title} · {passed}/{thirdParty ? applicable : checks.length} checks</span>
         <span className="verified-sub">{receipt.provider}{a?.model ? ` · ${a.model}` : ''}</span>
         <span className="chev"><IChevDown /></span>
       </button>
-      {sigFailed && (
+      {sigFailed && !tamper?.result && (
         <div className="verified-alert">
           The answer above could not be tied to the attested enclave. Treat it as unverified.
         </div>
       )}
+      {tamper?.result && (
+        <div className="verified-alert tamper-note">
+          <strong>Simulation.</strong> The real answer re-checked: {tamper.result.original.ok ? 'signature valid ✓' : `failed (${tamper.result.original.code})`}.
+          {' '}Same bytes with byte {tamper.result.tampered.byteIndex.toLocaleString()} of {tamper.result.tampered.length.toLocaleString()} flipped:
+          {' '}{tamper.result.tampered.ok ? 'still accepted ✗ (unexpected)' : <>rejected — <code>{tamper.result.tampered.code}</code></>}.
+          {' '}<button className="linklike" onClick={() => setTamper(null)}>Show the real receipt</button>
+        </div>
+      )}
+      {tamper?.error && <div className="verified-alert">{tamper.error}</div>}
       {open && (
         <ul className="verified-list">
           {checks.map((c) => (
@@ -818,6 +837,14 @@ const VerifiedPanel = memo(function VerifiedPanel({ receipt }) {
           )}
           {receipt.response?.id && (
             <li className="na meta"><span className="vi" /><span className="vl">Completion id</span><span className="vd mono">{receipt.response.id}</span></li>
+          )}
+          {canTamper && !tamper?.result && (
+            <li className="na meta tamper-row">
+              <span className="vi" />
+              <button className="btn ghost sm" onClick={runTamper} title="Flips one byte of this answer's response in memory and re-runs the same signature check. Nothing is sent.">
+                Simulate tampered answer
+              </button>
+            </li>
           )}
         </ul>
       )}

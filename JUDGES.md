@@ -11,7 +11,7 @@ npm ci
 npm run test:offline
 ```
 
-80 tests, about 2 seconds. `npm test` additionally runs the `live:` tests
+86 tests, about 2 seconds. `npm test` additionally runs the `live:` tests
 against public endpoints (NEAR RPC, `intents.near`, the NEAR AI gateway); the
 ones that need a NEAR AI or Intents API key skip themselves without one.
 
@@ -24,6 +24,7 @@ To see the features rather than the tests: [README → Try it in 3 minutes](READ
 | Claim | Code | Test |
 |---|---|---|
 | Every answer is signed inside the attested enclave, over the exact request and response bytes: flip any single byte of the answer, the request or the signature and verification fails | `client.verifyResponse()` → `verifyModelResponse` in `@nearai/inference-sdk`, called from [`nearAiContext.js`](src/near/nearAiContext.js) `analyze()` | [`claims.test.mjs`](tests/claims.test.mjs) A1–A5 |
+| **See it yourself:** "Simulate tampered answer" on a Verified receipt re-runs the SDK's own signature check on that answer's exact bytes, as received (✓) and with one byte flipped (✗ `signature.payload_mismatch`); the receipt turns red. Nothing is faked and nothing is sent; the bytes stay in memory only | `tamperTest()` in [`nearAiContext.js`](src/near/nearAiContext.js), `VerifiedPanel` in [`Assistant.jsx`](src/components/dashboard/Assistant.jsx) | [`tamper.test.mjs`](tests/tamper.test.mjs); live: `nearai.test.mjs` "verified E2EE stream…" |
 | A valid signature from a key the attestation did not vouch for is rejected | same | `claims.test.mjs` A3 |
 | The "Verified" receipt fails if any one link is weak (gateway TDX, model TDX, NVIDIA GPU evidence, fresh nonce, E2EE, signature) | `verificationChecks()` in [`nearAiContext.js`](src/near/nearAiContext.js) | [`nearai.test.mjs`](tests/nearai.test.mjs) "verificationChecks: …" |
 | NVIDIA attestation verdicts are checked with a bounded clock tolerance, and a nonce mismatch or negative verdict is rejected | [`nrasVerifier.js`](src/near/nrasVerifier.js) | `nearai.test.mjs` "checkClaims …" |

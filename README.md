@@ -91,7 +91,7 @@ The hackathon diff: [`pre-hackathon...main`](https://github.com/noname9006/Refra
 
 | NEAR feature | Code |
 |---|---|
-| **NEAR AI TEE inference tier**: browser-side gateway + model attestation, E2EE chat, per-answer signature check, "Verified" receipt; refuses non-attested (Incognito) models | [`src/near/nearAiContext.js`](src/near/nearAiContext.js) |
+| **NEAR AI TEE inference tier**: browser-side gateway + model attestation, E2EE chat, per-answer signature check, "Verified" receipt with a **"Simulate tampered answer"** button (flips one byte, re-runs the real check, receipt turns red); refuses non-attested (Incognito) models | [`src/near/nearAiContext.js`](src/near/nearAiContext.js) |
 | NVIDIA NRAS verdict check with bounded clock tolerance (the SDK has none; a few seconds of client clock lag failed every verification) | [`src/near/nrasVerifier.js`](src/near/nrasVerifier.js) |
 | **Key-less live gateway check** for people without a NEAR AI key | `verifyGatewayNow()` in `nearAiContext.js`, [`GatewayCheck.jsx`](src/components/dashboard/GatewayCheck.jsx) |
 | **NEAR Confidential Intents**: one signature of an empty intent → private-shard balances (and swap history, which the API currently opens by invitation only), held in memory only. Sign with a **NEAR wallet (NEP-413**, via near-connect: HOT, Meteor, Intear, MyNearWallet, Ledger…) or an EVM wallet (ERC-191). NEP-413 payloads are built and the wallet's signature verified locally before anything is sent | [`confidentialIntents.js`](src/near/confidentialIntents.js), [`nep413.js`](src/near/nep413.js), [`nearWallet.js`](src/near/nearWallet.js) |
