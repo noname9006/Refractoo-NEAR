@@ -86,7 +86,7 @@ test('verificationChecks: OutOfDate TCB is accepted but not shown as verified', 
   assert.match(c.detail, /OutOfDate/);
 });
 
-test('listConfidentialModels: filters to attested NEAR vLLM, does not cache an empty result', async () => {
+test('listConfidentialModels: NEAR TEE + 3P TEE tiers, does not cache an empty result', async () => {
   const { listConfidentialModels } = await import('../src/near/nearAiContext.js');
   const meta = {
     'z-ai/glm-5.3-flash': { modelId: 'z-ai/glm-5.3-flash', metadata: { providerType: 'vllm', attestationSupported: true, ownedBy: 'nearai', modelDisplayName: 'GLM' }, inputCostPerToken: { amount: 80, scale: 9 }, outputCostPerToken: { amount: 500, scale: 9 } },
@@ -104,7 +104,7 @@ test('listConfidentialModels: filters to attested NEAR vLLM, does not cache an e
   await assert.rejects(listConfidentialModels({ fetchImpl }), /no attested models/);
   failMeta = false;
   const list = await listConfidentialModels({ fetchImpl }); // not cached → refetches
-  assert.deepEqual(list.map((m) => m.id), ['z-ai/glm-5.3-flash']);
+  assert.deepEqual(list.map((m) => [m.id, m.tier, m.provider]), [['z-ai/glm-5.3-flash', 'tee', 'nearai'], ['z-ai/glm-5.3', '3p', 'tinfoil']]);
   assert.ok(Math.abs(list[0].inUsdPerM - 0.08) < 1e-9);
   assert.ok(!requested.some((u) => u.includes('openai')), 'relayed providers skipped');
 });
@@ -186,4 +186,24 @@ test('live: bad key fails with a readable error', { skip: !KEY && 'NEARAI_API_KE
 test('live: non-TEE model is refused', { skip: !KEY && 'NEARAI_API_KEY not set', timeout: 60_000 }, async () => {
   const ctx = new NearAiContext();
   await assert.rejects(ctx.initialize({ apiKey: KEY, model: 'openai/gpt-5-nano' }), /TEE|attestation|Incognito/i);
+});
+
+test('3P TEE: provider report summary and receipt never claims model E2EE', async () => {
+  const { summarizeProviderReport, verificationChecks, receiptVerified } = await import('../src/near/nearAiContext.js');
+  const chutes = summarizeProviderReport({ model_attestations: [{ provider: 'chutes', verified: true, tcb_status: 'UpToDate', gpu_verdict: 'PASS', gpu_evidence: [{ arch: 'BLACKWELL' }] }] }, 'chutes');
+  assert.deepEqual([chutes.verified, chutes.hw], [true, 'Intel TDX + NVIDIA']);
+  assert.match(chutes.detail, /GPU PASS/);
+  const none = summarizeProviderReport({ error: { message: 'No provider found' } }, 'tinfoil');
+  assert.equal(none.verified, null);
+  const receipt = {
+    tier: '3p', ohttp: true, thirdParty: chutes,
+    attestation: { verifiedAt: Date.now(), gateway: { tcbStatus: 'UpToDate' }, models: [] },
+    response: { ok: true, kind: 'gateway', id: 'x' },
+  };
+  const checks = verificationChecks(receipt);
+  assert.equal(checks.find((c) => c.id === 'e2ee').ok, null);
+  assert.ok(checks.filter((c) => c.id !== 'e2ee').every((c) => c.ok === true));
+  assert.equal(receiptVerified(receipt), false, '3P never reads as fully verified');
+  receipt.thirdParty = { ...chutes, verified: false };
+  assert.equal(verificationChecks(receipt).find((c) => c.id === 'provider').ok, false);
 });

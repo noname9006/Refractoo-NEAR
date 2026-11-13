@@ -759,7 +759,12 @@ const AssistantBubble = memo(function AssistantBubble({ msg, live = false, elaps
 const VerifiedPanel = memo(function VerifiedPanel({ receipt }) {
   const checks = verificationChecks(receipt);
   const passed = checks.filter((c) => c.ok === true).length;
-  const all = passed === checks.length;
+  // 3P TEE: "–" rows (no model E2EE) are by design, not failures, but the
+  // receipt never reads plain "Verified".
+  const thirdParty = receipt.tier === '3p';
+  const applicable = checks.filter((c) => c.ok !== null).length;
+  const all = thirdParty ? checks.every((c) => c.ok !== false) && passed === applicable : passed === checks.length;
+  const title = thirdParty ? (all ? 'Gateway-verified (3P TEE)' : 'Not fully verified') : (all ? 'Verified' : 'Not fully verified');
   // A failed check is shown expanded, not hidden behind a chip.
   const [open, setOpen] = useState(!all);
   const sigFailed = receipt.response && receipt.response.ok === false;
@@ -768,7 +773,7 @@ const VerifiedPanel = memo(function VerifiedPanel({ receipt }) {
     <div className={`verified ${all ? 'ok' : 'warn'}`}>
       <button className="verified-head" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
         <span className="verified-mark">{all ? '✓' : '!'}</span>
-        <span className="verified-ttl">{all ? 'Verified' : 'Not fully verified'} · {passed}/{checks.length} checks</span>
+        <span className="verified-ttl">{title} · {passed}/{thirdParty ? applicable : checks.length} checks</span>
         <span className="verified-sub">{receipt.provider}{a?.model ? ` · ${a.model}` : ''}</span>
         <span className="chev"><IChevDown /></span>
       </button>

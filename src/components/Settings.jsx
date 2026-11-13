@@ -5,7 +5,7 @@ import { probeGGUFArch } from '../utils/gguf-probe.js';
 import { recommendModel } from '../utils/resource-detector.js';
 import { applyEffects } from '../utils/theme.js';
 import {
-  listConfidentialModels, NEARAI_DEFAULT_MODEL, REASONING_BUDGETS, DEFAULT_REASONING_BUDGET, ANSWER_TOKENS, outputTokenLimit,
+  listConfidentialModels, providerLabel, NEARAI_DEFAULT_MODEL, REASONING_BUDGETS, DEFAULT_REASONING_BUDGET, ANSWER_TOKENS, outputTokenLimit,
 } from '../near/nearAiContext.js';
 import { MODE, PROFILE, IS_TESTNET, AVAILABLE_MODES, setModeOverride } from '../config/networks.js';
 import {
@@ -532,18 +532,33 @@ export default function Settings({ flow, onClose }) {
                     onChange={(e) => setNai((x) => ({ ...x, model: e.target.value }))}>
                     {/* Always include the current choice so the select never
                         displays one model while Connect would use another. */}
-                    {[
-                      ...(naiModels || []),
-                      ...((naiModels || []).some((x) => x.id === (nai.model || NEARAI_DEFAULT_MODEL))
-                        ? []
-                        : [{ id: nai.model || NEARAI_DEFAULT_MODEL, name: `${nai.model || NEARAI_DEFAULT_MODEL}${naiModels ? ' (not in current list)' : ''}` }]),
-                    ].map((mm) => (
-                      <option key={mm.id} value={mm.id}>
-                        {mm.name}{mm.outUsdPerM != null && mm.inUsdPerM != null ? ` · $${mm.inUsdPerM.toFixed(2)} / $${mm.outUsdPerM.toFixed(2)} per M tok` : ''}
-                      </option>
-                    ))}
+                    {(() => {
+                      const opt = (mm) => (
+                        <option key={mm.id} value={mm.id}>
+                          {mm.name}{mm.tier === '3p' ? ` (${providerLabel(mm.provider)})` : ''}{mm.outUsdPerM != null && mm.inUsdPerM != null ? ` · $${mm.inUsdPerM.toFixed(2)} / $${mm.outUsdPerM.toFixed(2)} per M tok` : ''}
+                        </option>
+                      );
+                      const list = naiModels || [];
+                      const cur = nai.model || NEARAI_DEFAULT_MODEL;
+                      const own = list.filter((x) => x.tier !== '3p');
+                      const tp = list.filter((x) => x.tier === '3p');
+                      return (
+                        <>
+                          {!list.some((x) => x.id === cur) && opt({ id: cur, name: `${cur}${naiModels ? ' (not in current list)' : ''}` })}
+                          {own.length > 0 && <optgroup label="NEAR TEE — fully verified in this browser">{own.map(opt)}</optgroup>}
+                          {tp.length > 0 && <optgroup label="3P TEE — gateway-verified, no E2EE to model">{tp.map(opt)}</optgroup>}
+                        </>
+                      );
+                    })()}
                   </select>
                 </label>
+                {naiModels?.find((x) => x.id === (nai.model || NEARAI_DEFAULT_MODEL))?.tier === '3p' && (
+                  <div className="ext-status muted">
+                    3P TEE: a third-party confidential provider runs this model. This browser verifies NEAR’s gateway enclave and
+                    encrypts the request to it (OHTTP); the provider’s own TEE evidence is checked by the gateway, not here, and
+                    there is no end-to-end encryption to the model.
+                  </div>
+                )}
                 {naiListErr && <div className="ext-status muted">Model list unavailable ({naiListErr}) — using the default.</div>}
                 <label className="ext-field">
                   <span>Reasoning budget <em>(when “Think” is on — applies to the next question)</em></span>

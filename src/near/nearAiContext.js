@@ -16,7 +16,8 @@
 // Only NEAR-operated vLLM models with model attestation are accepted. "Incognito"
 // models (OpenAI/Anthropic/Gemini relayed through the TEE gateway) run OUTSIDE a
 // TEE; e2ee:true makes the SDK reject them before any chat is sent, and
-// listConfidentialModels() never offers them.
+// listConfidentialModels() never offers them. "3P TEE" models (Tinfoil/Chutes)
+// are offered separately with a weaker receipt — see isThirdPartyTeeModel().
 //
 // Public surface mirrors WllamaContext / ExternalContext so InferenceRouter and
 // the assistant treat all three backends the same. analyze() additionally
@@ -47,10 +48,35 @@ export function isConfidentialModel(meta) {
   );
 }
 
+// "Private 3P TEE": a third-party confidential provider (Tinfoil: AMD SEV-SNP,
+// Chutes: Intel TDX + NVIDIA) runs the model; NEAR's attested gateway checks
+// that provider's evidence. The SDK cannot verify those formats in the browser
+// and the model has no NEAR E2EE key, so these get a weaker, honestly-labelled
+// receipt: gateway verified here + OHTTP to the gateway + provider verdict as
+// reported by the gateway. Pure, exported for tests.
+export function isThirdPartyTeeModel(meta) {
+  const m = meta?.metadata || {};
+  return (
+    m.attestationSupported === true &&
+    String(m.ownedBy || '').toLowerCase() === 'attested 3p' &&
+    !NON_CHAT.test(String(meta?.modelId || ''))
+  );
+}
+
+// 'tee' | '3p' | null for a /model/{id} metadata object.
+export function modelTier(meta) {
+  if (isConfidentialModel(meta)) return 'tee';
+  if (isThirdPartyTeeModel(meta)) return '3p';
+  return null;
+}
+
+const PROVIDER_LABEL = { tinfoil: 'Tinfoil', chutes: 'Chutes' };
+export const providerLabel = (p) => PROVIDER_LABEL[String(p || '').toLowerCase()] || String(p || 'third-party');
+
 let modelListPromise = null;
 
 // Lists chat models eligible for the TEE tier. Public endpoints, no key needed.
-// [{ id, name, contextLength, inUsdPerM, outUsdPerM }]
+// [{ id, name, contextLength, inUsdPerM, outUsdPerM, tier: 'tee'|'3p', provider }]
 export function listConfidentialModels({ fetchImpl = (...a) => fetch(...a) } = {}) {
   if (!modelListPromise) {
     modelListPromise = (async () => {
@@ -71,10 +97,13 @@ export function listConfidentialModels({ fetchImpl = (...a) => fetch(...a) } = {
             const res = await fetchImpl(`${NEARAI_BASE_URL}/model/${encodeURIComponent(id)}`);
             if (!res.ok) continue;
             const meta = await res.json();
-            if (!isConfidentialModel(meta)) continue;
+            const tier = modelTier(meta);
+            if (!tier) continue;
             const perM = (c) => (c && Number.isFinite(c.amount) ? (c.amount / 10 ** (c.scale ?? 9)) * 1e6 : null);
             out.push({
               id,
+              tier,
+              provider: tier === '3p' ? String(meta.metadata?.providerType || '') : 'nearai',
               name: meta.metadata?.modelDisplayName || id,
               contextLength: meta.metadata?.contextLength || null,
               inUsdPerM: perM(meta.inputCostPerToken),
@@ -126,6 +155,7 @@ export function verificationChecks(receipt) {
   // patches pending). We still send in that case but don't show a green ✓ —
   // the panel reads "Not fully verified" with the status in the detail line.
   const tcbOk = (s) => s === 'UpToDate';
+  if (receipt?.tier === '3p') return thirdPartyChecks(receipt, tcbOk);
   const gpuAll = models.length > 0 && models.every((m) => m.gpuEvidence === 'verified');
   return [
     {
@@ -167,8 +197,97 @@ export function verificationChecks(receipt) {
   ];
 }
 
+// 3P TEE receipt. ok:null = not available for this kind of model (shown as
+// "–", not as a failure), so the panel can say exactly what was NOT checked.
+function thirdPartyChecks(receipt, tcbOk) {
+  const a = receipt?.attestation;
+  const r = receipt?.response;
+  const p = receipt?.thirdParty || {};
+  const name = providerLabel(p.provider);
+  return [
+    {
+      id: 'gateway',
+      label: 'Gateway runs in an Intel TDX enclave',
+      ok: !!a && tcbOk(a.gateway?.tcbStatus),
+      detail: a ? `TDX quote checked in this browser · TCB ${a.gateway?.tcbStatus}` : 'not checked',
+    },
+    {
+      id: 'fresh',
+      label: 'Evidence is fresh (bound to this browser’s nonce)',
+      ok: !!a?.verifiedAt,
+      detail: a?.verifiedAt ? `verified ${new Date(a.verifiedAt).toLocaleTimeString()}` : 'not checked',
+    },
+    {
+      id: 'ohttp',
+      label: 'Prompt and answer encrypted to the attested gateway (OHTTP)',
+      ok: receipt?.ohttp === true,
+      detail: receipt?.ohttp ? 'HPKE key signed by the verified gateway signer' : 'off',
+    },
+    {
+      id: 'provider',
+      label: `Model runs in a ${name} TEE — as reported by the gateway`,
+      ok: p.verified === true ? true : p.verified === false ? false : null,
+      detail: p.verified === true
+        ? `${p.hw || 'TEE'}${p.detail ? ` · ${p.detail}` : ''} · checked by the gateway, not in this browser`
+        : p.error ? `no provider report: ${p.error}` : 'gateway did not confirm the provider TEE',
+    },
+    {
+      id: 'e2ee',
+      label: 'End-to-end encrypted to the model',
+      ok: null,
+      detail: `not available: ${name} has no NEAR-attested model key — the gateway enclave decrypts and forwards`,
+    },
+    {
+      id: 'signature',
+      label: 'Answer signed by the attested gateway',
+      ok: r ? r.ok === true && r.kind === 'gateway' : null,
+      detail: !r ? 'pending' : r.ok ? `${r.kind} signature over exact request/response bytes` : `failed: ${r.error || 'unknown'}`,
+    },
+  ];
+}
+
 export function receiptVerified(receipt) {
   return verificationChecks(receipt).every((c) => c.ok === true);
+}
+
+// Provider's own TEE evidence, as relayed and judged by the NEAR gateway.
+// We record the gateway's verdict plus a short hardware summary; the raw
+// SEV-SNP / Chutes evidence is not verified in this browser (see thirdPartyChecks).
+export function summarizeProviderReport(json, provider) {
+  const rep = (json?.model_attestations || []).find((x) => String(x?.provider || '').toLowerCase() === provider) || null;
+  if (!rep) return { provider, verified: null, error: json?.error?.message ? String(json.error.message).slice(0, 120) : 'no report' };
+  if (provider === 'tinfoil') {
+    return {
+      provider, verified: rep.verified === true, hw: 'AMD SEV-SNP',
+      detail: [rep.model_entry?.repo && `image ${rep.model_entry.repo}${rep.model_entry.tag ? `@${rep.model_entry.tag}` : ''}`,
+        rep.router?.rekor_log_index && `Sigstore log #${rep.router.rekor_log_index}`].filter(Boolean).join(' · '),
+    };
+  }
+  if (provider === 'chutes') {
+    return {
+      provider, verified: rep.verified === true, hw: 'Intel TDX + NVIDIA',
+      detail: [rep.tcb_status && `TCB ${rep.tcb_status}`, rep.gpu_verdict && `GPU ${rep.gpu_verdict}`,
+        rep.gpu_evidence?.[0]?.arch].filter(Boolean).join(' · '),
+    };
+  }
+  return { provider, verified: rep.verified === true, hw: 'TEE', detail: '' };
+}
+
+async function fetchProviderReport(model, provider) {
+  const nonce = Array.from(crypto.getRandomValues(new Uint8Array(32)), (b) => b.toString(16).padStart(2, '0')).join('');
+  const q = new URLSearchParams({ model, provider, signing_algo: 'ed25519', nonce });
+  try {
+    const r = await fetch(`${NEARAI_BASE_URL}/attestation/report?${q}`, { headers: { 'x-no-aliasing': 'true' } });
+    return summarizeProviderReport(await r.json(), provider);
+  } catch (e) {
+    return { provider, verified: null, error: String(e?.message || e).slice(0, 120) };
+  }
+}
+
+async function fetchModelMeta(model) {
+  const r = await fetch(`${NEARAI_BASE_URL}/model/${encodeURIComponent(model)}`);
+  if (!r.ok) throw new Error(`NEAR AI model lookup failed (${r.status})`);
+  return r.json();
 }
 
 // --- Reasoning budget --------------------------------------------------------
@@ -242,24 +361,39 @@ export class NearAiContext {
     if (!apiKey) throw new Error('NEAR AI API key is required.');
     onStatus('Loading verifier…');
     // Lazy: the SDK (+ dcap-qvl wasm, sigstore) never touches the entry chunk.
-    const [{ InferenceClient }, { createSkewTolerantGpuVerifier }] = await Promise.all([
+    const [{ InferenceClient }, { createSkewTolerantGpuVerifier }, meta] = await Promise.all([
       import('@nearai/inference-sdk'),
       import('./nrasVerifier.js'),
+      fetchModelMeta(model).catch(() => null),
     ]);
-    this.client = new InferenceClient({
-      apiKey,
-      e2ee: true,
-      modelVerification: { verifiers: { gpuEvidence: createSkewTolerantGpuVerifier() } },
-    });
+    // Unknown metadata → treat as NEAR TEE: the strict E2EE path rejects
+    // anything without model attestation, so this fails closed.
+    const tier = (meta && modelTier(meta)) || 'tee';
+    const provider = tier === '3p' ? String(meta.metadata?.providerType || '').toLowerCase() : 'nearai';
+    this.client = tier === '3p'
+      // 3P: gateway-only verification; requests OHTTP-encapsulated to the
+      // attested gateway key. No field E2EE — there is no NEAR model key.
+      ? new InferenceClient({ apiKey, e2ee: false, ohttp: true })
+      : new InferenceClient({
+        apiKey,
+        e2ee: true,
+        modelVerification: { verifiers: { gpuEvidence: createSkewTolerantGpuVerifier() } },
+      });
     onStatus('Verifying TEE attestation…');
     try {
       const att = await this.client.verify(model);
-      if (!att.models?.length) throw Object.assign(new Error('model has no TEE attestation'), { code: 'policy.model_attestation_required' });
+      if (tier === 'tee' && !att.models?.length) throw Object.assign(new Error('model has no TEE attestation'), { code: 'policy.model_attestation_required' });
       this.attestation = summarizeAttestation(att, model);
+      if (tier === '3p') {
+        this.thirdParty = await fetchProviderReport(model, provider);
+        if (this.thirdParty.verified !== true) throw new Error(`NEAR gateway did not confirm the ${providerLabel(provider)} TEE for ${model}${this.thirdParty.error ? ` (${this.thirdParty.error})` : ''}.`);
+      }
     } catch (e) {
       this.client = null;
       throw new Error(explain(e));
     }
+    this.tier = tier;
+    this.provider = provider;
     this.config = { apiKey, model };
     this.modelLoaded = true;
     onStatus('Ready');
@@ -284,6 +418,7 @@ export class NearAiContext {
     // reflects the evidence actually used for this request.
     try {
       this.attestation = summarizeAttestation(await client.verify(model), model);
+      if (this.tier === '3p') this.thirdParty = await fetchProviderReport(model, this.provider);
     } catch (e) {
       throw new Error(explain(e));
     }
@@ -305,7 +440,7 @@ export class NearAiContext {
     const pushThink = (s) => { if (!parser) return; if (!inThink) { parser.push('<think>'); inThink = true; } parser.push(s); };
     const pushText = (s) => { text += s; if (parser) { if (inThink) { parser.push('</think>'); inThink = false; } parser.push(s); } };
 
-    console.info(`[nearai] E2EE request → ${model}`);
+    console.info(`[nearai] ${this.tier === '3p' ? `OHTTP request (3P ${this.provider})` : 'E2EE request'} → ${model}`);
     try {
       // Same builder as previewRequest(): the review dialog shows this body.
       const stream = await client.chat.completions.create(
@@ -354,13 +489,23 @@ export class NearAiContext {
       response = { ok: false, kind: null, id: completionId, error: 'stopped before completion — nothing to verify' };
     }
 
-    const verification = {
-      provider: 'NEAR AI Cloud',
-      tier: 'tee',
-      e2ee: true,
-      attestation: this.attestation,
-      response,
-    };
+    const verification = this.tier === '3p'
+      ? {
+        provider: `NEAR AI Cloud · ${providerLabel(this.provider)} TEE`,
+        tier: '3p',
+        e2ee: false,
+        ohttp: true,
+        attestation: this.attestation,
+        thirdParty: this.thirdParty,
+        response,
+      }
+      : {
+        provider: 'NEAR AI Cloud',
+        tier: 'tee',
+        e2ee: true,
+        attestation: this.attestation,
+        response,
+      };
     console.info(`[nearai] done in ${((performance.now() - startedAt) / 1000).toFixed(1)}s, signature=${response?.ok ? response.kind : 'unverified'}`);
     return { text, finishReason, truncated: finishReason === 'length', stopped: this._userStopped, verification };
   }
@@ -389,7 +534,8 @@ export class NearAiContext {
       modelLoaded: !!this.modelLoaded,
       modelId: 'nearai',
       mode: 'nearai',
-      backend: 'NEAR AI Cloud (TEE)',
+      backend: this.tier === '3p' ? `NEAR AI Cloud (${providerLabel(this.provider)} TEE)` : 'NEAR AI Cloud (TEE)',
+      tier: this.tier || 'tee',
       externalName: this.config?.model || null,
       attestation: this.attestation,
       nGpuLayers: 0,
