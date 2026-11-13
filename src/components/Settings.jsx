@@ -73,7 +73,7 @@ export default function Settings({ flow, onClose }) {
   const [busy, setBusy] = useState(false);
   const [threshold, setThreshold] = useState(prefs.smallBalanceUsd ?? 0.02);
   // Inference location: 'local' (on-device) vs 'external' (OpenAI-compatible API).
-  const [infer, setInfer] = useState(prefs.inference || 'local');
+  const [infer, setInfer] = useState(prefs.inference || 'nearai');
   const [ext, setExt] = useState(() => ({ baseUrl: '', apiKey: '', model: '', ...(prefs.externalApi || {}) }));
   // NEAR AI TEE tier config + the list of attested models (fetched once, public).
   const [nai, setNai] = useState(() => ({ apiKey: '', model: '', ...(prefs.nearAi || {}) }));
@@ -387,16 +387,35 @@ export default function Settings({ flow, onClose }) {
             <div className="set-row">
               <div className="set-label">
                 <strong>Run inference</strong>
-                <span className="muted">On this device, in a verified NEAR AI enclave, or via an external OpenAI-compatible API.</span>
+                <span className="muted">NEAR AI TEE is the recommended default. On device gives maximum privacy; an external API sends everything to its provider.</span>
               </div>
               <div className="seg" role="tablist" aria-label="Inference location">
+                <button className={infer === 'nearai' ? 'on' : ''} role="tab" aria-selected={infer === 'nearai'}
+                  onClick={() => setInfer('nearai')}>NEAR AI TEE · Recommended</button>
                 <button className={infer === 'local' ? 'on' : ''} role="tab" aria-selected={infer === 'local'}
                   onClick={chooseLocal}>On device</button>
-                <button className={infer === 'nearai' ? 'on' : ''} role="tab" aria-selected={infer === 'nearai'}
-                  onClick={() => setInfer('nearai')}>NEAR AI TEE</button>
                 <button className={infer === 'external' ? 'on' : ''} role="tab" aria-selected={infer === 'external'}
                   onClick={() => setInfer('external')}>External API</button>
               </div>
+            </div>
+            <div className="ext-cfg">
+              {infer === 'nearai' ? (
+                <div className="ext-warn tee">
+                  <strong>Recommended — the balance of speed, convenience and privacy.</strong> Fast, capable models with
+                  no download and no load on your machine; privacy is enforced by a hardware enclave this browser verifies.
+                </div>
+              ) : infer === 'local' ? (
+                <div className="ext-warn tee">
+                  <strong>Maximum privacy — the model and your data never leave this machine.</strong> Trade-offs: answers
+                  can be slow, local models are less capable, and inference uses this computer's GPU/CPU and memory —
+                  expect freezes and slowdowns while it runs, plus a one-time multi-GB download.
+                </div>
+              ) : (
+                <div className="ext-warn">
+                  <strong>Warning: everything is sent to the inference provider.</strong> Your question and wallet facts go
+                  to whoever operates the endpoint, with no verification of how they are handled.
+                </div>
+              )}
             </div>
 
             {infer === 'local' ? (

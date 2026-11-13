@@ -157,7 +157,7 @@ export default function Assistant({ ctx, flow, onOpenSettings }) {
   const sizeStr = sizeBytes ? ` of ${formatSize(sizeBytes)}` : '';
   // Idle → the tier chosen in prefs (unloadModel resets model.mode to 'local');
   // otherwise the tier that is actually loading/ready/failed.
-  const tier = m.status === 'idle' ? (flow.prefs.inference || 'local') : (m.mode || 'local');
+  const tier = m.status === 'idle' ? (flow.prefs.inference || 'nearai') : (m.mode || 'local');
   const isExternal = tier === 'external';
   const isNearAi = tier === 'nearai';
   const statusDot = modelReady ? 'var(--pos)' : modelError ? 'var(--neg)' : 'var(--warn)';

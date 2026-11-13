@@ -10,29 +10,32 @@ const precisionLabel = (n) => (n === 0 ? 'Exact' : `${n} significant figures`);
 // private (public chain reads, metadata, what pseudonymization can't hide).
 
 const TIERS = [
-  { id: 'local', name: 'On device', level: 'green' },
-  { id: 'nearai', name: 'NEAR AI TEE', level: 'tee' },
-  { id: 'external', name: 'External API', level: 'yellow' },
+  { id: 'nearai', name: 'NEAR AI TEE', level: 'tee', tag: 'Recommended' },
+  { id: 'local', name: 'On device', level: 'green', tag: 'Max privacy' },
+  { id: 'external', name: 'External API', level: 'yellow', tag: 'Provider sees all' },
 ];
 
 // The "Amounts sent" row is rendered separately (it has per-tier selects).
 export function tierRows(redact) {
   const sentIds = redact ? 'Placeholders (WALLET_1, ADDR_2…)' : 'Real addresses';
+  // Cell order matches TIERS: NEAR AI TEE, On device, External API.
   return [
-    ['Where the model runs', 'This browser (WebGPU / CPU)', 'NEAR AI GPUs inside an Intel TDX + NVIDIA confidential-computing enclave', 'Whatever server the endpoint points to'],
-    ['Question + wallet facts leave the device', 'No', 'Yes — end-to-end encrypted to the enclave', 'Yes — over HTTPS, via the local helper proxy'],
-    ['Who can read them', 'Only you', 'Only code inside the attested enclave; NEAR’s gateway relays ciphertext', 'The endpoint operator'],
-    ['What this browser checks', 'Nothing to check', 'TDX quotes, NVIDIA GPU evidence, fresh nonce; a signature on every answer', 'Nothing — you trust the operator'],
-    ['Wallet addresses sent', '—', sentIds, sentIds],
+    ['Best for', 'Default: balance of speed, convenience and privacy', 'Maximum privacy — model and data never leave this machine', 'Your own self-hosted server only'],
+    ['Trade-offs', 'Data leaves the device (encrypted, enclave-verified) · pay per token', 'Can be slow, less capable models, uses this machine’s GPU/CPU — freezes and slowdowns possible', 'Everything is sent to the inference provider, unverified'],
+    ['Where the model runs', 'NEAR AI GPUs inside an Intel TDX + NVIDIA confidential-computing enclave', 'This browser (WebGPU / CPU)', 'Whatever server the endpoint points to'],
+    ['Question + wallet facts leave the device', 'Yes — end-to-end encrypted to the enclave', 'No', 'Yes — over HTTPS, via the local helper proxy'],
+    ['Who can read them', 'Only code inside the attested enclave; NEAR’s gateway relays ciphertext', 'Only you', 'The endpoint operator'],
+    ['What this browser checks', 'TDX quotes, NVIDIA GPU evidence, fresh nonce; a signature on every answer', 'Nothing to check', 'Nothing — you trust the operator'],
+    ['Wallet addresses sent', sentIds, '—', sentIds],
     ['__amounts__'],
-    ['Still visible to the AI', '—', 'Which assets and chains you hold, their amounts (as set above), your question', 'Which assets and chains you hold, their amounts (as set above), your question'],
-    ['Cost / setup', 'Free · one-time model download', 'Pay per token (NEAR AI credits) · API key', 'Depends on the provider · URL + key'],
+    ['Still visible to the AI', 'Which assets and chains you hold, their amounts (as set above), your question', '—', 'Which assets and chains you hold, their amounts (as set above), your question'],
+    ['Cost / setup', 'Pay per token (NEAR AI credits) · API key', 'Free · one-time model download', 'Depends on the provider · URL + key'],
   ];
 }
 
 export default function TierPanel({ flow, onClose, onOpenSettings }) {
   const { prefs, model } = flow;
-  const current = prefs.inference || 'local';
+  const current = prefs.inference || 'nearai';
   const redact = prefs.redactRemote !== false;
   const nearReady = !!prefs.nearAi?.apiKey;
   const extReady = !!(prefs.externalApi?.baseUrl && prefs.externalApi?.model);
@@ -71,6 +74,7 @@ export default function TierPanel({ flow, onClose, onOpenSettings }) {
               {TIERS.map((t) => (
                 <th key={t.id} className={`lvl-${t.level}${t.id === current ? ' cur' : ''}`}>
                   <span className="privacy-light" /> {t.name}
+                  <div className="muted" style={{ fontSize: 11 }}>{t.tag}</div>
                   <div>
                     {t.id === current ? (
                       <span className="tier-cur">In use</span>

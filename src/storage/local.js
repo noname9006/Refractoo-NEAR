@@ -142,7 +142,7 @@ const DEFAULT_PREFS = {
   // servers — see the privacy badge, which warns when data leaves the device.
   // 'nearai' is the middle tier: NEAR AI Cloud models running in attested TEEs,
   // verified in the browser, prompts end-to-end encrypted to the model.
-  inference: 'local', // 'local' | 'nearai' | 'external'
+  inference: 'nearai', // default: NEAR AI TEE (recommended) | 'local' (max privacy) | 'external'
   externalApi: { baseUrl: '', apiKey: '', model: '' },
   // model '' = NEARAI_DEFAULT_MODEL; reasoningBudget undefined = default (32k),
   // 0 = unlimited. Applies only when the Think toggle is on.

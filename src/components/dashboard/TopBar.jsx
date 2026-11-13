@@ -16,7 +16,7 @@ export default function TopBar({ flow, onOpenSettings }) {
 
   // Which backend the pill describes: the live one once loading/ready/error,
   // otherwise the one chosen in prefs (unload resets model.mode to 'local').
-  const tier = m.status === 'idle' ? (flow.prefs.inference || 'local') : (m.mode || 'local');
+  const tier = m.status === 'idle' ? (flow.prefs.inference || 'nearai') : (m.mode || 'local');
   const noun = tier === 'nearai' ? 'NEAR AI TEE' : tier === 'external' ? 'External AI' : 'Local AI';
   const downloading = tier === 'local' && m.status === 'loading' && m.progress > 0 && m.progress < 0.999;
   let dotCls = 'dot', spin = false, text = tier === 'nearai' ? 'Connect NEAR AI TEE' : tier === 'external' ? 'Connect external AI' : 'Set up local AI';
