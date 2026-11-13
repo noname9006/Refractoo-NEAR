@@ -792,7 +792,21 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
   }, []);
 
   const refreshNearIntentsRef = useRef(null);
-  const refresh = useCallback(async () => {
+  // One refresh at a time, manual or automatic: a second request while one is
+  // in flight joins it instead of starting another full round of RPC/price calls.
+  const refreshInFlight = useRef(null);
+  const [refreshBusy, setRefreshBusy] = useState(false);
+  const refresh = useCallback(() => {
+    if (!refreshInFlight.current) {
+      setRefreshBusy(true);
+      refreshInFlight.current = refreshOnce().finally(() => { refreshInFlight.current = null; setRefreshBusy(false); });
+    }
+    return refreshInFlight.current;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const refreshOnceRef = useRef(null);
+  const refreshOnce = () => refreshOnceRef.current();
+  refreshOnceRef.current = async () => {
     refreshNearIntentsRef.current?.();
     const { addresses, nearAccounts } = getCluster();
     if (nearAccounts.length) loadNearAccounts(nearAccounts);
@@ -805,11 +819,12 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
     for (const a of addresses) if (fresh[a] && !fresh[a].error) setCachedData(a, fresh[a]);
     discoverShieldedRef.current?.(addresses);
     await enrichAndPrice(fresh);
-  }, [enrichAndPrice, patchRefreshing, loadNearAccounts]);
+  };
 
   // Refresh button: same as the auto-refresh, but flags itself so the Total
   // value card can show progress for it (auto-refreshes stay silent).
   const refreshNow = useCallback(async () => {
+    if (refreshInFlight.current) return refreshInFlight.current; // already running
     setManualRefresh(true);
     try { await refresh(); } finally { setManualRefresh(false); }
   }, [refresh]);
@@ -1005,8 +1020,9 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
   }, [commitShielded]);
   refreshNearIntentsRef.current = refreshNearIntents;
 
-  // Every balance (public chains, NEAR accounts, private shard) refreshes once a
-  // minute while the dashboard is visible, and when the tab comes back.
+  // Every balance (public chains, NEAR accounts, private shard) refreshes every 5
+  // minutes while the dashboard is visible, and when the tab comes back.
+  const AUTO_REFRESH_MS = 5 * 60_000;
   const refreshRef = useRef(null);
   refreshRef.current = refresh;
   useEffect(() => {
@@ -1015,14 +1031,14 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
     let running = false; // a slow refresh (many chains, rate-limited APIs) must not stack up
     const tick = (force) => {
       if (running || document.visibilityState !== 'visible') return;
-      if (!force && Date.now() - last < 55_000) return;
+      if (!force && Date.now() - last < AUTO_REFRESH_MS - 5_000) return;
       last = Date.now();
       running = true;
       Promise.resolve(refreshRef.current?.())
         .catch((e) => console.warn('[flow] auto-refresh failed', e))
         .finally(() => { running = false; });
     };
-    const id = setInterval(() => tick(true), 60_000);
+    const id = setInterval(() => tick(true), AUTO_REFRESH_MS);
     const onVis = () => tick(false);
     document.addEventListener('visibilitychange', onVis);
     return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVis); };
@@ -1076,7 +1092,7 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
   }, []);
 
   return {
-    stage, cluster, wallet, clusterData, facts, portfolio, pricing, refreshing, manualRefresh,
+    stage, cluster, wallet, clusterData, facts, portfolio, pricing, refreshing, manualRefresh, refreshBusy,
     shielded, shieldedStacks, nearIntents, nearStatus, nearData, addNearAcct, connectNear, removeNearAcct, demo,
     model, prefs, voiceDownload, error, busy,
     connect, addAnother, connectMore, loadDemo, removeFromCluster, renameWallet, continueFromWallets,

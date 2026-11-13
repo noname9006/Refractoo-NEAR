@@ -88,8 +88,8 @@ export default function PortfolioSummary({ flow, view }) {
           <div className="sum-inline-val num">{dollars}<span className="sum-inline-cents">{cents}</span></div>
         )}
         <span className="spacer" />
-        <button className={`icon-btn${updating ? ' spinning' : ''}`} title="Refresh all balances (auto every minute)"
-          aria-label="Refresh all balances" disabled={updating} onClick={() => { flow.refreshNow()?.catch?.(() => {}); }}>
+        <button className={`icon-btn${updating ? ' spinning' : ''}`} title="Refresh all balances (auto every 5 minutes)"
+          aria-label="Refresh all balances" disabled={updating || flow.refreshBusy} onClick={() => { flow.refreshNow()?.catch?.(() => {}); }}>
           <IRefresh />
         </button>
         <button className="icon-btn" title={collapsed ? 'Expand' : 'Collapse'}
