@@ -74,7 +74,8 @@ test('nearAccountFacts: per-account rows, staking flagged, unpriced spam withhel
   assert.equal(a.account, 'root.near');
   assert.deepEqual(a.holdings[0], { asset: 'NEAR', amount: 10, usd: 30, staked: true, stakedIn: 'p.pool.near' });
   assert.equal(a.holdings.length, 3, 'unpriced token not listed');
-  assert.ok(a.holdings[2].asset.length <= 16 && !/\s/.test(a.holdings[2].asset));
+  assert.equal(a.holdings[2].asset, '[withheld: suspicious text]', 'injection withheld, not shortened');
+  assert.ok(!/ignore|hacked/i.test(JSON.stringify(facts)));
   assert.equal(a.unpricedTokenCount, 1);
   assert.ok(!JSON.stringify(facts).includes('scam'));
 });

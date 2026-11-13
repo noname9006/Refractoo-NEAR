@@ -1,3 +1,4 @@
+import { guardString } from '../prompts/untrusted.js';
 // Public NEAR account, read-only by account name — no wallet, no signature.
 //
 //   balances + FT list + staking pools   FastNEAR  api.fastnear.com/v1/account/{id}/full
@@ -160,7 +161,9 @@ export async function priceNearAccount(raw, { fetchImpl = (...a) => fetch(...a),
 // are untrusted text headed into an LLM prompt (airdrop spam like
 // "claim-at-xyz.com", or outright instructions). Only tokens with a market
 // price are listed, under a sanitized symbol; unpriced ones become a count.
-const cleanSymbol = (s) => String(s || '').replace(/[^A-Za-z0-9$._-]/g, '').slice(0, 16) || '?';
+// Detection runs on the RAW symbol (see prompts/untrusted.js), before it is
+// squeezed to a ticker, so "Ignore previous…" is withheld, not shortened.
+const cleanSymbol = (s) => guardString(s, 'symbol').value;
 
 export function nearAccountFacts(accounts = []) {
   const r = (n) => (Number.isFinite(n) ? Number(n.toPrecision(6)) : null);

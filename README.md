@@ -101,7 +101,8 @@ The hackathon diff: [`pre-hackathon...main`](https://github.com/noname9006/Refra
 | **Review before sending**: the exact request body for NEAR AI / external API, sent only on "Send"; one builder makes both the preview and the request | [`OutboundReview.jsx`](src/components/dashboard/OutboundReview.jsx), [`outbound.js`](src/utils/outbound.js) |
 | **Every party, and what it sees**: hosting, RPCs, your wallet, the Intents API, private-shard validators, NEAR AI gateway/enclave, external operator — tested against the code | [`trustBoundaries.js`](src/data/trustBoundaries.js) |
 | Private-shard activity: invite-only history explained, never a second wallet prompt | [`historyNote.js`](src/near/historyNote.js) |
-| Demo mode for reviewers (live NEAR account, labelled sample private-shard data) | [`src/near/demoFixtures.js`](src/near/demoFixtures.js) |
+| **Prompt-injection guard**: token names, method names and other chain text are attacker-controlled; suspicious text is withheld before any prompt is built, and the model is told FACTS is data, not instructions. The demo plants a hostile token to show it | [`src/prompts/untrusted.js`](src/prompts/untrusted.js) |
+| Demo mode for reviewers (live NEAR account, labelled sample private-shard data, including a planted prompt-injection token) | [`src/near/demoFixtures.js`](src/near/demoFixtures.js) |
 | Tests — claim by claim in [JUDGES.md](JUDGES.md) | [`tests/`](tests) |
 
 **Confidential Intents sign-in needs a versioned nonce.** The Intents auth

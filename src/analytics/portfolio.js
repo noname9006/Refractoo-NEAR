@@ -7,6 +7,7 @@
 
 import { CHAIN_SLUG, NATIVE_LLAMA_KEY, llamaKey, nativeFor } from '../data/tokens.js';
 import { stakingPositionsFromHoldings } from '../data/defi.js';
+import { guardString } from '../prompts/untrusted.js';
 
 const num = (v) => (typeof v === 'number' && isFinite(v) ? v : 0);
 
@@ -339,7 +340,7 @@ export function portfolioFacts(p) {
       // Symbols are set by token deployers — untrusted text in an LLM prompt
       // (spam like "visit-xyz.com" or injected instructions). Keep it to a
       // short ticker-shaped string.
-      asset: String(h.symbol || '').replace(/[^A-Za-z0-9$._-]/g, '').slice(0, 16) || '?',
+      asset: guardString(h.symbol, 'symbol').value, // detect on raw text, then shorten
       chain: CHAIN_SLUG[h.chainId] || h.chainName,
       amount: Number(h.amount.toPrecision(6)),
       price: h.price != null ? Number(h.price.toPrecision(8)) : null,

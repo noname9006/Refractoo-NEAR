@@ -269,7 +269,7 @@ test('demo sample rows keep their "sample" flag through pseudonymization', () =>
   const facts = { usdPortfolio: portfolioFacts(buildPortfolio({ shielded: demoIntentsHoldings('root.near') })) };
   const r = pseudonymizeForRemote(facts, 'q', { sigFigs: 4 });
   const rev = r.facts.usdPortfolio.confidentialHoldings.revealed;
-  assert.equal(rev.length, 4);
+  assert.equal(rev.length, 5); // 4 sample balances + the planted hostile airdrop
   assert.ok(rev.every((x) => /DEMO SAMPLE/.test(x.sampleData)));
 });
 

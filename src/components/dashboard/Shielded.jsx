@@ -9,6 +9,7 @@ import { MODE } from '../../config/networks.js';
 import { fheApps } from '../../data/fheApps.js';
 import { STACK_ID as NEAR_STACK, intentsConfigured } from '../../near/confidentialIntents.js';
 import { historyNote } from '../../near/historyNote.js';
+import { looksLikeInjection } from '../../prompts/untrusted.js';
 
 // Confidential (shielded) token balances, across every FHE stack the active
 // network profile supports — Zama Protocol, Fhenix CoFHE, Inco Lightning.
@@ -277,16 +278,23 @@ function NearIntentsBlock({ flow, rows, hasWallet }) {
           {rows.length === 0 && (
             <div className="empty-note">No balances on the private shard for {String(ni.address).startsWith("0x") ? shortAddr(ni.address) : ni.address}.</div>
           )}
-          {rows.map((t) => (
+          {rows.map((t) => {
+            // Token text that reads like instructions or a link: shown here as
+            // what it is, and withheld from every AI prompt (prompts/untrusted.js).
+            const hostile = looksLikeInjection(t.symbol) || looksLikeInjection(t.name);
+            const sym = hostile ? 'tokens' : t.symbol;
+            return (
             <div className="shield-row" key={t.key}>
-              <TokenIcon chainId="near" symbol={t.symbol} bySymbol locked />
+              <TokenIcon chainId="near" symbol={hostile ? '?' : t.symbol} bySymbol locked />
               <div className="shield-main">
                 <div className="nm">
-                  {symbolName(t.symbol)} <span className="tag">{t.symbol}</span>
+                  {hostile ? 'Suspicious token' : <>{symbolName(t.symbol)} <span className="tag">{t.symbol}</span></>}
+                  {hostile && <span className="tag warn-tag" title="Its name reads like instructions to an AI. It is never put in a prompt.">withheld from AI</span>}
                   {t.demo && <span className="tag demo-tag">sample</span>}
                 </div>
+                {hostile && <div className="sub hostile-name" title={t.symbol}>Name: “{t.symbol}”</div>}
                 <div className="sub num">
-                  {t.amount != null ? `${amount(t.amount)} ${t.symbol}` : `${t.rawAmount} raw`} · {originChainName(t.originChain)}
+                  {t.amount != null ? `${amount(t.amount)} ${sym}` : `${t.rawAmount} raw`} · {originChainName(t.originChain)}
                   {t.state === 'error' && <> · <span className="warn">{t.error}</span></>}
                 </div>
               </div>
@@ -297,7 +305,8 @@ function NearIntentsBlock({ flow, rows, hasWallet }) {
               </div>
               <span className="shield-btn done" title="Read in this browser · never stored"><ILock /></span>
             </div>
-          ))}
+            );
+          })}
           {rows.length > 0 && (
             <div className="empty-note" style={{ paddingTop: 6 }}>
               {rows.length} private balance{rows.length === 1 ? '' : 's'} · {usdHolding(total)}

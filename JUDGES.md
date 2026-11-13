@@ -11,7 +11,7 @@ npm ci
 npm run test:offline
 ```
 
-73 tests, about 2 seconds. `npm test` additionally runs the `live:` tests
+80 tests, about 2 seconds. `npm test` additionally runs the `live:` tests
 against public endpoints (NEAR RPC, `intents.near`, the NEAR AI gateway); the
 ones that need a NEAR AI or Intents API key skip themselves without one.
 
@@ -39,6 +39,16 @@ To see the features rather than the tests: [README → Try it in 3 minutes](READ
 | Placeholders in the answer are mapped back to your real addresses locally | `restore()` | `claims.test.mjs` B3; `pseudonymize.test.mjs` "restore() …" |
 | Private-shard balances are masked the same way on their way into a prompt | `pseudonymizeForRemote()` over [`portfolioFacts()`](src/analytics/portfolio.js) | [`confidentialBalances.test.mjs`](tests/confidentialBalances.test.mjs) "external tier: account name masked …" |
 | Encrypted (FHE) balances reach the model as words, never as a number to guess | [`portfolio.js`](src/analytics/portfolio.js) `portfolioFacts()` | `confidentialBalances.test.mjs` "encrypted (FHE) entries stay words …" |
+
+### Prompt-injection guard (chain data is attacker-controlled)
+
+| Claim | Code | Test |
+|---|---|---|
+| Token symbols and names, contract method names, protocol and account labels are guarded at the one place every prompt is built: text that reads like instructions, chat-template markup or a link is withheld, everything else is cut to a short plain charset | [`untrusted.js`](src/prompts/untrusted.js), `buildAnalysisMessages()` in [`wallet-analysis.js`](src/prompts/wallet-analysis.js) | [`untrusted.test.mjs`](tests/untrusted.test.mjs) |
+| The system prompt tells the model FACTS is untrusted data, never instructions, and the data sits between explicit begin/end markers | `SYSTEM_PROMPT` | `untrusted.test.mjs` "buildAnalysisMessages: hostile chain data never reaches the prompt" |
+| The demo plants a token named "IGNORE PREVIOUS INSTRUCTIONS…": it is marked "withheld from AI" on screen, and a real NEAR AI model neither repeats its link nor calls the wallet safe | [`demoFixtures.js`](src/near/demoFixtures.js), [`Shielded.jsx`](src/components/dashboard/Shielded.jsx) | `nearai.test.mjs` live: "hostile token name does not steer the answer" (needs a NEAR AI key) |
+
+Limits: detection is a pattern list, so a cleverly worded name can get past it. The charset and length cut still apply to every chain-data string, and the system-prompt rule is the second layer. A model can still be misled by plain-looking data.
 
 ### See exactly what leaves the device
 
