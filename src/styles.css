@@ -254,6 +254,7 @@ button{font:inherit;color:inherit;cursor:pointer;border:none;background:none}
 .chain-pill[aria-pressed="false"]{opacity:.5;filter:grayscale(.6)}
 .chain-pill:hover{opacity:1}
 .cd.near{background:#00c08b}.cd.eth{background:#627eea}.cd.arb{background:#28a0f0}.cd.op{background:#ff0420}.cd.base{background:#0052ff}.cd.poly{background:#8247e5}
+.cd.bnb{background:#f0b90b}.cd.mnt{background:#0d8a7b}.cd.manta{background:#1a9bd8}.cd.avax{background:#e84142}.cd.gno{background:#04795b}.cd.zk{background:#4e529a}.cd.scroll{background:#eeb431}.cd.celo{background:#fcff52}
 .cd.fhe{background:var(--accent)}
 
 /* ── Skeleton / shimmer loading ─────────────────────────────────────────────── */
@@ -519,9 +520,9 @@ a.tx .ic,.tx a.ic{cursor:pointer}
 .activity-list{container-type:inline-size;container-name:activity}
 @container activity (max-width:440px){
   .tx{grid-template-columns:auto minmax(0,1fr);row-gap:4px}
-  .tx .amt{grid-column:2;text-align:left;white-space:normal;display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 12px}
-  .tx .amt .amt-line{justify-content:flex-start;white-space:nowrap}
-  .tx .amt .when{margin-top:0;margin-left:auto}
+  .tx .amt{grid-column:2;text-align:right;white-space:normal;display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+  .tx .amt .amt-line{justify-content:flex-end;white-space:nowrap}
+  .tx .amt .when{margin-top:0}
 }
 .tx.scam{opacity:.62}
 .tx.dimmed{opacity:.32}

@@ -17,6 +17,10 @@ export const TINTS = {
   op: { bg: '#ffeaec', fg: '#ff0420' },
   base: { bg: '#e9eefe', fg: '#0052ff' },
   poly: { bg: '#f0eafe', fg: '#8247e5' },
+  bnb: { bg: '#fdf6e1', fg: '#c99400' },
+  mnt: { bg: '#e8f5f3', fg: '#0d8a7b' },
+  avax: { bg: '#fdeaea', fg: '#e84142' },
+  celo: { bg: '#fdfbe0', fg: '#a89a00' },
   stake: { bg: '#e8f0ff', fg: '#00a3ff' },
   gov: { bg: '#f3e9ff', fg: '#7b4dd8' },
   // Confidential/shielded tokens (Zama ERC-7984 wrappers, Inco, CoFHE).
@@ -86,6 +90,56 @@ const CHAINS = [
       'https://rpc.ankr.com/polygon',
     ],
   },
+  {
+    chainId: 56,
+    name: 'BNB Chain',
+    symbol: 'BNB',
+    rpcs: ['https://bsc-rpc.publicnode.com', 'https://bsc-dataseed.bnbchain.org'],
+  },
+  {
+    chainId: 5000,
+    name: 'Mantle',
+    symbol: 'MNT',
+    rpcs: ['https://mantle-rpc.publicnode.com', 'https://rpc.mantle.xyz'],
+  },
+  {
+    chainId: 169,
+    name: 'Manta Pacific',
+    symbol: 'ETH',
+    rpcs: ['https://pacific-rpc.manta.network/http', 'https://manta-pacific.drpc.org'],
+  },
+  {
+    chainId: 43114,
+    name: 'Avalanche',
+    symbol: 'AVAX',
+    rpcs: ['https://avalanche-c-chain-rpc.publicnode.com', 'https://api.avax.network/ext/bc/C/rpc'],
+  },
+  {
+    chainId: 100,
+    name: 'Gnosis',
+    symbol: 'XDAI',
+    rpcs: ['https://gnosis-rpc.publicnode.com', 'https://rpc.gnosischain.com'],
+  },
+  // zkSync Era: Multicall3 is live at the canonical address (verified
+  // 2026-11-14), so it needs no special casing.
+  {
+    chainId: 324,
+    name: 'zkSync Era',
+    symbol: 'ETH',
+    rpcs: ['https://mainnet.era.zksync.io', 'https://zksync.drpc.org'],
+  },
+  {
+    chainId: 534352,
+    name: 'Scroll',
+    symbol: 'ETH',
+    rpcs: ['https://scroll-rpc.publicnode.com', 'https://rpc.scroll.io'],
+  },
+  {
+    chainId: 42220,
+    name: 'Celo',
+    symbol: 'CELO',
+    rpcs: ['https://celo-rpc.publicnode.com', 'https://forno.celo.org'],
+  },
 ];
 
 // Curated, high-liquidity token set per chain. These are probed first (tier 1);
@@ -141,6 +195,46 @@ const TOKENS = [
   t(137, '0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6', 'WBTC', 'Wrapped BTC', 8, '₿', { tint: 'btc', kind: 'btc' }),
   t(137, '0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270', 'WMATIC', 'Wrapped POL', 18, 'P', { tint: 'poly', kind: 'token' }),
   t(137, '0x53E0bca35eC356BD5ddDFebbD1Fc0fD03FaBad39', 'LINK', 'Chainlink', 18, 'L', { tint: 'gov', kind: 'token' }),
+  // ── BNB Chain (Binance-peg stables use 18 decimals) ──
+  t(56, '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d', 'USDC', 'USD Coin', 18, '$', { tint: 'stable', kind: 'stable' }),
+  t(56, '0x55d398326f99059fF775485246999027B3197955', 'USDT', 'Tether USD', 18, '$', { tint: 'stable', kind: 'stable' }),
+  t(56, '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c', 'WBNB', 'Wrapped BNB', 18, 'B', { tint: 'bnb', kind: 'token' }),
+  t(56, '0x2170Ed0880ac9A755fd29B2688956BD959F933F8', 'ETH', 'Ethereum (BNB Chain)', 18, 'Ξ', { tint: 'eth', kind: 'eth' }),
+  t(56, '0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c', 'BTCB', 'Bitcoin BEP2', 18, '₿', { tint: 'btc', kind: 'btc' }),
+  // ── Mantle ──
+  t(5000, '0x09Bc4E0D864854c6aFB6eB9A9cdF58aC190D0dF9', 'USDC', 'USD Coin', 6, '$', { tint: 'stable', kind: 'stable' }),
+  t(5000, '0x201EBa5CC46D216Ce6DC03F6a759e8E766e956aE', 'USDT', 'Tether USD', 6, '$', { tint: 'stable', kind: 'stable' }),
+  t(5000, '0x78c1b0C915c4FAA5FffA6CAbf0219DA63d7f4cb8', 'WMNT', 'Wrapped Mantle', 18, 'M', { tint: 'mnt', kind: 'token' }),
+  t(5000, '0xdEAddEaDdeadDEadDEADDEAddEADDEAddead1111', 'WETH', 'Wrapped Ether', 18, 'Ξ', { tint: 'eth', kind: 'eth' }),
+  t(5000, '0xcDA86A272531e8640cD7F1a92c01839911B90bb0', 'mETH', 'Mantle Staked Ether', 18, 'Ξ', { tint: 'stake', kind: 'eth', protocol: 'Mantle LSP', label: 'Staking' }),
+  // ── Manta Pacific ──
+  t(169, '0x0Dc808adcE2099A9F62AA87D9670745AbA741746', 'WETH', 'Wrapped Ether', 18, 'Ξ', { tint: 'eth', kind: 'eth' }),
+  t(169, '0xb73603C5d87fA094B7314C74ACE2e64D165016fb', 'USDC', 'USD Coin', 6, '$', { tint: 'stable', kind: 'stable' }),
+  t(169, '0xf417F5A458eC102B90352F697D6e2Ac3A3d2851f', 'USDT', 'Tether USD', 6, '$', { tint: 'stable', kind: 'stable' }),
+  // ── Avalanche ──
+  t(43114, '0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E', 'USDC', 'USD Coin', 6, '$', { tint: 'stable', kind: 'stable' }),
+  t(43114, '0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7', 'USDT', 'Tether USD', 6, '$', { tint: 'stable', kind: 'stable' }),
+  t(43114, '0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7', 'WAVAX', 'Wrapped AVAX', 18, 'A', { tint: 'avax', kind: 'token' }),
+  t(43114, '0x49D5c2BdFfac6CE2BFdB6640F4F80f226bc10bAB', 'WETH.e', 'Wrapped Ether', 18, 'Ξ', { tint: 'eth', kind: 'eth' }),
+  t(43114, '0x152b9d0FdC40C096757F570A51E494bd4b943E50', 'BTC.b', 'Bitcoin', 8, '₿', { tint: 'btc', kind: 'btc' }),
+  // ── Gnosis ──
+  t(100, '0xe91D153E0b41518A2Ce8Dd3D7944Fa863463a97d', 'WXDAI', 'Wrapped xDAI', 18, '$', { tint: 'stable', kind: 'stable' }),
+  t(100, '0xDDAfbb505ad214D7b80b1f830fcCc89B60fb7A83', 'USDC', 'USD Coin', 6, '$', { tint: 'stable', kind: 'stable' }),
+  t(100, '0x6A023CCd1ff6F2045C3309768eAd9E68F978f6e1', 'WETH', 'Wrapped Ether', 18, 'Ξ', { tint: 'eth', kind: 'eth' }),
+  t(100, '0x9C58BAcC331c9aa871AFD802DB6379a98e80CEdb', 'GNO', 'Gnosis', 18, 'G', { tint: 'gov', kind: 'token' }),
+  // ── zkSync Era ──
+  t(324, '0x1d17CBcF0D6D143135aE902365D2E5e2A16538D4', 'USDC', 'USD Coin', 6, '$', { tint: 'stable', kind: 'stable' }),
+  t(324, '0x3355df6D4c9C3035724Fd0e3914dE96A5a83aaf4', 'USDC.e', 'USD Coin (bridged)', 6, '$', { tint: 'stable', kind: 'stable' }),
+  t(324, '0x5AEa5775959fBC2557Cc8789bC1bf90A239D9a91', 'WETH', 'Wrapped Ether', 18, 'Ξ', { tint: 'eth', kind: 'eth' }),
+  t(324, '0x5A7d6b2F92C77FAD6CCaBd7EE0624E64907Eaf3E', 'ZK', 'ZKsync', 18, 'Z', { tint: 'gov', kind: 'token' }),
+  // ── Scroll ──
+  t(534352, '0x06eFdBFf2a14a7c8E15944D1F4A48F9F95F663A4', 'USDC', 'USD Coin', 6, '$', { tint: 'stable', kind: 'stable' }),
+  t(534352, '0xf55BEC9cafDbE8730f096Aa55dad6D22d44099Df', 'USDT', 'Tether USD', 6, '$', { tint: 'stable', kind: 'stable' }),
+  t(534352, '0x5300000000000000000000000000000000000004', 'WETH', 'Wrapped Ether', 18, 'Ξ', { tint: 'eth', kind: 'eth' }),
+  // ── Celo (CELO is native; its ERC-20 twin 0x471E… is left out so it isn't counted twice) ──
+  t(42220, '0xcebA9300f2b948710d2653dD7B07f33A8B32118C', 'USDC', 'USD Coin', 6, '$', { tint: 'stable', kind: 'stable' }),
+  t(42220, '0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e', 'USDT', 'Tether USD', 6, '$', { tint: 'stable', kind: 'stable' }),
+  t(42220, '0x765DE816845861e75A25fCA122bb6898B8B1282a', 'USDm', 'Mento Dollar', 18, '$', { tint: 'stable', kind: 'stable' }),
 ];
 
 // Confidential-token stacks live on this profile's chains.
@@ -182,7 +276,10 @@ export default {
   // Price mode: 'live' ⇒ DefiLlama keys are built directly from the chain slug.
   priceMode: 'live',
   // DefiLlama chain slugs (used to build price keys).
-  chainSlug: { 1: 'ethereum', 42161: 'arbitrum', 10: 'optimism', 8453: 'base', 137: 'polygon' },
+  chainSlug: {
+    1: 'ethereum', 42161: 'arbitrum', 10: 'optimism', 8453: 'base', 137: 'polygon',
+    56: 'bsc', 5000: 'mantle', 169: 'manta', 43114: 'avax', 100: 'xdai', 324: 'era', 534352: 'scroll', 42220: 'celo',
+  },
   // Per-chain native token: price key + display metadata. Most chains run on
   // ETH; Polygon's native gas token is POL (different price + symbol/glyph).
   native: {
@@ -191,6 +288,14 @@ export default {
     10:    { key: 'coingecko:ethereum', symbol: 'ETH', name: 'Ethereum', glyph: 'Ξ', color: TINTS.eth },
     8453:  { key: 'coingecko:ethereum', symbol: 'ETH', name: 'Ethereum', glyph: 'Ξ', color: TINTS.eth },
     137:   { key: 'coingecko:polygon-ecosystem-token', symbol: 'POL', name: 'Polygon', glyph: 'P', color: TINTS.poly },
+    56:    { key: 'coingecko:binancecoin', symbol: 'BNB', name: 'BNB', glyph: 'B', color: TINTS.bnb },
+    5000:  { key: 'coingecko:mantle', symbol: 'MNT', name: 'Mantle', glyph: 'M', color: TINTS.mnt },
+    169:   { key: 'coingecko:ethereum', symbol: 'ETH', name: 'Ethereum', glyph: 'Ξ', color: TINTS.eth },
+    43114: { key: 'coingecko:avalanche-2', symbol: 'AVAX', name: 'Avalanche', glyph: 'A', color: TINTS.avax },
+    100:   { key: 'coingecko:xdai', symbol: 'XDAI', name: 'xDAI', glyph: '$', color: TINTS.stable },
+    324:   { key: 'coingecko:ethereum', symbol: 'ETH', name: 'Ethereum', glyph: 'Ξ', color: TINTS.eth },
+    534352: { key: 'coingecko:ethereum', symbol: 'ETH', name: 'Ethereum', glyph: 'Ξ', color: TINTS.eth },
+    42220: { key: 'coingecko:celo', symbol: 'CELO', name: 'Celo', glyph: 'C', color: TINTS.celo },
   },
   // Aave v3 Pool (getUserAccountData) per chain.
   aaveV3Pool: {
@@ -199,6 +304,12 @@ export default {
     10: '0x794a61358D6845594F94dc1DB02A252b5b4814aD',
     8453: '0xA238Dd80C259a72e81d7e4664a9801593F98d1c5',
     137: '0x794a61358D6845594F94dc1DB02A252b5b4814aD',
+    56: '0x6807dc923806fE8Fd134338EABCA509979a7e0cB',
+    43114: '0x794a61358D6845594F94dc1DB02A252b5b4814aD',
+    100: '0xb50201558B00496A145fE76f7424749556E326D8',
+    324: '0x78e30497a3c7527d953c6B1E3541b021A98Ac43c',
+    534352: '0x11fCfe756c05AD438e312a7fd934381537D3cFfe',
+    42220: '0x3E59A31363E2ad014dcbc521c4a0d5757d9f3402',
   },
   // Display metadata for the chain filter pills + activity rows.
   chainMeta: {
@@ -207,6 +318,14 @@ export default {
     10: { name: 'Optimism', cd: 'op' },
     8453: { name: 'Base', cd: 'base' },
     137: { name: 'Polygon', cd: 'poly' },
+    56: { name: 'BNB Chain', cd: 'bnb' },
+    5000: { name: 'Mantle', cd: 'mnt' },
+    169: { name: 'Manta Pacific', cd: 'manta' },
+    43114: { name: 'Avalanche', cd: 'avax' },
+    100: { name: 'Gnosis', cd: 'gno' },
+    324: { name: 'zkSync Era', cd: 'zk' },
+    534352: { name: 'Scroll', cd: 'scroll' },
+    42220: { name: 'Celo', cd: 'celo' },
   },
   explorer: {
     1: 'https://etherscan.io',
@@ -214,6 +333,14 @@ export default {
     10: 'https://optimistic.etherscan.io',
     8453: 'https://basescan.org',
     137: 'https://polygonscan.com',
+    56: 'https://bscscan.com',
+    5000: 'https://mantlescan.xyz',
+    169: 'https://pacific-explorer.manta.network',
+    43114: 'https://snowtrace.io',
+    100: 'https://gnosisscan.io',
+    324: 'https://era.zksync.network',
+    534352: 'https://scrollscan.com',
+    42220: 'https://celoscan.io',
   },
   // The CoinGecko token registry (server/index.js) only covers mainnets, so the
   // tier-2 long-tail probe is meaningful here.

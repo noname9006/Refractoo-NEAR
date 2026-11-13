@@ -11,7 +11,11 @@
 // v3: entries now carry a market-cap `rank`; the endpoint is gzipped. Bumped so
 // existing clients re-fetch the richer payload instead of serving a 24h-fresh
 // pre-rank map (enrich.js tiers its probing on rank/imageUrl).
-const LS_KEY = 'cg_tokenmap_v3';
+// v4: registry covers 13 chains (BNB, Mantle, Manta, Avalanche, Gnosis, zkSync,
+// Scroll, Celo added). Bumped so clients drop the 5-chain map; the old key is
+// removed to free localStorage space (the map is ~3 MB).
+const LS_KEY = 'cg_tokenmap_v4';
+try { localStorage.removeItem('cg_tokenmap_v3'); } catch {}
 const TTL = 24 * 60 * 60 * 1000;
 
 let _map = null;

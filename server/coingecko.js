@@ -12,14 +12,25 @@ const LIST_FILE = join(CACHE_DIR, 'tokenlist.json');
 const CACHE_TTL = 24 * 60 * 60 * 1000;
 
 // CoinGecko platform names for our supported chains
-const SUPPORTED = new Set(['ethereum', 'arbitrum-one', 'optimistic-ethereum', 'base', 'polygon-pos']);
+// CELO's ERC-20 twin of the native coin: probing it would double-count the native balance.
+const SKIP = new Set(['42220:0x471ece3750da237f93b8e339c536989b8978a438']);
 const PLATFORM_CHAIN = {
   'ethereum': 1,
   'arbitrum-one': 42161,
   'optimistic-ethereum': 10,
   'base': 8453,
   'polygon-pos': 137,
+  'binance-smart-chain': 56,
+  'mantle': 5000,
+  'manta-pacific': 169,
+  'avalanche': 43114,
+  'xdai': 100,
+  'zksync': 324,
+  'scroll': 534352,
+  'celo': 42220,
 };
+const SUPPORTED = new Set(Object.keys(PLATFORM_CHAIN));
+const CHAINS_KEY = Object.values(PLATFORM_CHAIN).sort((x, y) => x - y).join(',');
 
 const CG = 'https://api.coingecko.com/api/v3';
 const API_KEY = process.env.COINGECKO_API_KEY || '';
@@ -70,6 +81,7 @@ function buildMap(coinList, markets) {
     for (const [platform, address] of Object.entries(coin.platforms || {})) {
       if (!SUPPORTED.has(platform) || !address) continue;
       const chainId = PLATFORM_CHAIN[platform];
+      if (SKIP.has(`${chainId}:${address.toLowerCase()}`)) continue;
       map[`${chainId}:${address.toLowerCase()}`] = {
         symbol: (coin.symbol || '?').toUpperCase(),
         name: coin.name || coin.symbol || 'Unknown',
@@ -91,6 +103,8 @@ function tryLoadCache() {
   try {
     if (!existsSync(LIST_FILE)) return false;
     const raw = JSON.parse(readFileSync(LIST_FILE, 'utf8'));
+    // A cache built for a different chain set would hide the new chains' tokens.
+    if (raw.chains !== CHAINS_KEY) return false;
     if (Date.now() - raw.updated < CACHE_TTL) {
       _map = raw.map;
       _mapAt = raw.updated;
@@ -114,7 +128,7 @@ async function refresh() {
     ]);
     const map = buildMap(coinList, markets);
     if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
-    writeFileSync(LIST_FILE, JSON.stringify({ updated: Date.now(), map }));
+    writeFileSync(LIST_FILE, JSON.stringify({ updated: Date.now(), chains: CHAINS_KEY, map }));
     _map = map;
     _mapAt = Date.now();
     console.log(`[cg] Token list cached — ${Object.keys(map).length} entries across ${SUPPORTED.size} chains`);
