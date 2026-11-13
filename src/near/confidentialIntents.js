@@ -258,15 +258,35 @@ export async function loadConfidentialHoldings(who) {
       };
     });
 
+  // History uses the session the balances call just established and never
+  // re-signs: the endpoint is invite-only for now, and a refusal there must not
+  // put a second wallet prompt in front of the user.
   let history = null;
+  let historyStatus;
   try {
-    const h = await authed(identity, `/api/account/history/{key}?${HISTORY_QUERY}`);
-    history = h?.items || [];
+    const s = sessions.get(`${identity.kind}:${identity.id}`);
+    const h = await api(`/api/account/history/{key}?${HISTORY_QUERY}`, { headers: { Authorization: `Bearer ${s?.accessToken}` } });
+    history = Array.isArray(h?.items) ? h.items : [];
+    historyStatus = { state: history.length ? 'ok' : 'empty', count: history.length };
   } catch (e) {
-    console.warn('[near-intents] history unavailable', e);
+    historyStatus = classifyHistoryError(e);
+    if (historyStatus.state !== 'restricted') console.warn('[near-intents] history unavailable', e);
   }
 
-  return { address, kind: identity.kind, tokens: rows, history };
+  return { address, kind: identity.kind, tokens: rows, history, historyStatus };
+}
+
+// Why the private-shard history could not be listed.
+//   restricted  — the API refuses history for this integration/account
+//                 (HTTP 401/403, or a message saying it is invite-only)
+//   unavailable — anything else (network, 5xx); may work on the next refresh
+export function classifyHistoryError(e) {
+  const status = Number(e?.status) || null;
+  const message = String(e?.message || e || '').slice(0, 200);
+  if (status === 401 || status === 403 || /invite|not (yet )?(enabled|available)|whitelist|allow ?list/i.test(message)) {
+    return { state: 'restricted', status, message };
+  }
+  return { state: 'unavailable', status, message };
 }
 
 // Re-read the balances of an account that already signed in this page load,

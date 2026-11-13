@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { amount, timeAgo, shortAddr, usdHolding, explorerTx, CHAIN_META } from './format.js';
 import { IIn, IOut, ISwap, IArrowRight, IChevDown, IFlag, ILock } from './icons.jsx';
 import { fetchNearTxs } from '../../near/nearTxs.js';
+import { historyNote } from '../../near/historyNote.js';
 import { fetchHistoricalPrices } from '../../data/prices.js';
 import { llamaKey, nativeFor } from '../../data/tokens.js';
 import { PRICE_MODE } from '../../config/networks.js';
@@ -221,6 +222,11 @@ export default function Activity({ flow, selectedChains, selectedWallets, loadin
       };
     });
 
+  // Why private-shard rows are missing, when they are (invite-only history, a
+  // failed read, or simply none yet). Same visibility rules as the rows.
+  const privNote = ni.status === 'unlocked' && selectedChains.has('near') && ni.address && walletOn(ni.address)
+    ? historyNote(ni.historyStatus) : null;
+
   const decorated = [...[...groupsMap.values()].map(decorate), ...privDecorated].sort((a, b) => b.g.timestamp - a.g.timestamp);
   const smallCount = decorated.filter((d) => d.small).length;
   const visible = (showSmall ? decorated : decorated.filter((d) => !d.small)).slice(0, 12);
@@ -248,6 +254,15 @@ export default function Activity({ flow, selectedChains, selectedWallets, loadin
 
       {!collapsed && (
         <div className="list">
+          {privNote && (
+            <div className={`priv-note tone-${privNote.tone}`} role="note">
+              <span className="priv-note-ic"><ILock /></span>
+              <div>
+                <strong>{privNote.title}</strong>
+                <p>{privNote.body}</p>
+              </div>
+            </div>
+          )}
           {loading && decorated.length === 0 && <SkeletonRows />}
           {!loading && visible.length === 0 && decorated.length === 0 && (
             <div className="empty-note">No transaction history yet. Set <code className="mono">VITE_ETHERSCAN_KEY</code> to load activity (balances work without it).</div>

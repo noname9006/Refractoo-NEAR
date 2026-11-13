@@ -272,3 +272,61 @@ test('demo sample rows keep their "sample" flag through pseudonymization', () =>
   assert.equal(rev.length, 4);
   assert.ok(rev.every((x) => /DEMO SAMPLE/.test(x.sampleData)));
 });
+
+// --- Private-shard history states ------------------------------------------------
+
+import { classifyHistoryError } from '../src/near/confidentialIntents.js';
+import { historyNote } from '../src/near/historyNote.js';
+
+test('history refused (403 invite-only): status "restricted", NO second wallet prompt, balances intact', async () => {
+  const api = fakeApi({ history: () => ({ status: 403, body: { message: 'History is invite-only for now' } }) });
+  const id = fakeIdentity();
+  const out = await loadConfidentialHoldings(id);
+  assert.equal(out.historyStatus.state, 'restricted');
+  assert.equal(out.history, null);
+  assert.equal(out.tokens.length, 3);
+  assert.equal(id.signs, 1);
+  assert.equal(api.calls.filter((c) => c.path.startsWith('/api/account/history/')).length, 1, 'not retried');
+});
+
+test('history 401 does not re-sign either (the balances session is valid; it is a refusal)', async () => {
+  fakeApi({ history: () => ({ status: 401, body: { message: 'Unauthorized' } }) });
+  const id = fakeIdentity();
+  const out = await loadConfidentialHoldings(id);
+  assert.equal(id.signs, 1);
+  assert.equal(out.historyStatus.state, 'restricted');
+});
+
+test('history 500 → "unavailable"; empty list → "empty"; items → "ok" with a count', async () => {
+  const restore = quiet();
+  try {
+    fakeApi({ history: () => ({ status: 500, body: null }) });
+    assert.equal((await loadConfidentialHoldings(fakeIdentity())).historyStatus.state, 'unavailable');
+    clearIntentsSessions();
+    fakeApi({ history: () => ({ status: 200, body: { items: [] } }) });
+    assert.deepEqual((await loadConfidentialHoldings(fakeIdentity())).historyStatus, { state: 'empty', count: 0 });
+    clearIntentsSessions();
+    fakeApi({ history: () => ({ status: 200, body: { items: [{ id: 1 }, { id: 2 }] } }) });
+    assert.deepEqual((await loadConfidentialHoldings(fakeIdentity())).historyStatus, { state: 'ok', count: 2 });
+  } finally { restore(); }
+});
+
+test('classifyHistoryError: refusals vs transient failures', () => {
+  const err = (status, message) => Object.assign(new Error(message), { status });
+  assert.equal(classifyHistoryError(err(403, 'Forbidden')).state, 'restricted');
+  assert.equal(classifyHistoryError(err(400, 'This endpoint is invite-only for now')).state, 'restricted');
+  assert.equal(classifyHistoryError(err(502, 'Bad gateway')).state, 'unavailable');
+  assert.equal(classifyHistoryError(new TypeError('fetch failed')).state, 'unavailable');
+});
+
+test('historyNote: restricted explains what is and is not missing; ok shows no note', () => {
+  const n = historyNote({ state: 'restricted', status: 403 });
+  assert.equal(n.short, 'history: invite-only');
+  assert.match(n.body, /invited integrations/);
+  assert.match(n.body, /balances \(Shielded balances card\) are read and current/);
+  assert.match(n.body, /public explorers/);
+  assert.equal(historyNote({ state: 'ok', count: 3 }), null);
+  assert.equal(historyNote(null), null);
+  assert.match(historyNote({ state: 'unavailable', status: 502 }).body, /HTTP 502/);
+  assert.match(historyNote({ state: 'restricted', demo: true }).body, /Demo/);
+});

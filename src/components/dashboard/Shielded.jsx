@@ -8,6 +8,7 @@ import { TRUST } from '../../fhe/index.js';
 import { MODE } from '../../config/networks.js';
 import { fheApps } from '../../data/fheApps.js';
 import { STACK_ID as NEAR_STACK, intentsConfigured } from '../../near/confidentialIntents.js';
+import { historyNote } from '../../near/historyNote.js';
 
 // Confidential (shielded) token balances, across every FHE stack the active
 // network profile supports — Zama Protocol, Fhenix CoFHE, Inco Lightning.
@@ -300,7 +301,9 @@ function NearIntentsBlock({ flow, rows, hasWallet }) {
           {rows.length > 0 && (
             <div className="empty-note" style={{ paddingTop: 6 }}>
               {rows.length} private balance{rows.length === 1 ? '' : 's'} · {usdHolding(total)}
-              {Array.isArray(ni.history) && <> · {ni.history.length} swap{ni.history.length === 1 ? '' : 's'} in history</>}
+              {ni.historyStatus?.state === 'ok' && Array.isArray(ni.history)
+                ? <> · {ni.history.length} item{ni.history.length === 1 ? '' : 's'} in history</>
+                : historyNote(ni.historyStatus) && <> · <span title={historyNote(ni.historyStatus).body}>{historyNote(ni.historyStatus).short}</span></>}
             </div>
           )}
           {!ni.demo && ni.refreshError && (

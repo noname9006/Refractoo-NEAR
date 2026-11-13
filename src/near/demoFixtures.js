@@ -37,8 +37,6 @@ export function demoIntentsHoldings(wallet = 'demo') {
   ];
 }
 
-export const DEMO_INTENTS_HISTORY = [
-  { kind: 'swap', from: 'USDC', to: 'BTC', note: 'sample' },
-  { kind: 'swap', from: 'wNEAR', to: 'ZEC', note: 'sample' },
-  { kind: 'deposit', from: 'USDC', note: 'sample' },
-];
+// The demo shows the history state a real signed-in user gets today: the NEAR
+// Intents API lists private-shard history by invitation only. No fake swaps.
+export const DEMO_HISTORY_STATUS = { state: 'restricted', status: null, message: 'invite-only for now', demo: true };

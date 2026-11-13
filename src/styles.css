@@ -1124,3 +1124,14 @@ mark.ph{background:var(--accent-wash-2);color:var(--ink);border-radius:3px;paddi
 .tv-no .trust-mark{color:var(--pos);background:var(--pos-wash);border-color:color-mix(in srgb,var(--pos) 30%,transparent)}
 .trust-other{font-size:11.5px}
 .trust-table tr.self .trust-mark{color:var(--ink-2);background:var(--surface-2);border-color:var(--line)}
+
+/* Private-shard history note (Activity) */
+.priv-note{display:flex;gap:10px;align-items:flex-start;margin:4px 0 8px;padding:9px 11px;border-radius:var(--r-sm);font-size:12px;line-height:1.45;color:var(--ink-2);background:var(--surface-2);border:1px solid var(--line)}
+.priv-note strong{display:block;color:var(--ink);font-weight:600;margin-bottom:2px}
+.priv-note p{margin:0}
+.priv-note-ic{flex:none;display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--ink-3);color:#fff;margin-top:1px}
+.priv-note-ic svg{width:10px;height:10px;stroke-width:2.6}
+.priv-note.tone-info{background:var(--info-wash);border-color:color-mix(in srgb,var(--info) 28%,transparent)}
+.priv-note.tone-info .priv-note-ic{background:var(--info)}
+.priv-note.tone-warn{background:var(--warn-wash);border-color:color-mix(in srgb,var(--warn) 30%,transparent)}
+.priv-note.tone-warn .priv-note-ic{background:var(--warn)}

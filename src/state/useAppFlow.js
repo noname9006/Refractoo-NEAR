@@ -875,10 +875,10 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
     // Demo without a wallet: show clearly-labelled SAMPLE private-shard rows
     // (no signature, no API call) so the flow can be seen end to end.
     if (via === 'evm' && !wallet && demo) {
-      const { demoIntentsHoldings, DEMO_INTENTS_HISTORY, DEMO_NEAR_ACCOUNT } = await import('../near/demoFixtures.js');
+      const { demoIntentsHoldings, DEMO_HISTORY_STATUS, DEMO_NEAR_ACCOUNT } = await import('../near/demoFixtures.js');
       const rest = (shieldedRef.current || []).filter((t) => t.stack !== 'near-intents');
       commitShielded([...rest, ...demoIntentsHoldings(DEMO_NEAR_ACCOUNT)]); // owned by a demo wallet id, so the wallet filter keeps them
-      setNearIntents({ status: 'unlocked', error: null, address: DEMO_NEAR_ACCOUNT, history: DEMO_INTENTS_HISTORY, demo: true });
+      setNearIntents({ status: 'unlocked', error: null, address: DEMO_NEAR_ACCOUNT, history: null, historyStatus: DEMO_HISTORY_STATUS, demo: true });
       return;
     }
     if (via === 'evm' && !wallet) throw new Error('Connect a wallet to read NEAR confidential balances');
@@ -900,10 +900,10 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
       } else {
         identity = await ci.evmIdentity(wallet.signer);
       }
-      const { address, tokens, history, kind } = await ci.loadConfidentialHoldings(identity);
+      const { address, tokens, history, historyStatus, kind } = await ci.loadConfidentialHoldings(identity);
       const rest = (shieldedRef.current || []).filter((t) => !(t.stack === 'near-intents' && t.wallet === address));
       commitShielded([...rest, ...tokens]);
-      setNearIntents({ status: 'unlocked', error: null, address, history, via: kind, updatedAt: Date.now() });
+      setNearIntents({ status: 'unlocked', error: null, address, history, historyStatus, via: kind, updatedAt: Date.now() });
     } catch (e) {
       const msg = String(e?.message || e);
       const friendly = /user rejected|rejected the request|ACTION_REJECTED|4001|cancel/i.test(msg)
@@ -930,11 +930,13 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
       const ci = await import('../near/confidentialIntents.js');
       const kind = ni.via || 'evm';
       if (!ci.hasIntentsSession(kind, ni.address)) throw Object.assign(new Error('expired'), { code: ci.SESSION_EXPIRED });
-      const { address, tokens, history } = await ci.refreshConfidentialHoldings(kind, ni.address);
+      const { address, tokens, history, historyStatus } = await ci.refreshConfidentialHoldings(kind, ni.address);
       if (nearIntentsRef.current.address !== address) return; // user switched account meanwhile
       const rest = (shieldedRef.current || []).filter((t) => !(t.stack === 'near-intents' && t.wallet === address));
       commitShielded([...rest, ...tokens]);
-      setNearIntents((s) => ({ ...s, history: history ?? s.history, updatedAt: Date.now(), refreshError: null }));
+      // A transient history failure keeps the last good list and its status.
+      const keep = historyStatus?.state === 'unavailable' && Array.isArray(nearIntentsRef.current.history);
+      setNearIntents((s) => ({ ...s, ...(keep ? {} : { history, historyStatus }), updatedAt: Date.now(), refreshError: null }));
     } catch (e) {
       if (e?.code === 'SESSION_EXPIRED') {
         setNearIntents((s) => ({ ...s, status: 'idle', error: null, expired: true }));
