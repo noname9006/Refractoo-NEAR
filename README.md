@@ -285,6 +285,27 @@ have (8192–32768 depending on model size, in the current registry).
 | **App hosting** (the server serving the page) | never receives your wallet addresses or balances; sees your IP, page loads, the token contracts whose icons are looked up (`/api/coinicon`) and — external tier only — the relayed AI request |
 | Model weights | downloaded once, cached in OPFS |
 
+### Server-side storage: none
+
+**This app stores nothing server-side after a response returns.** Your wallets,
+balances, prompts, answers, API keys and attestation results exist only in your
+browser tab (plus the browser's own `localStorage`/OPFS for settings, layout and
+model files). The code makes this checkable — the whole backend is
+[`server/`](server/), about 500 lines:
+
+- **NEAR AI TEE tier and on-device tier: the server is not involved.** The browser
+  talks to `cloud-api.near.ai` directly (attestation, E2EE chat, signature check).
+  No request is relayed through this app's server.
+- **`/api/llm` (external-API tier only)** is a pass-through proxy
+  ([`server/llm.js`](server/llm.js)): it reads the body into memory, forwards it,
+  and pipes the reply back. It does not write, log or cache the body, the
+  `x-llm-api-key` header or the response.
+- **`/api/coinicon`, `/api/tokenlist`** serve the public CoinGecko token list; the
+  only file the server ever writes is that public list
+  ([`server/cache/tokenlist.json`](server/coingecko.js)). `/api/sysinfo` reads the
+  host machine's own specs and persists nothing.
+- The server has no database, no request logging and no session state.
+
 The app shows the same thing per party in the tier panel ("Every party, and what it sees",
 `src/data/trustBoundaries.js`); `tests/trustBoundaries.test.mjs` checks it against the code.
 
