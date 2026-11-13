@@ -25,8 +25,10 @@ const EVM_FULL = /0x[a-fA-F0-9]{40}(?![a-fA-F0-9])/g;
 const EVM_SHORT = /0x([a-fA-F0-9]{4})(?:…|\.{2,3})([a-fA-F0-9]{4})(?![a-fA-F0-9])/g;
 const TX_HASH = /0x[a-fA-F0-9]{64}(?![a-fA-F0-9])/g;
 // Named accounts (alice.near, sub.alice.near, *.tg) and 64-hex implicit accounts.
-const NEAR_NAMED = /\b(?:[a-z0-9](?:[a-z0-9_-]*[a-z0-9])?\.)+(?:near|tg)\b/g;
-const NEAR_IMPLICIT = /\b[a-f0-9]{64}\b/g;
+// Case-insensitive: account ids are lowercase on-chain, but a user may type
+// "Root.near" or "ALICE.NEAR" in a question — that must not reach a provider.
+const NEAR_NAMED = /\b(?:[a-z0-9](?:[a-z0-9_-]*[a-z0-9])?\.)+(?:near|tg)\b/gi;
+const NEAR_IMPLICIT = /\b[a-f0-9]{64}\b/gi;
 const ISO_DATE = /^(\d{4}-\d{2})-\d{2}(?:T[\d:.]+Z?)?$/;
 
 // Keys whose numbers are small counts or shares that identify nothing; kept exact.

@@ -29,7 +29,7 @@ const PROFILES = { mainnet, testnet };
 export const MODE_OVERRIDE_KEY = 'pwai.networkMode';
 
 function readOverride() {
-  if (!import.meta.env.DEV) return null;
+  if (!import.meta.env?.DEV) return null;
   try {
     const v = localStorage.getItem(MODE_OVERRIDE_KEY);
     return v && PROFILES[v] ? v : null;
@@ -41,7 +41,7 @@ function readOverride() {
 function resolveMode() {
   const override = readOverride();
   if (override) return override;
-  const env = import.meta.env.VITE_NETWORK_MODE;
+  const env = import.meta.env?.VITE_NETWORK_MODE;
   if (env && PROFILES[env]) return env;
   if (env) {
     console.warn(`[networks] unknown VITE_NETWORK_MODE "${env}" — falling back to mainnet`);
@@ -56,7 +56,7 @@ export const IS_TESTNET = PROFILE.testnet;
 // --- Dev-only mode switching -------------------------------------------------
 
 export function setModeOverride(mode) {
-  if (!import.meta.env.DEV) throw new Error('Network mode override is available in dev builds only');
+  if (!import.meta.env?.DEV) throw new Error('Network mode override is available in dev builds only');
   if (!PROFILES[mode]) throw new Error(`Unknown network mode "${mode}"`);
   try {
     localStorage.setItem(MODE_OVERRIDE_KEY, mode);

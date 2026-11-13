@@ -37,6 +37,17 @@ test('NEAR named and implicit accounts are replaced', () => {
   assert.equal(p.text('implicit ' + 'c'.repeat(64)), 'implicit NEAR_2');
 });
 
+test('NEAR names typed in any case are masked and share one label', () => {
+  const p = createPseudonymizer(['randomname1001.near']);
+  assert.equal(
+    p.text('RandomName1001.NEAR, ALICE.NEAR, Bob.near, alice.near, x.TG, ' + 'C'.repeat(64)),
+    'WALLET_1, NEAR_2, NEAR_3, NEAR_2, NEAR_4, NEAR_1', // implicit ids are replaced first
+  );
+  const r = pseudonymizeForRemote({ nearAccounts: ['root.near'] }, 'what does Root.Near hold vs ALICE.NEAR?', { sigFigs: 4 });
+  assert.equal(r.question, 'what does WALLET_1 hold vs NEAR_1?');
+  assert.equal(r.restore('WALLET_1 and NEAR_1'), 'root.near and ALICE.NEAR');
+});
+
 test('value(): rounds amounts, keeps counts and percents, coarsens dates', () => {
   const p = createPseudonymizer([W1], { sigFigs: 3 });
   const out = p.value({

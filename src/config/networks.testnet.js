@@ -92,9 +92,9 @@ const envList = (v) =>
 // honoured and merged (deduped) so existing .env files keep working.
 const cofheAddresses = Array.from(
   new Set([
-    ...envList(import.meta.env.VITE_COFHE_DEMO_ADDRESSES),
-    ...envList(import.meta.env.VITE_COFHE_DEMO_ADDRESS),
-    ...envList(import.meta.env.VITE_CONFIDENTIAL_DEMO_ADDRESS),
+    ...envList(import.meta.env?.VITE_COFHE_DEMO_ADDRESSES),
+    ...envList(import.meta.env?.VITE_COFHE_DEMO_ADDRESS),
+    ...envList(import.meta.env?.VITE_CONFIDENTIAL_DEMO_ADDRESS),
   ])
 );
 
@@ -136,7 +136,7 @@ const FHE_STACKS = [
     discovery: {
       type: 'registry',
       address:
-        import.meta.env.VITE_ZAMA_SEPOLIA_REGISTRY || '0x2f0750Bbb0A246059d80e94c454586a7F27a128e',
+        import.meta.env?.VITE_ZAMA_SEPOLIA_REGISTRY || '0x2f0750Bbb0A246059d80e94c454586a7F27a128e',
     },
     sdkChain: 'sepolia',
   },
@@ -144,7 +144,7 @@ const FHE_STACKS = [
     id: 'inco',
     name: 'Inco Lightning',
     chainId: 84532,
-    discovery: { type: 'list', tokens: envList(import.meta.env.VITE_INCO_TESTNET_TOKENS).map((address) => ({ address })) },
+    discovery: { type: 'list', tokens: envList(import.meta.env?.VITE_INCO_TESTNET_TOKENS).map((address) => ({ address })) },
   },
 ];
 
