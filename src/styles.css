@@ -129,7 +129,17 @@ button{font:inherit;color:inherit;cursor:pointer;border:none;background:none}
   backdrop-filter:saturate(140%) blur(14px);-webkit-backdrop-filter:saturate(140%) blur(14px);border-bottom:1px solid var(--line)}
 .topbar-in{max-width:var(--maxw);margin:0 auto;height:60px;padding:0 24px;display:flex;align-items:center;gap:16px}
 .brand{display:flex;align-items:center;gap:10px;font-weight:600;letter-spacing:-.02em;font-size:15px}
-.brand small{color:var(--ink-3);font-weight:450;margin-left:6px}
+.brand small{color:var(--ink-2);font-size:12px;font-weight:450;letter-spacing:0;white-space:nowrap}
+.brand-sub{display:flex;flex-direction:column;align-items:stretch;justify-content:center;gap:5px;line-height:1.1;
+  margin-left:6px;padding-left:16px;border-left:1px solid var(--line-2);min-height:32px}
+.brand .powered{white-space:nowrap;display:flex;align-items:center;justify-content:space-between;gap:6px;
+  /* width:0 + min-width:100% → the row never widens the block; the tagline sets the
+     width and this line is stretched to exactly the same left/right edges. */
+  width:0;min-width:100%;font-size:12px;font-weight:450;letter-spacing:.13em;color:var(--ink-2);text-decoration:none;border-radius:4px;transition:color .15s}
+.brand .powered:hover{color:var(--ink)}
+.brand .powered:focus-visible{outline:2px solid var(--info);outline-offset:3px}
+.near-logo{height:15px;width:auto;color:var(--ink);display:block}
+.topbar-tools{display:flex;align-items:center;gap:2px;margin-left:6px;padding-left:12px;border-left:1px solid var(--line-2)}
 .brand-a, .brand-b{display:inline-flex;align-items:center;gap:9px;color:var(--ink)}
 .brand-b{flex-direction:column;gap:2px;align-items:center}
 .brand .wm{font-weight:600;letter-spacing:.02em}
@@ -237,6 +247,9 @@ button{font:inherit;color:inherit;cursor:pointer;border:none;background:none}
 .chain-pill{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 12px;border-radius:var(--pill);
   font-size:12.5px;font-weight:500;color:var(--ink-2);background:var(--surface);border:1px solid var(--line-2);transition:all .15s}
 .chain-pill .cd{width:8px;height:8px;border-radius:50%}
+.chain-pill .chain-logo{width:16px;height:16px;flex:none;display:block}
+/* NEAR pill: the near.org lockup (symbol + "near" wordmark) replaces icon + label. */
+.chain-pill .near-lockup{height:18px;width:auto;flex:none;display:block;color:currentColor}
 .chain-pill[aria-pressed="true"]{color:var(--ink);border-color:var(--ink);background:var(--surface)}
 .chain-pill[aria-pressed="false"]{opacity:.5;filter:grayscale(.6)}
 .chain-pill:hover{opacity:1}
@@ -275,7 +288,7 @@ button{font:inherit;color:inherit;cursor:pointer;border:none;background:none}
 .sort-card.dragging{opacity:.5;cursor:grabbing}
 .sort-card.dragging .card-h{cursor:grabbing}
 .sort-card.over .card{outline:2px dashed var(--accent);outline-offset:2px;box-shadow:0 8px 28px rgba(20,20,30,.16)}
-.reset-layout{color:var(--ink-3);margin-left:4px}
+.reset-layout{color:var(--ink-3);margin-left:auto}
 .reset-layout:hover{color:var(--ink)}
 
 .small-toggle-row{padding:6px 12px 10px;display:flex;justify-content:center}
@@ -318,7 +331,7 @@ button{font:inherit;color:inherit;cursor:pointer;border:none;background:none}
 .delta svg{width:13px;height:13px}
 .delta-sep{margin:0 3px}
 .period-24h{font-size:11px;color:var(--ink-3);font-weight:500}
-.synced{display:inline-flex;align-items:center;gap:5px;margin-left:6px;font-size:11px;color:var(--ink-3);font-weight:500}
+.synced{white-space:nowrap;display:inline-flex;align-items:center;gap:5px;margin-left:6px;font-size:11px;color:var(--ink-3);font-weight:500}
 .livedot{width:6px;height:6px;aspect-ratio:1;border-radius:50%;background:var(--pos);box-shadow:0 0 0 3px var(--pos-wash)}
 /* Public / DeFi / Shielded spark grid */
 .spark{display:flex;gap:20px}
@@ -497,6 +510,18 @@ a.tx .ic,.tx a.ic{cursor:pointer}
 .tx .amt .amt-line .amt-tok.scam-tok{color:var(--ink-3)}
 .tx .amt .when{display:block;color:var(--ink-3);font-size:11px;font-weight:450;margin-top:1px;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px}
 .tx .amt .when:hover{color:var(--ink)}
+/* Narrow-card behaviour: the middle column may shrink/wrap instead of pushing the
+   amounts out of the row, and below ~440px the amounts drop under the title. */
+.tx .tx-main{min-width:0}
+.tx .t2{flex-wrap:wrap;row-gap:0}
+.tx .t2 .addr-link{white-space:nowrap}
+.activity-list{container-type:inline-size;container-name:activity}
+@container activity (max-width:440px){
+  .tx{grid-template-columns:auto minmax(0,1fr);row-gap:4px}
+  .tx .amt{grid-column:2;text-align:left;white-space:normal;display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 12px}
+  .tx .amt .amt-line{justify-content:flex-start;white-space:nowrap}
+  .tx .amt .when{margin-top:0;margin-left:auto}
+}
 .tx.scam{opacity:.62}
 .tx.dimmed{opacity:.32}
 .tx{transition:opacity .3s ease}
@@ -780,7 +805,7 @@ label.check input{width:auto;padding:0;margin:0}
   .col{min-width:0}
 }
 @media (max-width:560px){
-  .topbar-in{padding:0 14px;gap:10px}.brand small{display:none}
+  .topbar-in{padding:0 14px;gap:10px}.brand small{display:none}.brand-sub{padding-left:12px;margin-left:2px}.brand .powered{width:auto;min-width:0;justify-content:flex-start;gap:6px;font-size:11px;letter-spacing:.03em}.near-logo{height:11px}.synced-t{display:none}.synced{margin-left:0}.topbar-tools{margin-left:0;padding-left:8px}
   .app{padding:16px 14px 80px}
   .spark{justify-content:flex-start;flex-wrap:wrap}
   .sum-chart{flex:1 1 100%;max-width:100%;min-width:0;margin-right:0}
@@ -794,6 +819,12 @@ label.check input{width:auto;padding:0;margin:0}
 .wchip{cursor:pointer;transition:border-color .15s ease,opacity .15s ease,background .15s ease}
 .wchip:not(.selected){opacity:.5;filter:grayscale(.4)}
 .wchip:not(.selected):hover{opacity:.78}
+/* Instant press feedback on select / deselect (name changes with the class, so it replays) */
+.wchip.selected{animation:wchip-on .16s ease-out}
+.wchip:not(.selected){animation:wchip-off .16s ease-out}
+@keyframes wchip-on{from{transform:scale(.94);opacity:.5}to{transform:scale(1);opacity:1}}
+@keyframes wchip-off{from{transform:scale(1.04);opacity:1}to{transform:scale(1);opacity:.5}}
+@media (prefers-reduced-motion:reduce){.wchip.selected,.wchip:not(.selected){animation:none}}
 .wchip .nm{transition:color .15s ease}
 .wchip .nm:hover{color:var(--accent)}
 .wname-edit{font-size:13px;font-weight:550;line-height:1.2;color:var(--ink);background:var(--surface);
@@ -1135,3 +1166,24 @@ mark.ph{background:var(--accent-wash-2);color:var(--ink);border-radius:3px;paddi
 .priv-note.tone-info .priv-note-ic{background:var(--info)}
 .priv-note.tone-warn{background:var(--warn-wash);border-color:color-mix(in srgb,var(--warn) 30%,transparent)}
 .priv-note.tone-warn .priv-note-ic{background:var(--warn)}
+
+/* Unified connect button: NEAR / EVM menu */
+.connect-menu{position:relative;display:inline-flex}
+.connect-pop{position:absolute;top:calc(100% + 8px);left:0;z-index:60;width:300px;max-width:calc(100vw - 32px);
+  padding:10px;border-radius:var(--r);background:var(--surface);border:1px solid var(--line-2);box-shadow:var(--shadow-lg);text-align:left}
+.connect-pop.center{left:50%;transform:translateX(-50%)}
+.connect-tabs{display:flex;gap:4px;padding:3px;border-radius:var(--pill);background:var(--surface-inset);margin-bottom:10px}
+.connect-tabs button{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;height:30px;border:0;
+  border-radius:var(--pill);background:transparent;color:var(--ink-2);font:inherit;font-weight:600;cursor:pointer}
+.connect-tabs button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow-sm)}
+.connect-opts{display:flex;flex-direction:column;gap:8px}
+.connect-opt{display:flex;flex-direction:column;gap:2px;width:100%;padding:10px 12px;border-radius:var(--r-sm);
+  border:1px solid var(--line);background:var(--surface-2);color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+.connect-opt:hover{border-color:var(--accent);background:var(--accent-wash)}
+.connect-opt .muted{font-size:12px}
+.connect-sub{font-size:12px;margin-top:2px}
+.connect-pop .near-add{width:100%}
+.connect-opt.wallet-row{flex-direction:row;align-items:center;gap:10px}
+.connect-opt.wallet-row img,.wallet-ico{width:24px;height:24px;border-radius:6px;flex:none}
+.wallet-ico{background:var(--surface-inset)}
+.connect-empty{font-size:12.5px;padding:8px 4px;line-height:1.45}

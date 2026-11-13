@@ -253,7 +253,7 @@ export default function Activity({ flow, selectedChains, selectedWallets, loadin
       </div>
 
       {!collapsed && (
-        <div className="list">
+        <div className="list activity-list">
           {privNote && (
             <div className={`priv-note tone-${privNote.tone}`} role="note">
               <span className="priv-note-ic"><ILock /></span>
@@ -276,7 +276,7 @@ export default function Activity({ flow, selectedChains, selectedWallets, loadin
               <div className={`tx${scam ? ' scam' : ''}${dimmed ? ' dimmed' : ''}`} key={g.hash}>
                 <a className={`ic ${cls}`} href={href || undefined} target="_blank" rel="noreferrer"
                   title="View on block explorer"><Icon /></a>
-                <div>
+                <div className="tx-main">
                   <div className="t1">{title}{scam && <span className="scam-flag" title="Unknown token — possible scam"><IFlag /></span>}</div>
                   <div className="t2">
                     {g.private

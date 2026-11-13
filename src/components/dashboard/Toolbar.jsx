@@ -3,7 +3,20 @@ import { CHAIN_META } from './format.js';
 import { VIEW_CHAIN_IDS as CHAIN_IDS, IS_TESTNET, PROFILE } from '../../config/networks.js';
 import { walletName } from '../../storage/local.js';
 import { IPlus, IClose, IReset } from './icons.jsx';
-import NearAccountInput from './NearAccountInput.jsx';
+import ConnectMenu from './ConnectMenu.jsx';
+import ChainLogo from './ChainLogo.jsx';
+import NearOrgLogo from './NearOrgLogo.jsx';
+
+// NEAR first in the chain list (it's a different pipeline from the EVM chains).
+const PILL_ORDER = [...CHAIN_IDS].sort((a, b) => (a === 'near' ? -1 : b === 'near' ? 1 : 0));
+
+// First line of a NEAR chip: the user's custom name, else the account id without
+// its ".near" suffix. Second line is always the real account id.
+const shortId = (id) => (id.length > 22 ? `${id.slice(0, 10)}…${id.slice(-8)}` : id);
+function nearName(cluster, id) {
+  const custom = cluster?.labels?.[id.toLowerCase()];
+  return custom || shortId(id.replace(/\.near$/, ''));
+}
 
 // Deterministic two-stop gradient per address, for the wallet avatar.
 function avatarStops(addr) {
@@ -17,7 +30,6 @@ export default function Toolbar({ flow, selectedChains, onToggleChain, onToggleA
   const allOn = CHAIN_IDS.every((id) => selectedChains.has(id));
   const [editing, setEditing] = useState(null); // address being renamed
   const [draft, setDraft] = useState('');
-  const [addingNear, setAddingNear] = useState(false);
 
   const startEdit = (a, name) => { setEditing(a); setDraft(name); };
   const commit = () => { if (editing) flow.renameWallet(editing, draft); setEditing(null); };
@@ -37,7 +49,7 @@ export default function Toolbar({ flow, selectedChains, onToggleChain, onToggleA
               key={a}
               role="button"
               aria-pressed={selected}
-              title={selected ? 'Showing in dashboard · click to hide' : 'Hidden · click to show'}
+              title={selected ? 'Showing in dashboard · click to hide · double-click name to rename' : 'Hidden · click to show · double-click name to rename'}
               onClick={() => { if (!isEditing) onToggleWallet?.(a); }}
             >
               <svg className="ava" viewBox="0 0 24 24" aria-hidden="true">
@@ -58,7 +70,13 @@ export default function Toolbar({ flow, selectedChains, onToggleChain, onToggleA
                   onBlur={commit}
                 />
               ) : (
-                <span className="nm" title="Click to rename" onClick={(e) => { e.stopPropagation(); startEdit(a, name); }}>
+                <span className="nm" title="Double-click to rename"
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    // The two clicks of a double-click each toggle selection, so the
+                    // net effect is none; the heavy view rebuild is deferred and coalesces.
+                    startEdit(a, name);
+                  }}>
                   {name}<span className="mono">{a.slice(0, 6)}…{a.slice(-4)}</span>
                 </span>
               )}
@@ -76,15 +94,37 @@ export default function Toolbar({ flow, selectedChains, onToggleChain, onToggleA
         {(flow.cluster.nearAccounts || []).map((id) => {
           const st = flow.nearStatus?.[id] || {};
           const selected = !selectedWallets || selectedWallets.has(id);
+          const name = nearName(flow.cluster, id);
+          const isEditing = editing === id;
+          const bad = st.status === 'error' || st.status === 'missing';
           return (
-            <div className={`wchip near${selected ? ' selected' : ''}${st.status === 'error' || st.status === 'missing' ? ' bad' : ''}`}
+            <div className={`wchip near${selected ? ' selected' : ''}${bad ? ' bad' : ''}`}
               key={`near:${id}`} role="button" aria-pressed={selected}
-              title={st.error ? st.error : selected ? 'NEAR account (read-only) · click to hide' : 'Hidden · click to show'}
-              onClick={() => onToggleWallet?.(id)}>
-              <span className="ava near-ava" aria-hidden="true">N</span>
-              <span className="nm">{id.length > 22 ? `${id.slice(0, 10)}…${id.slice(-8)}` : id}
-                <span className="mono">{st.status === 'loading' ? 'loading…' : st.status === 'missing' ? 'not found' : st.status === 'error' ? 'error' : 'NEAR'}</span>
-              </span>
+              title={st.error ? st.error : selected ? 'NEAR account (read-only) · click to hide · double-click name to rename' : 'Hidden · click to show · double-click name to rename'}
+              onClick={() => { if (!isEditing) onToggleWallet?.(id); }}>
+              <ChainLogo cd="near" size={24} className="ava" />
+              {isEditing ? (
+                <input
+                  className="wname-edit"
+                  autoFocus
+                  value={draft}
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') { e.preventDefault(); commit(); }
+                    if (e.key === 'Escape') setEditing(null);
+                  }}
+                  onBlur={commit}
+                />
+              ) : (
+                <span className="nm" title="Double-click to rename"
+                  onDoubleClick={(e) => { e.stopPropagation(); startEdit(id, name); }}>
+                  {name}
+                  <span className="mono">
+                    {st.status === 'missing' ? 'not found' : st.status === 'error' ? 'error' : shortId(id)}
+                  </span>
+                </span>
+              )}
               <button className="x" title="Remove NEAR account" onClick={(e) => {
                 e.stopPropagation();
                 if (window.confirm(`Remove ${id} from your dashboard?`)) flow.removeNearAcct(id);
@@ -94,23 +134,10 @@ export default function Toolbar({ flow, selectedChains, onToggleChain, onToggleA
             </div>
           );
         })}
-        {addingNear ? (
-          <NearAccountInput flow={flow} compact onDone={() => setAddingNear(false)} />
-        ) : (
-          <button className="add-wallet add-near" title="Add a NEAR account by name (read-only)" onClick={() => setAddingNear(true)}>
-            <IPlus /> NEAR
-          </button>
-        )}
-
-        {addresses.length === 0 ? (
-          <button className="connect-cta" disabled={flow.busy} onClick={flow.connectMore}>
-            {flow.busy ? <span className="mini-spin" /> : <IPlus />} Connect wallet
-          </button>
-        ) : (
-          <button className="add-wallet" title="Connect another wallet" disabled={flow.busy} onClick={flow.connectMore}>
-            {flow.busy ? <span className="mini-spin" /> : <IPlus />}
-          </button>
-        )}
+        {/* One connect button for both stacks: NEAR / EVM switch inside. */}
+        {addresses.length === 0 && (flow.cluster.nearAccounts || []).length === 0
+          ? <ConnectMenu flow={flow} />
+          : <ConnectMenu flow={flow} compact className="add-wallet" />}
       </div>
 
       <div className="spacer" />
@@ -128,11 +155,13 @@ export default function Toolbar({ flow, selectedChains, onToggleChain, onToggleA
 
       <div className="chains" role="group" aria-label="Filter by chain">
         <button className="chain-pill" aria-pressed={allOn} onClick={onToggleAll}>All chains</button>
-        {CHAIN_IDS.map((id) => (
+        {PILL_ORDER.map((id) => (
           <button key={id} className="chain-pill" aria-pressed={selectedChains.has(id)}
             title="Click to show only this chain · click again for all"
             onClick={() => onToggleChain(id)}>
-            <span className={`cd ${CHAIN_META[id].cd}`} />{CHAIN_META[id].name}
+            {id === 'near'
+              ? <NearOrgLogo className="near-lockup" />
+              : <><ChainLogo cd={CHAIN_META[id].cd} />{CHAIN_META[id].name}</>}
           </button>
         ))}
       </div>

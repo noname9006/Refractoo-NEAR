@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { filterPortfolioView } from '../analytics/portfolio.js';
 import { getLayout, setLayout } from '../storage/local.js';
 import { VIEW_CHAIN_IDS } from '../config/networks.js';
@@ -93,14 +93,20 @@ export default function Dashboard({ ctx, flow }) {
   // restores the full selection.
   const toggleChain = (id) =>
     setSelectedChains((s) => (s.size === 1 && s.has(id) ? new Set(ALL_CHAINS) : new Set([id])));
-  const toggleAll = () => setSelectedChains(new Set(ALL_CHAINS));
+  // "All chains" toggles: select everything, or — when everything is already
+  // selected — deselect all (the dashboard then shows nothing).
+  const toggleAll = () =>
+    setSelectedChains((s) => (ALL_CHAINS.every((id) => s.has(id)) ? new Set() : new Set(ALL_CHAINS)));
   const toggleWallet = (addr) =>
     setSelectedWallets((s) => { const a = addr.toLowerCase(); const n = new Set(s); n.has(a) ? n.delete(a) : n.add(a); return n; });
 
+  // The chips read `selectedWallets` (urgent, so they react on the very next
+  // frame); the heavy view rebuild reads the deferred copy and catches up after.
+  const deferredWallets = useDeferredValue(selectedWallets);
   const view = useMemo(() => {
-    const list = selectedWallets.size ? [...selectedWallets] : walletIds;
+    const list = deferredWallets.size ? [...deferredWallets] : walletIds;
     return filterPortfolioView(flow.rebuildView(list), selectedChains);
-  }, [flow.portfolio, flow.rebuildView, selectedWallets, selectedChains, walletIds.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [flow.portfolio, flow.rebuildView, deferredWallets, selectedChains, walletIds.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Column drag-to-resize
   const startDrag = useCallback((e) => {
@@ -125,7 +131,11 @@ export default function Dashboard({ ctx, flow }) {
 
   // True while enrichment / pricing is running or before the first portfolio
   // build completes. Cards use this to show skeleton rows instead of "no data".
-  const loading = flow.pricing || !flow.portfolio;
+  // Only the FIRST load counts: a later refresh keeps showing the current values
+  // (no skeletons swapping in and out).
+  const settledOnce = useRef(false);
+  if (flow.portfolio && !flow.pricing) settledOnce.current = true;
+  const loading = !flow.portfolio || (flow.pricing && !settledOnce.current);
 
   // Background refreshes are silent: cards keep their values and update in
   // place, with no per-card "updating data…" chip. Only a manual refresh shows
@@ -135,7 +145,7 @@ export default function Dashboard({ ctx, flow }) {
     holdings: <Holdings view={view} loading={loading} smallUsd={flow.prefs.smallBalanceUsd} />,
     shielded: <Shielded flow={flow} view={view} />,
     defi: <DefiPositions view={view} loading={loading} />,
-    activity: <Activity flow={flow} selectedChains={selectedChains} selectedWallets={selectedWallets} loading={loading} />,
+    activity: <Activity flow={flow} selectedChains={selectedChains} selectedWallets={deferredWallets} loading={loading} />,
     caps: <SpendingCaps flow={flow} view={view} loading={loading} />,
   };
 
