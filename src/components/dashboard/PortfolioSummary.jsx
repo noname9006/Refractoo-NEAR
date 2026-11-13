@@ -52,12 +52,9 @@ export default function PortfolioSummary({ flow, view }) {
   const walletCount = p?.walletCount || 0;
   const chartRange = seriesMinMax(series);
 
-  // Show the same "updating data…" chip the holdings card uses, and keep it up
-  // until the WHOLE summary has settled — values priced AND the chart drawn — so
-  // the total never appears to silently swap to live mid-refresh. Mirrors the
-  // per-section refresh flags (holdings/defi feed the total) plus the chart load.
-  const updating =
-    flow.pricing || chartLoading || flow.refreshing?.holdings || flow.refreshing?.defi;
+  // Progress shows only for a refresh the user started with the button; the
+  // automatic one-minute refresh and the initial load update values silently.
+  const updating = flow.manualRefresh;
 
   // Confidential holdings split. Encrypted entries have an UNKNOWN amount, so
   // they are counted and never folded into a value — see analytics/portfolio.js.
@@ -85,14 +82,14 @@ export default function PortfolioSummary({ flow, view }) {
           Total portfolio value · {walletCount} wallet{walletCount === 1 ? '' : 's'} · {chainCount} chain{chainCount === 1 ? '' : 's'}
           {updating
             ? <span className="synced"><span className="mini-spin" />updating data…</span>
-            : p?.priced && <span className="synced"><span className="livedot" />live prices</span>}
+            : p?.priced && <span className="synced"><span className="livedot" />live data</span>}
         </div>
         {collapsed && (
           <div className="sum-inline-val num">{dollars}<span className="sum-inline-cents">{cents}</span></div>
         )}
         <span className="spacer" />
         <button className={`icon-btn${updating ? ' spinning' : ''}`} title="Refresh all balances (auto every minute)"
-          aria-label="Refresh all balances" onClick={() => { flow.refresh()?.catch?.(() => {}); }}>
+          aria-label="Refresh all balances" disabled={updating} onClick={() => { flow.refreshNow()?.catch?.(() => {}); }}>
           <IRefresh />
         </button>
         <button className="icon-btn" title={collapsed ? 'Expand' : 'Collapse'}

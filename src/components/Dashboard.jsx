@@ -127,16 +127,16 @@ export default function Dashboard({ ctx, flow }) {
   // build completes. Cards use this to show skeleton rows instead of "no data".
   const loading = flow.pricing || !flow.portfolio;
 
-  // Per-section "updating data…" chips: each card spins only until its own data
-  // settles (see flow.refreshing), so a card stops as soon as it's current.
-  const r = flow.refreshing;
+  // Background refreshes are silent: cards keep their values and update in
+  // place, with no per-card "updating data…" chip. Only a manual refresh shows
+  // progress, and only on the Total value card (see PortfolioSummary).
 
   const cardEls = {
-    holdings: <Holdings view={view} loading={loading} updating={r.holdings} smallUsd={flow.prefs.smallBalanceUsd} />,
-    shielded: <Shielded flow={flow} view={view} updating={r.shielded} />,
-    defi: <DefiPositions view={view} loading={loading} updating={r.defi} />,
-    activity: <Activity flow={flow} selectedChains={selectedChains} selectedWallets={selectedWallets} loading={loading} updating={r.activity} />,
-    caps: <SpendingCaps flow={flow} view={view} loading={loading} updating={r.caps} />,
+    holdings: <Holdings view={view} loading={loading} smallUsd={flow.prefs.smallBalanceUsd} />,
+    shielded: <Shielded flow={flow} view={view} />,
+    defi: <DefiPositions view={view} loading={loading} />,
+    activity: <Activity flow={flow} selectedChains={selectedChains} selectedWallets={selectedWallets} loading={loading} />,
+    caps: <SpendingCaps flow={flow} view={view} loading={loading} />,
   };
 
   // No wallet yet → focused connect/demo overlay instead of a dead $0 dashboard.

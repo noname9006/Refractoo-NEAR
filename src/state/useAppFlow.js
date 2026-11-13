@@ -52,6 +52,8 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
   //   • shielded — cleared when confidential-token discovery settles.
   const NO_REFRESH = { activity: false, holdings: false, defi: false, caps: false, shielded: false };
   const [refreshing, setRefreshing] = useState(NO_REFRESH);
+  // True only while a refresh the user started by hand is running.
+  const [manualRefresh, setManualRefresh] = useState(false);
   const patchRefreshing = useCallback((p) => setRefreshing((r) => ({ ...r, ...p })), []);
   // Confidential-token holdings across every FHE stack (Zama / CoFHE / Inco).
   // `shielded` is the holding list; `shieldedStacks` is per-stack probe status so
@@ -776,6 +778,13 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
     await enrichAndPrice(fresh);
   }, [enrichAndPrice, patchRefreshing, loadNearAccounts]);
 
+  // Refresh button: same as the auto-refresh, but flags itself so the Total
+  // value card can show progress for it (auto-refreshes stay silent).
+  const refreshNow = useCallback(async () => {
+    setManualRefresh(true);
+    try { await refresh(); } finally { setManualRefresh(false); }
+  }, [refresh]);
+
   // Portfolio value history for the summary sparkline. Cheap to call per range.
   // Resolves once with the full series — the chart is built only when complete.
   const loadHistory = useCallback(async (range) => {
@@ -1037,11 +1046,11 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
   }, []);
 
   return {
-    stage, cluster, wallet, clusterData, facts, portfolio, pricing, refreshing,
+    stage, cluster, wallet, clusterData, facts, portfolio, pricing, refreshing, manualRefresh,
     shielded, shieldedStacks, nearIntents, nearStatus, nearData, addNearAcct, removeNearAcct, demo,
     model, prefs, voiceDownload, error, busy,
     connect, addAnother, connectMore, loadDemo, removeFromCluster, renameWallet, continueFromWallets,
-    rebuildView, startModel: loadModel, retryModel, unloadModel, chooseVoice, refresh, loadHistory, revoke, updatePref,
+    rebuildView, startModel: loadModel, retryModel, unloadModel, chooseVoice, refresh, refreshNow, loadHistory, revoke, updatePref,
     discoverShieldedTokens, revealShieldedToken, revealAllShielded, unlockNearIntents, refreshNearIntents,
   };
 }
