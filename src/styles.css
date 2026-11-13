@@ -282,6 +282,7 @@ button{font:inherit;color:inherit;cursor:pointer;border:none;background:none}
 .eyebrow{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
 .count{font-size:11.5px;font-weight:600;color:var(--ink-3);background:var(--surface-inset);border-radius:99px;padding:2px 8px}
 .empty-note{padding:20px;text-align:center;color:var(--ink-3);font-size:12.5px}
+.link-btn{background:none;border:0;padding:0;font:inherit;color:var(--accent);cursor:pointer;text-decoration:underline}
 /* Sortable (drag-to-swap) cards — stay snapped to their grid slots */
 .sort-card{transition:box-shadow .15s ease,transform .15s ease,opacity .15s ease}
 .sort-card .card-h{cursor:grab}
@@ -1190,3 +1191,7 @@ mark.ph{background:var(--accent-wash-2);color:var(--ink);border-radius:3px;paddi
 .connect-opt.wallet-row img,.wallet-ico{width:24px;height:24px;border-radius:6px;flex:none}
 .wallet-ico{background:var(--surface-inset)}
 .connect-empty{font-size:12.5px;padding:8px 4px;line-height:1.45}
+.wallet-list{display:flex;flex-direction:column;gap:6px;max-height:260px;overflow-y:auto}
+.last-used{margin-left:auto;font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-wash);padding:2px 8px;border-radius:var(--pill)}
+.connect-pop .connect-sub{align-self:flex-start;background:none;border:0;padding:2px 0;color:var(--ink-3);font:inherit;font-size:12px;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.connect-pop .connect-sub:hover{color:var(--ink-2)}

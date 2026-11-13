@@ -35,7 +35,7 @@ Open http://localhost:5173/app, then:
 | In the assistant, click **Verify NEAR AI gateway now** | Within a few seconds: "Intel TDX quote verified against Intel collateral · TCB UpToDate", the fresh nonce it is bound to, and the gateway signing key — a real attestation check run in your browser, no API key |
 | Click the privacy line under the chat box (**Compare tiers**) | The three tiers side by side: where the model runs, what leaves the device, who can read it, what is checked, what is pseudonymized |
 | Scroll to **Shielded balances → NEAR Confidential Intents**, click **Show sample private balances (demo)** | Sample private-shard balances (USDC, wNEAR, BTC, ZEC) clearly tagged **sample** — with a wallet connected this button instead asks for one signature of an empty intent and reads your real ones |
-| Click **+ NEAR** in the toolbar, enter any account (e.g. `randomname1001.near`) | That account's NEAR / FT / staking added to the portfolio, read-only |
+| Click **Connect wallet → NEAR → Watch an account by name**, enter any account (e.g. `randomname1001.near`) | That account's NEAR / FT / staking added to the portfolio, read-only |
 
 With a NEAR AI key (https://cloud.near.ai): **Settings → AI model → NEAR AI TEE**,
 paste the key, **Verify & connect**, then ask anything. Every answer gets a

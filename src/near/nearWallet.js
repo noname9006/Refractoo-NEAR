@@ -19,14 +19,28 @@ function getConnector() {
   return connectorPromise;
 }
 
-// Opens the wallet picker if needed. → { accountId, publicKey?, wallet }
-export async function connectNearWallet() {
+// Wallets the user can pick in our own menu (signMessage-capable only).
+// → [{ id, name, icon, description }]
+export async function listNearWallets() {
   const connector = await getConnector();
-  try {
-    const { wallet, accounts } = await connector.getConnectedWallet();
-    if (accounts?.[0]?.accountId) return { accountId: accounts[0].accountId, publicKey: accounts[0].publicKey, wallet };
-  } catch { /* none connected yet */ }
-  const wallet = await connector.connect();
+  await connector.whenManifestLoaded.catch(() => {});
+  return connector.availableWallets.map(({ manifest: m }) => ({
+    id: m.id, name: m.name, icon: m.icon, description: m.description,
+  }));
+}
+
+// Connect. With walletId, connects that wallet directly (our menu already
+// picked it); without, reuses a connected wallet or opens the library picker.
+// → { accountId, publicKey?, wallet }
+export async function connectNearWallet(walletId) {
+  const connector = await getConnector();
+  if (!walletId) {
+    try {
+      const { wallet, accounts } = await connector.getConnectedWallet();
+      if (accounts?.[0]?.accountId) return { accountId: accounts[0].accountId, publicKey: accounts[0].publicKey, wallet };
+    } catch { /* none connected yet */ }
+  }
+  const wallet = await connector.connect(walletId ? { walletId } : undefined);
   const accounts = await wallet.getAccounts();
   if (!accounts?.[0]?.accountId) throw new Error('The NEAR wallet returned no account');
   return { accountId: accounts[0].accountId, publicKey: accounts[0].publicKey, wallet };

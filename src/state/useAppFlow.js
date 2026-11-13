@@ -617,12 +617,12 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
 
   // Toolbar "Connect wallet" → NEAR tab: pick a NEAR wallet and add its account
   // (read-only data; the wallet is only used later for NEP-413 signatures).
-  const connectNear = useCallback(async () => {
+  const connectNear = useCallback(async (walletId) => {
     setBusy(true);
     setError(null);
     try {
       const { connectNearWallet } = await import('../near/nearWallet.js');
-      const nw = await connectNearWallet();
+      const nw = await connectNearWallet(typeof walletId === 'string' ? walletId : undefined);
       const msg = await addNearAcct(nw.accountId);
       if (msg) setError(msg);
     } catch (e) {
