@@ -33,7 +33,9 @@ export function historyNote(status) {
         tone: 'warn',
         short: 'history unavailable',
         title: 'Private-shard activity couldn’t be loaded',
-        body: `The NEAR Intents API did not return the history${status.status ? ` (HTTP ${status.status})` : ''}. Balances are unaffected; it is tried again on the next refresh.`,
+        body: `The NEAR Intents API did not return the history${status.status ? ` (HTTP ${status.status})` : ''}`
+          + `${status.message && !/^Intents API HTTP \d+$/.test(status.message) ? `: "${status.message}"` : ''}. `
+          + 'Balances are unaffected; it is tried again on the next refresh.',
       };
   }
 }

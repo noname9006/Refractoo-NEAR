@@ -328,5 +328,7 @@ test('historyNote: restricted explains what is and is not missing; ok shows no n
   assert.equal(historyNote({ state: 'ok', count: 3 }), null);
   assert.equal(historyNote(null), null);
   assert.match(historyNote({ state: 'unavailable', status: 502 }).body, /HTTP 502/);
+  assert.match(historyNote({ state: 'unavailable', status: 400, message: 'bad filter' }).body, /\(HTTP 400\): "bad filter"/);
+  assert.doesNotMatch(historyNote({ state: 'unavailable', status: 502, message: 'Intents API HTTP 502' }).body, /"/);
   assert.match(historyNote({ state: 'restricted', demo: true }).body, /Demo/);
 });

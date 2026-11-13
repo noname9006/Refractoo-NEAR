@@ -62,13 +62,26 @@ export default function Activity({ flow, selectedChains, selectedWallets, loadin
   // data refreshes (manual Refresh or the 1-minute auto-refresh).
   const nearIds = (flow.cluster?.nearAccounts || []).join(',');
   const [nearTxs, setNearTxs] = useState({});
+  const [nearErr, setNearErr] = useState(null); // { rateLimited } when every source failed
+  const [nearRetry, setNearRetry] = useState(0);
   useEffect(() => {
-    if (!nearIds) { setNearTxs({}); return undefined; }
+    if (!nearIds) { setNearTxs({}); setNearErr(null); return undefined; }
     let alive = true;
-    Promise.all(nearIds.split(',').map((id) => fetchNearTxs(id).then((t) => [id, t]).catch((e) => { console.warn('[activity] NEAR txs', id, e); return [id, []]; })))
-      .then((pairs) => { if (alive) setNearTxs(Object.fromEntries(pairs)); });
+    let failed = null;
+    Promise.all(nearIds.split(',').map((id) => fetchNearTxs(id).then((t) => [id, t]).catch((e) => {
+      console.warn('[activity] NEAR txs', id, e);
+      failed = { rateLimited: !!e.rateLimited };
+      return [id, null];
+    })))
+      .then((pairs) => {
+        if (!alive) return;
+        // A failed account keeps whatever it showed before instead of going empty.
+        setNearTxs((prev) => Object.fromEntries(pairs.map(([id, t]) => [id, t ?? prev[id] ?? []])));
+        setNearErr(failed);
+      });
     return () => { alive = false; };
-  }, [nearIds, flow.nearData]);
+  }, [nearIds, flow.nearData, nearRetry]);
+  const hasEvm = Object.keys(flow.clusterData || {}).length > 0;
 
   const cluster = flow.clusterData || {};
   const walletOn = (addr) => !selectedWallets || selectedWallets.size === 0 || selectedWallets.has(addr.toLowerCase());
@@ -268,7 +281,21 @@ export default function Activity({ flow, selectedChains, selectedWallets, loadin
           )}
           {loading && decorated.length === 0 && <SkeletonRows />}
           {!loading && visible.length === 0 && decorated.length === 0 && (
-            <div className="empty-note">No transaction history yet. Set <code className="mono">VITE_ETHERSCAN_KEY</code> to load activity (balances work without it).</div>
+            nearErr ? (
+              <div className="empty-note">
+                NEAR history is unavailable right now{nearErr.rateLimited ? ' (explorer API rate limit)' : ''}.{' '}
+                <button className="link-btn" onClick={() => setNearRetry((n) => n + 1)}>Retry</button>
+              </div>
+            ) : (hasEvm && !import.meta.env.VITE_ETHERSCAN_KEY) ? (
+              <div className="empty-note">No transaction history yet. Set <code className="mono">VITE_ETHERSCAN_KEY</code> to load EVM activity (balances work without it).</div>
+            ) : (
+              <div className="empty-note">No transactions found for the selected wallets and chains.</div>
+            )
+          )}
+          {nearErr && decorated.length > 0 && (
+            <div className="empty-note">NEAR history couldn't refresh — showing the last loaded list.{' '}
+              <button className="link-btn" onClick={() => setNearRetry((n) => n + 1)}>Retry</button>
+            </div>
           )}
           {visible.map(({ g, title, Icon, cls, out, counter, legs, scam, addrs }) => {
             const counterLc = counter?.toLowerCase();
