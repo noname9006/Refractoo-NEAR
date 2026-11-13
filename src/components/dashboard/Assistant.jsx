@@ -1,11 +1,11 @@
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { buildAnalysisMessages } from '../../prompts/wallet-analysis.js';
 import { createThinkStreamParser, parseThink } from '../../prompts/think-parser.js';
 import { portfolioFacts } from '../../analytics/portfolio.js';
 import { startRecording, transcribeWhisper } from '../../voice/index.js';
 import { getModel, formatSize } from '../../models/registry.js';
 import { LiveMarkdownView, MarkdownView } from './MarkdownRenderer.jsx';
-import { loadStore, saveStore, clearStore, newConversation, titleFrom } from './chatStore.js';
+import { loadStore, saveStore, clearStore, newConversation, titleFrom, loadScrollPositions, saveScrollPositions } from './chatStore.js';
 import { startResourceMonitor, subscribeResources, getResourceSnapshot } from '../../utils/resource-monitor.js';
 import { fmtBytesBin } from '../../utils/system-info.js';
 import { ISpark, IExpand, IShrink, IChevDown, IMic, ISend, IStop, IPower, IDownload, IPlus, IList, ITrash, IChat, PrismMark } from './icons.jsx';
@@ -219,17 +219,35 @@ export default function Assistant({ ctx, flow, onOpenSettings }) {
     storeRenderRef.current = null;
   }, [msgs]);
 
+  const activeIdRef = useRef(store.activeId);
+  activeIdRef.current = store.activeId;
+  const scrollPos = useRef(null); // { [convId]: { top, end } }, persisted
+  if (scrollPos.current === null) scrollPos.current = loadScrollPositions();
+  const scrollSaveTimer = useRef(null);
+
   const onThreadScroll = () => {
     const el = threadRef.current;
-    if (!el) return;
-    stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+    if (!el || el.clientHeight === 0) return; // hidden (collapsed) — nothing real to record
+    const end = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+    stick.current = end;
+    scrollPos.current[activeIdRef.current] = { top: Math.round(el.scrollTop), end };
+    window.clearTimeout(scrollSaveTimer.current);
+    scrollSaveTimer.current = window.setTimeout(() => saveScrollPositions(scrollPos.current), 400);
   };
+  useEffect(() => () => window.clearTimeout(scrollSaveTimer.current), []);
 
-  // Jump to the bottom when the active conversation changes.
-  useEffect(() => {
-    stick.current = true;
-    if (threadRef.current) threadRef.current.scrollTop = threadRef.current.scrollHeight;
-  }, [store.activeId]);
+  // Open a conversation where the user left it, or at the end of the dialogue
+  // if they were following it (or never opened it). Jumps instantly — the
+  // thread has smooth scrolling, which would otherwise animate from the top.
+  // Re-runs on expand because a collapsed (display:none) thread loses its offset.
+  useLayoutEffect(() => {
+    const el = threadRef.current;
+    if (!el || collapsed) return;
+    const saved = scrollPos.current[store.activeId];
+    const atEnd = !saved || saved.end;
+    stick.current = atEnd;
+    el.scrollTo({ top: atEnd ? el.scrollHeight : saved.top, behavior: 'instant' });
+  }, [store.activeId, collapsed]);
 
   useEffect(() => {
     const onKey = (e) => {
@@ -503,7 +521,6 @@ export default function Assistant({ ctx, flow, onOpenSettings }) {
             <small><span className="dot" style={{ background: statusDot }} />{statusText}</small>
           </div>
           <span className="spacer" />
-          <button className="icon-btn" title="New chat" onClick={(e) => { e.stopPropagation(); newChat(); }} disabled={running}><IPlus /></button>
           {modelError && (
             <button className="btn ghost sm" title="Retry loading the local AI"
               onClick={(e) => { e.stopPropagation(); flow.retryModel(); }}>Retry</button>

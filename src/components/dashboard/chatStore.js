@@ -111,7 +111,23 @@ export function saveStore(store) {
   } catch {}
 }
 
+// Last viewed scroll place per conversation: { [convId]: { top, end } } where
+// `end` means the user was following the bottom of the thread.
+const SCROLL_KEY = 'pwai.chatScroll';
+
+export function loadScrollPositions() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(SCROLL_KEY) || 'null');
+    return raw && typeof raw === 'object' ? raw : {};
+  } catch { return {}; }
+}
+
+export function saveScrollPositions(positions) {
+  try { localStorage.setItem(SCROLL_KEY, JSON.stringify(positions)); } catch {}
+}
+
 export function clearStore() {
+  try { localStorage.removeItem(SCROLL_KEY); } catch {}
   try { localStorage.removeItem(STORE_KEY); } catch {}
   try { localStorage.removeItem(LEGACY_KEY); } catch {}
   return freshStore();
