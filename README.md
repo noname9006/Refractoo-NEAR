@@ -18,6 +18,39 @@ addresses locally.
 
 Submitted to **NEAR HACKATHON — Privacy & Private AI track**.
 
+## Why this fits Track 03
+
+The track's example is a private expense auditor: give an AI your financial
+records, get insight, and nobody else learns what's in them. Refractoo uses the
+same architecture (local or attested-TEE inference, pseudonymized prompts,
+nothing stored server-side) on a **harder dataset: the whole portfolio**.
+
+- **More sensitive than expenses.** One expense list leaks one budget. A
+  portfolio aggregate links every wallet you own, your net worth and your
+  positions.
+- **Includes data that is private on-chain.** NEAR Confidential Intents balances
+  are hidden from the public chain. Feeding them to an ordinary cloud AI would
+  undo that privacy. Here they reach only the on-device model or an attested
+  TEE.
+- **The same guarantee, checked in the browser.** The tier you pick is enforced
+  and shown, not claimed (see [Privacy model](#privacy-model-honest-version)).
+
+## Who pays
+
+**Users who want a better model than their device can run.** On-device analysis
+is free and stays free: it costs us nothing to serve. The paid tier is **private
+TEE inference**: larger models on NEAR AI Cloud, with attestation and
+end-to-end encryption, for users without a capable GPU or who want stronger
+answers. It is billed as a subscription or per query, on top of the inference
+cost.
+
+**Expansion: wallets and funds (B2B).** Wallets, custodians and funds want to
+offer portfolio insight without holding customer data. That is a liability
+under every privacy regime. Refractoo's analyzer can be embedded or
+white-labelled, with the provider paying a licence fee. The privacy guarantee
+is what they are buying: they can tell users "we never see your portfolio" and
+show the attestation that proves it.
+
 ## Try it in 3 minutes — no wallet, no keys
 
 Requires Node 22+ and Chrome/Edge (WebGPU only matters for the on-device model).
