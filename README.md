@@ -268,14 +268,18 @@ have (8192–32768 depending on model size, in the current registry).
 |------|---------------|
 | LLM inference — **on-device** tier | never leaves the browser |
 | LLM inference — **NEAR AI TEE** tier | end-to-end encrypted to an attested NEAR AI model enclave (verified in the browser first); pseudonymized; NEAR's gateway relays ciphertext |
-| LLM inference — **external API** tier | the endpoint operator reads it (pseudonymized, amounts rounded) — use only for self-hosted servers |
-| NEAR Confidential Intents balances | the NEAR Intents API sees your address and amounts; the private shard's validators run in TEEs; amounts stay in this tab's memory |
-| Public NEAR account reads | FastNEAR, NEAR RPC and DefiLlama see the account names you look up |
-| Confidential-balance **discovery** | ordinary public chain reads — no signature, no decryption, no relayer |
-| Confidential-balance **plaintext** | produced in-browser; never transmitted, never written to disk |
-| Confidential-balance **metadata, on reveal** | ⚠️ the decryption service learns your address + which token you asked about |
-| Public chain reads | RPC + Etherscan see the queried address (use custom RPC to control) |
+| LLM inference — **external API** tier | the endpoint operator reads it (pseudonymized, amounts rounded) — use only for self-hosted servers. It is relayed through this app's own server (`/api/llm`), so the app's host relays it too, with your API key in a header |
+| NEAR Confidential Intents balances | the NEAR Intents API (Aurora) sees your account/address and amounts — the one party outside a TEE that does; the private shard's permissioned validators hold the state inside TEEs (hardware trust); the public chain and explorers see nothing; amounts stay in this tab's memory |
+| Public NEAR account reads | FastNEAR and NEAR RPC see the account names you look up; DefiLlama sees which tokens are priced |
+| FHE confidential-balance **discovery** | ordinary public chain reads — no signature, no decryption, no relayer |
+| FHE confidential-balance **plaintext** | produced in-browser; never transmitted, never written to disk |
+| FHE confidential-balance **metadata, on reveal** | ⚠️ the decryption service learns your address + which token you asked about |
+| Public chain reads | RPC + Etherscan see the queried address. The provider list is set in `src/config` (no in-app RPC setting) |
+| **App hosting** (the server serving the page) | never receives your wallet addresses or balances; sees your IP, page loads, the token contracts whose icons are looked up (`/api/coinicon`) and — external tier only — the relayed AI request |
 | Model weights | downloaded once, cached in OPFS |
+
+The app shows the same thing per party in the tier panel ("Every party, and what it sees",
+`src/data/trustBoundaries.js`); `tests/trustBoundaries.test.mjs` checks it against the code.
 
 ### What revealing a shielded balance actually exposes
 

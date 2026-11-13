@@ -1103,3 +1103,24 @@ mark.ph{background:var(--accent-wash-2);color:var(--ink);border-radius:3px;paddi
 .ob-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .ob-actions{display:flex;gap:8px;margin-left:auto}
 @media (max-width:560px){.ob-dialog{padding:14px 14px}.ob-actions{width:100%}.ob-actions .btn{flex:1}}
+
+/* Trust boundaries (TierPanel → "Every party, and what it sees") */
+.trust{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+.trust summary{cursor:pointer;color:var(--ink-2);margin-bottom:8px}
+.trust summary strong{color:var(--ink)}
+.trust-table{width:100%;min-width:720px;border-collapse:collapse;table-layout:fixed}
+.trust-table th,.trust-table td{padding:6px 8px;border-top:1px solid var(--line);vertical-align:top;text-align:left;line-height:1.4;color:var(--ink-2)}
+.trust-table thead th{border-top:0;color:var(--ink);font-weight:600}
+.trust-table thead th:first-child{width:22%}
+.trust-table thead th:last-child{width:28%}
+.trust-table tbody th{color:var(--ink);font-weight:500}
+.trust-table tr.trust-group th{padding-top:12px;border-top:0;color:var(--ink-3);font-size:11px;font-weight:600;letter-spacing:.02em;text-transform:uppercase}
+.trust-table tr.off{opacity:.55}
+.trust-off{color:var(--ink-3);font-weight:400}
+.trust-mark{display:inline-block;margin-right:5px;padding:0 6px;border-radius:var(--pill);font-size:11px;font-weight:600;border:1px solid transparent}
+.trust-t{display:block;margin-top:2px}
+.tv-yes .trust-mark{color:var(--neg);background:var(--neg-wash);border-color:color-mix(in srgb,var(--neg) 30%,transparent)}
+.tv-part .trust-mark{color:var(--warn);background:var(--warn-wash);border-color:color-mix(in srgb,var(--warn) 30%,transparent)}
+.tv-no .trust-mark{color:var(--pos);background:var(--pos-wash);border-color:color-mix(in srgb,var(--pos) 30%,transparent)}
+.trust-other{font-size:11.5px}
+.trust-table tr.self .trust-mark{color:var(--ink-2);background:var(--surface-2);border-color:var(--line)}

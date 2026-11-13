@@ -1,5 +1,6 @@
 import { PRECISION_OPTIONS, precisionFor } from '../../utils/pseudonymize.js';
 import GatewayCheck from './GatewayCheck.jsx';
+import TrustBoundaries from './TrustBoundaries.jsx';
 
 const precisionLabel = (n) => (n === 0 ? 'Exact' : `${n} significant figures`);
 
@@ -126,10 +127,14 @@ export default function TierPanel({ flow, onClose, onOpenSettings }) {
         <strong>Check the NEAR AI enclave yourself</strong>
         <GatewayCheck compact showKeyHint={!nearReady} onOpenSettings={() => { onClose(); onOpenSettings?.(); }} />
       </div>
-      <p className="tier-foot muted">
-        All tiers: balances and history are read from public RPCs and block explorers, which see the addresses you query.
-        Confidential balances are decrypted only in this browser.
-      </p>
+      <details className="trust" open>
+        <summary><strong>Every party, and what it sees</strong> — not only the AI</summary>
+        <TrustBoundaries prefs={prefs} />
+        <p className="tier-foot muted">
+          FHE-encrypted balances (Zama, Fhenix, Inco) are decrypted only in this browser. NEAR private-shard balances are
+          different: the NEAR Intents API returns them to you after you sign, so that API sees them.
+        </p>
+      </details>
     </div>
   );
 }
