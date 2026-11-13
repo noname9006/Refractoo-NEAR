@@ -260,6 +260,9 @@ export default function Activity({ flow, selectedChains, selectedWallets, loadin
               <div>
                 <strong>{privNote.title}</strong>
                 <p>{privNote.body}</p>
+                {privNote.link && (
+                  <p><a href={privNote.link.href} target="_blank" rel="noopener noreferrer">{privNote.link.label} ↗</a></p>
+                )}
               </div>
             </div>
           )}

@@ -6,6 +6,8 @@
 // is not an error in the user's account and nothing is missing from public
 // explorers — private-shard activity never appears there.
 
+export const NEAR_ACTIVITY_URL = 'https://near.com/activity';
+
 export function historyNote(status) {
   if (!status) return null;
   switch (status.state) {
@@ -19,10 +21,12 @@ export function historyNote(status) {
         short: 'history: invite-only',
         title: 'Private-shard activity can’t be listed yet',
         body:
-          'The NEAR Intents API lists private-shard history only for invited integrations for now, and it declined this request. '
+          'The NEAR Intents API lists private-shard history only for invited integrations for now, so it is not available here yet. '
           + 'Your private balances (Shielded balances card) are read and current; only the list of past swaps is missing. '
-          + 'This activity does not appear on public explorers either — keeping it off the public chain is what the private shard is for.'
+          + 'You can view your activity on near.com. '
+          + 'It does not appear on public explorers — keeping it off the public chain is what the private shard is for.'
           + (status.demo ? ' (Demo: this is the state a signed-in user sees today.)' : ''),
+        link: { href: NEAR_ACTIVITY_URL, label: 'Open near.com/activity' },
       };
     default:
       return {

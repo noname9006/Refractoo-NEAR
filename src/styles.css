@@ -1160,6 +1160,9 @@ mark.ph{background:var(--accent-wash-2);color:var(--ink);border-radius:3px;paddi
 .priv-note{display:flex;gap:10px;align-items:flex-start;margin:4px 0 8px;padding:9px 11px;border-radius:var(--r-sm);font-size:12px;line-height:1.45;color:var(--ink-2);background:var(--surface-2);border:1px solid var(--line)}
 .priv-note strong{display:block;color:var(--ink);font-weight:600;margin-bottom:2px}
 .priv-note p{margin:0}
+.priv-note p + p{margin-top:4px}
+.priv-note a{color:var(--info);font-weight:600;text-decoration:none}
+.priv-note a:hover{text-decoration:underline}
 .priv-note-ic{flex:none;display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--ink-3);color:#fff;margin-top:1px}
 .priv-note-ic svg{width:10px;height:10px;stroke-width:2.6}
 .priv-note.tone-info{background:var(--info-wash);border-color:color-mix(in srgb,var(--info) 28%,transparent)}
