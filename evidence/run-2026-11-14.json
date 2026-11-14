@@ -441,7 +441,7 @@
     }
   ],
   "command": "node --test --test-skip-pattern=^live tests/*.test.mjs",
-  "commit": "28f1f17d6b9ba117a9fd59d047d44de30b7498db",
+  "commit": "5a4b957c9a6cc0c42f1cb9342e8e3054e813d84b",
   "complete": {
     "claimsChecked": 22,
     "claimsExpected": 22,
@@ -469,9 +469,11 @@
     "src/near/receiptBundle.js": "sha256:fdefa2e6ff742ad3fbd836f1ec1d13800d4da23b4d1701f9048174353822b9e7",
     "src/near/usage.js": "sha256:f3870577a56e46fa3ac58b04cfe20d6eeaa8fb8d775045de3ab9304c828e6601",
     "src/prompts/untrusted.js": "sha256:2e044334ab597f75d563270cb01344c07642d4e51113f9f2bcb0016ca094084f",
-    "src/prompts/wallet-analysis.js": "sha256:31f17a1d32da78d3bcf6d048ec00eae49660e01f1e23317571f3b44ebc978a14",
+    "src/prompts/wallet-analysis.js": "sha256:843eb34468daa6e631a894acff887b1e2605908c8ea91679b04d9258bbb43997",
     "src/utils/outbound.js": "sha256:31ccc8f4a4f918ba0060db19162a32b4b8307866ba78b4326028c9f66d0db79d",
     "src/utils/pseudonymize.js": "sha256:e67b4dbfc390df28beca61abb772f5f42e7d3e43ba8e101a2f20a2b546822e9b",
+    "tests/agentActions.test.mjs": "sha256:30628031d016378fe4a578aa32012c9b5920a2d7f21e76e4c7f13ca672bb8484",
+    "tests/agentApply.test.mjs": "sha256:aab9de894412074d7889fd09043174d66cea091c57ab025164cf4448f46589f7",
     "tests/chartBatching.test.mjs": "sha256:3cf2256108d163db0c91c58b6339f269cbc10c54fb6a898d879aafbde178454f",
     "tests/claims.test.mjs": "sha256:5ffbfe1893980982de8767525e3da25eaf7e8d8bb9692858c47fb5580edf1270",
     "tests/confidentialBalances.test.mjs": "sha256:5048b1e6935a84692f31cd4955bb9177b2ed075defb9de1ec21210f5320f6064",
@@ -505,13 +507,13 @@
     "Session tokens live in memory only: by code inspection, not by a test."
   ],
   "platform": "win32",
-  "ranAt": "2026-11-14T22:56:57.367Z",
+  "ranAt": "2026-11-14T23:21:18.654Z",
   "suite": {
     "exitCode": 0,
     "fail": 0,
-    "pass": 143,
+    "pass": 154,
     "skipped": 0,
-    "tests": 143
+    "tests": 154
   },
   "version": 1
 }

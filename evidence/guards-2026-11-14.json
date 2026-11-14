@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "commit": "28f1f17d6b9ba117a9fd59d047d44de30b7498db",
-  "ranAt": "2026-11-14T22:57:28.231Z",
+  "commit": "5a4b957c9a6cc0c42f1cb9342e8e3054e813d84b",
+  "ranAt": "2026-11-14T23:21:45.314Z",
   "node": "v22.17.1",
   "guards": [
     {
@@ -311,11 +311,91 @@
       "failedTests": [
         "memory-only: Intents session tokens and balances never reach localStorage, sessionStorage or IndexedDB"
       ]
+    },
+    {
+      "id": "G19",
+      "guard": "Agent: money-moving kinds are denied",
+      "file": "src/agent/actions.js",
+      "mutation": {
+        "find": "if (DENIED_KINDS.includes(c.kind)) return { ok: false, reason: 'denied_kind' };",
+        "replace": ""
+      },
+      "mustFail": [
+        "agent: money-moving and unknown kinds are refused, never applied"
+      ],
+      "status": "caught",
+      "failedTests": [
+        "agent: money-moving and unknown kinds are refused, never applied"
+      ]
+    },
+    {
+      "id": "G20",
+      "guard": "Agent: closed arg schema (no extra fields)",
+      "file": "src/agent/actions.js",
+      "mutation": {
+        "find": "if (Object.keys(args).some((k) => !names.includes(k))) return { ok: false, reason: 'extra_arg' };",
+        "replace": ""
+      },
+      "mustFail": [
+        "agent: extra fields and bad args are rejected (closed schema)"
+      ],
+      "status": "caught",
+      "failedTests": [
+        "agent: extra fields and bad args are rejected (closed schema)"
+      ]
+    },
+    {
+      "id": "G21",
+      "guard": "Agent: execution needs an approval",
+      "file": "src/agent/actions.js",
+      "mutation": {
+        "find": "if (!approval || approval.approved !== true) throw new ActionError('not_approved');",
+        "replace": ""
+      },
+      "mustFail": [
+        "agent: nothing executes without an approval of these exact bytes"
+      ],
+      "status": "caught",
+      "failedTests": [
+        "agent: nothing executes without an approval of these exact bytes"
+      ]
+    },
+    {
+      "id": "G22",
+      "guard": "Agent: approval bound to the exact proposal bytes",
+      "file": "src/agent/actions.js",
+      "mutation": {
+        "find": "if (approval.hash !== r.proposal.hash) throw new ActionError('approval_mismatch');",
+        "replace": ""
+      },
+      "mustFail": [
+        "agent: nothing executes without an approval of these exact bytes"
+      ],
+      "status": "caught",
+      "failedTests": [
+        "agent: nothing executes without an approval of these exact bytes"
+      ]
+    },
+    {
+      "id": "G23",
+      "guard": "Agent UI bridge: state changes only after execute() passes",
+      "file": "src/agent/apply.js",
+      "mutation": {
+        "find": "try { r = execute(s0, p, approval); } catch (e) { return { error: e.code || 'refused' }; }",
+        "replace": "r = { state: { ...s0, hiddenTokens: [...s0.hiddenTokens, p.args?.symbol] } };"
+      },
+      "mustFail": [
+        "apply: no setter is called without a matching approval"
+      ],
+      "status": "caught",
+      "failedTests": [
+        "apply: no setter is called without a matching approval"
+      ]
     }
   ],
   "summary": {
-    "guards": 18,
-    "caught": 18
+    "guards": 23,
+    "caught": 23
   },
   "sourceFilesAfterRun": "unchanged by this run (see git status)"
 }
