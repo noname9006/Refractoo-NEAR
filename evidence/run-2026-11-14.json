@@ -153,6 +153,11 @@
       "tests": [
         {
           "matched": 1,
+          "name": "negative fixture: the committed forged-signature receipt is rejected, the hashes still match",
+          "status": "pass"
+        },
+        {
+          "matched": 1,
           "name": "real receipt: NEAR AI enclave signature over the exact bytes verifies offline, signer pinned",
           "status": "pass"
         },
@@ -401,6 +406,18 @@
       ]
     },
     {
+      "claim": "Intents session tokens and private balances stay in memory: sign-in, reads and refresh write nothing to localStorage, sessionStorage or IndexedDB",
+      "id": "E3",
+      "ok": true,
+      "tests": [
+        {
+          "matched": 1,
+          "name": "memory-only: Intents session tokens and balances never reach localStorage, sessionStorage or IndexedDB",
+          "status": "pass"
+        }
+      ]
+    },
+    {
       "claim": "The app's own server never receives a wallet address: the page calls exactly four same-origin endpoints",
       "id": "F1",
       "ok": true,
@@ -419,16 +436,17 @@
     }
   ],
   "command": "node --test --test-skip-pattern=^live tests/*.test.mjs",
-  "commit": "5c02fb5233c9a27af7113fc128f2ecb2927fc327",
+  "commit": "1a661811abb7862f5ea266803c70c5fb468f57be",
   "complete": {
-    "claimsChecked": 21,
-    "claimsExpected": 21,
-    "claimsOk": 21
+    "claimsChecked": 22,
+    "claimsExpected": 22,
+    "claimsOk": 22
   },
   "dirty": false,
   "dirtyFiles": [],
   "inputs": {
-    "evidence/manifest.json": "sha256:1d5415ba3650ee0591bb0609034140a9e136bfed8b5d06ceb2dffd65e5781f44",
+    "evidence/manifest.json": "sha256:2e90117ab7a5fedcc1b9859509f27233460ff3ff2fbb8a9ba18b3cfa0809289d",
+    "fixtures/nearai-receipt-forged/receipt.json": "sha256:3237ef5ec9d7a829ba2f7bde70c9a40a0e65db36d7f63fdf0fe21cfdfbe9829e",
     "fixtures/nearai-receipt/attestation.json": "sha256:a396ea7bd914290057a3710e39bace82717218c05f6fe8bf38c74a4562e70a86",
     "fixtures/nearai-receipt/receipt.json": "sha256:24841d549dcea54639c84279e462a1011c8f9eb0bcf003c0a7f58ea835667e22",
     "fixtures/nearai-receipt/request-plaintext.json": "sha256:731c717d0d2d07661ad3e49176d6a844b8302eb16f79135cf4097afbb3cafbaa",
@@ -449,7 +467,7 @@
     "src/utils/pseudonymize.js": "sha256:e67b4dbfc390df28beca61abb772f5f42e7d3e43ba8e101a2f20a2b546822e9b",
     "tests/chartBatching.test.mjs": "sha256:3cf2256108d163db0c91c58b6339f269cbc10c54fb6a898d879aafbde178454f",
     "tests/claims.test.mjs": "sha256:5ffbfe1893980982de8767525e3da25eaf7e8d8bb9692858c47fb5580edf1270",
-    "tests/confidentialBalances.test.mjs": "sha256:10b6e4b4bb428e1aa9c4a2e4e71f1f0dc05d724e27bc04c7c9505b7fa64698cb",
+    "tests/confidentialBalances.test.mjs": "sha256:5048b1e6935a84692f31cd4955bb9177b2ed075defb9de1ec21210f5320f6064",
     "tests/ethDefi.test.mjs": "sha256:d2729e8abcbf41d0ca4b1ff7ad5d51b483849281727e9b71605ae88692b72c18",
     "tests/ethDefiAave.test.mjs": "sha256:d2e5aa0b5713d520db0bceac3191c519e58136f09a56ac11f438f84a6f04416a",
     "tests/ethDefiLive.test.mjs": "sha256:8071a03cfff7362d9e53f47dcf08c07218cc5f48fbca056d07de974b77aa1835",
@@ -464,10 +482,10 @@
     "tests/outbound.test.mjs": "sha256:cd49c4dfa83e3ed34b0cce1c0dc99c8f08f3958921a40785975f05009c5a8021",
     "tests/pseudonymize.test.mjs": "sha256:1992ea4b4405e9d4086438d2b078fcecfe668855ebbc9ab63010c948ac45621e",
     "tests/reasoningProfiles.test.mjs": "sha256:3610ec34f344eadba6cca81cd24bb1bb558c4f1d95b0cd72c9cee64d15e1f27d",
-    "tests/receipt.test.mjs": "sha256:ecdbad72051772b9b09a73bcd5b05972abe8a1edb175b68ec405e1f179e4ea97",
+    "tests/receipt.test.mjs": "sha256:a6e21f2b17c22ea396e720e6020dfdf87482b3a15e71bb81ddd1a320761b91b8",
     "tests/tamper.test.mjs": "sha256:87c9610709725558d242bd5a45e944973e8f81c1174d00b757460dd38d91946f",
     "tests/trustBoundaries.test.mjs": "sha256:a5b01390d7d1a6bee89d58af429724a3548048030abdad09b0b7313ca33cfc58",
-    "tests/untrusted.test.mjs": "sha256:41a28a1daecb5423e2e7699ab2f6172d4d0128bd6571ab38d1ee44b9a53490ef",
+    "tests/untrusted.test.mjs": "sha256:dcc214009c64880197ec6099b10b8a2b22d2428282e1b48cac08754205a3c0ea",
     "tests/usage.test.mjs": "sha256:363a9f339aca4c5ae5a4d00e114460526a0f4810a8d6363f9663411fc74bc4f5"
   },
   "node": "v22.17.1",
@@ -480,13 +498,13 @@
     "Session tokens live in memory only: by code inspection, not by a test."
   ],
   "platform": "win32",
-  "ranAt": "2026-11-14T22:28:42.108Z",
+  "ranAt": "2026-11-14T22:45:09.137Z",
   "suite": {
     "exitCode": 0,
     "fail": 0,
-    "pass": 140,
+    "pass": 142,
     "skipped": 0,
-    "tests": 140
+    "tests": 142
   },
   "version": 1
 }

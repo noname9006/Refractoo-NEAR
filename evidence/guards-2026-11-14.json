@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "commit": "5c02fb5233c9a27af7113fc128f2ecb2927fc327",
-  "ranAt": "2026-11-14T22:29:09.581Z",
+  "commit": "1a661811abb7862f5ea266803c70c5fb468f57be",
+  "ranAt": "2026-11-14T22:45:40.114Z",
   "node": "v22.17.1",
   "guards": [
     {
@@ -18,7 +18,8 @@
       "status": "caught",
       "failedTests": [
         "real receipt: NEAR AI enclave signature over the exact bytes verifies offline, signer pinned",
-        "real receipt: one flipped byte of the answer or the request is rejected"
+        "real receipt: one flipped byte of the answer or the request is rejected",
+        "negative fixture: the committed forged-signature receipt is rejected, the hashes still match"
       ]
     },
     {
@@ -238,11 +239,82 @@
       "failedTests": [
         "hosting row: the page calls exactly these same-origin endpoints, none carrying a wallet address"
       ]
+    },
+    {
+      "id": "G15",
+      "guard": "Preview is the wire: analyze() POSTs the same body the preview shows",
+      "file": "src/utils/external-context.js",
+      "mutation": {
+        "find": "body: JSON.stringify(externalRequestBody(this.config.model, messages)),",
+        "replace": "body: JSON.stringify({ ...externalRequestBody(this.config.model, messages), user: 'unseen-extra-field' }),"
+      },
+      "mustFail": [
+        "external: previewRequest body is byte-identical to what analyze() POSTs"
+      ],
+      "status": "caught",
+      "failedTests": [
+        "external: previewRequest body is byte-identical to what analyze() POSTs"
+      ]
+    },
+    {
+      "id": "G16",
+      "guard": "restore(): placeholders in the answer map back to real identifiers locally",
+      "file": "src/utils/pseudonymize.js",
+      "mutation": {
+        "find": "return s.replace(LABEL_RE, (m, w, kind, n) => fromLabel.get(`${(w || kind).toUpperCase()}_${n}`) ?? m);",
+        "replace": "return s;"
+      },
+      "mustFail": [
+        "B3. the answer is mapped back locally to the user's real identifiers",
+        "restore() maps placeholders back, tolerant of model spelling, no prefix collisions"
+      ],
+      "status": "caught",
+      "failedTests": [
+        "B3. the answer is mapped back locally to the user's real identifiers",
+        "NEAR names typed in any case are masked and share one label",
+        "restore() maps placeholders back, tolerant of model spelling, no prefix collisions",
+        "restore() leaves prose like \"NEAR 2\" / \"TX 1\" alone but maps NEAR_2",
+        "pseudonymizeForRemote: nothing identifying survives the JSON, question too",
+        "NEAR account names in facts.nearAccounts become WALLET_n after EVM wallets",
+        "nearAccounts as per-account objects: names and staking pools are masked"
+      ]
+    },
+    {
+      "id": "G17",
+      "guard": "Untrusted token symbol: plain charset, 16 chars max",
+      "file": "src/prompts/untrusted.js",
+      "mutation": {
+        "find": "return String(s ?? '').replace(/[^A-Za-z0-9$._-]/g, '').slice(0, 16) || '?';",
+        "replace": "return String(s ?? '') || '?';"
+      },
+      "mustFail": [
+        "guardString: detection runs on raw text, cleaning keeps a plain short charset"
+      ],
+      "status": "caught",
+      "failedTests": [
+        "guardString: detection runs on raw text, cleaning keeps a plain short charset"
+      ]
+    },
+    {
+      "id": "G18",
+      "guard": "Intents session tokens are memory-only",
+      "file": "src/near/confidentialIntents.js",
+      "mutation": {
+        "find": "sessions.set(session.key, session);",
+        "replace": "sessions.set(session.key, session); globalThis.localStorage?.setItem('pwai.intents', JSON.stringify(session));"
+      },
+      "mustFail": [
+        "memory-only: Intents session tokens and balances never reach localStorage, sessionStorage or IndexedDB"
+      ],
+      "status": "caught",
+      "failedTests": [
+        "memory-only: Intents session tokens and balances never reach localStorage, sessionStorage or IndexedDB"
+      ]
     }
   ],
   "summary": {
-    "guards": 14,
-    "caught": 14
+    "guards": 18,
+    "caught": 18
   },
   "sourceFilesAfterRun": "unchanged by this run (see git status)"
 }
