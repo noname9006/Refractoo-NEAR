@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CHAIN_META } from './format.js';
+import { CHAIN_META, usd } from './format.js';
 import { VIEW_CHAIN_IDS as CHAIN_IDS, IS_TESTNET, PROFILE } from '../../config/networks.js';
 import { walletName } from '../../storage/local.js';
 import { IPlus, IClose, IReset } from './icons.jsx';
@@ -25,7 +25,7 @@ function avatarStops(addr) {
   return [`hsl(${h} 62% 58%)`, `hsl(${(h + 48) % 360} 60% 50%)`];
 }
 
-export default function Toolbar({ flow, selectedChains, onToggleChain, onToggleAll, selectedWallets, onToggleWallet }) {
+export default function Toolbar({ flow, selectedChains, onToggleChain, onToggleAll, chainUsd, loading, selectedWallets, onToggleWallet }) {
   const addresses = flow.cluster.addresses || [];
   const allOn = CHAIN_IDS.every((id) => selectedChains.has(id));
   const [editing, setEditing] = useState(null); // address being renamed
@@ -154,27 +154,36 @@ export default function Toolbar({ flow, selectedChains, onToggleChain, onToggleA
       )}
 
       <div className="chains" role="group" aria-label="Filter by chain">
-        <button className="chain-pill" aria-pressed={allOn} onClick={onToggleAll}>All chains</button>
         {PILL_ORDER.map((id) => (
           <button key={id} className="chain-pill" aria-pressed={selectedChains.has(id)}
-            title="Click to show only this chain · click again for all"
+            title="Click to show / hide this chain"
             onClick={() => onToggleChain(id)}>
             {id === 'near'
               ? <NearOrgLogo className="near-lockup" />
-              : <><ChainLogo cd={CHAIN_META[id].cd} />{CHAIN_META[id].name}</>}
+              : <ChainLogo cd={CHAIN_META[id].cd} size={20} />}
+            <span className="cp-txt">
+              {id !== 'near' && <span className="cp-name">{CHAIN_META[id].name}</span>}
+              <span className="cp-usd">{loading && chainUsd?.[id] == null ? '…' : usd(chainUsd?.[id] || 0)}</span>
+            </span>
           </button>
         ))}
       </div>
 
-      {/* Layout action — deliberately separated from the chain filters so it
-          doesn't read as a sixth chain. */}
-      <button
-        className="btn ghost sm reset-layout"
-        title="Reset card positions and column width"
-        onClick={() => { try { localStorage.removeItem('card_order_v2'); } catch {} window.dispatchEvent(new Event('reset-card-layout')); }}
-      >
-        <IReset /> Reset layout
-      </button>
+      {/* Selection / layout actions — deliberately separated from the chain
+          pills so they don't read as another chain. */}
+      <div className="chain-actions">
+        <button className="link-btn" aria-pressed={allOn} onClick={onToggleAll}
+          title={allOn ? 'Deselect all chains' : 'Select all chains'}>
+          All chains
+        </button>
+        <button
+          className="btn ghost sm reset-layout"
+          title="Reset card positions and column width"
+          onClick={() => { try { localStorage.removeItem('card_order_v2'); } catch {} window.dispatchEvent(new Event('reset-card-layout')); }}
+        >
+          <IReset /> Reset layout
+        </button>
+      </div>
 
       {flow.error && <div className="toolbar-err">{flow.error}</div>}
     </div>

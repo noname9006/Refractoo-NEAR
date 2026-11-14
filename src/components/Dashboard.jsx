@@ -1,5 +1,5 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { filterPortfolioView } from '../analytics/portfolio.js';
+import { filterPortfolioView, chainTotals } from '../analytics/portfolio.js';
 import { getLayout, setLayout, saveDeselected } from '../storage/local.js';
 import { VIEW_CHAIN_IDS } from '../config/networks.js';
 import TopBar from './dashboard/TopBar.jsx';
@@ -100,11 +100,13 @@ export default function Dashboard({ ctx, flow }) {
     });
   }, [walletIds.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Clicking a chain isolates it; clicking the already-isolated chain again
-  // restores the full selection.
+  // Chains toggle independently, so any subset can be selected.
   const applyChains = (next) => { saveDeselected('deselectedChains', ALL_CHAINS, next); setSelectedChains(next); };
-  const toggleChain = (id) =>
-    applyChains(selectedChains.size === 1 && selectedChains.has(id) ? new Set(ALL_CHAINS) : new Set([id]));
+  const toggleChain = (id) => {
+    const next = new Set(selectedChains);
+    next.has(id) ? next.delete(id) : next.add(id);
+    applyChains(next);
+  };
   // "All chains" toggles: select everything, or — when everything is already
   // selected — deselect all (the dashboard then shows nothing).
   const toggleAll = () =>
@@ -120,10 +122,14 @@ export default function Dashboard({ ctx, flow }) {
   // The chips read `selectedWallets` (urgent, so they react on the very next
   // frame); the heavy view rebuild reads the deferred copy and catches up after.
   const deferredWallets = useDeferredValue(selectedWallets);
-  const view = useMemo(() => {
+  // Wallet-filtered but not chain-filtered: the chain pills show each chain's
+  // total regardless of whether that chain is currently selected.
+  const baseView = useMemo(() => {
     const list = deferredWallets.size ? [...deferredWallets] : walletIds;
-    return filterPortfolioView(flow.rebuildView(list), selectedChains);
-  }, [flow.portfolio, flow.rebuildView, deferredWallets, selectedChains, walletIds.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
+    return flow.rebuildView(list);
+  }, [flow.portfolio, flow.rebuildView, deferredWallets, walletIds.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
+  const view = useMemo(() => filterPortfolioView(baseView, selectedChains), [baseView, selectedChains]);
+  const perChainUsd = useMemo(() => chainTotals(baseView), [baseView]);
 
   // Column drag-to-resize
   const startDrag = useCallback((e) => {
@@ -175,7 +181,7 @@ export default function Dashboard({ ctx, flow }) {
       {noWallets && <ConnectOverlay flow={flow} />}
       {!noWallets && <NavPanel onOpenSettings={() => openSettings()} />}
       <main className="app">
-        <Toolbar flow={flow} selectedChains={selectedChains} onToggleChain={toggleChain} onToggleAll={toggleAll}
+        <Toolbar flow={flow} selectedChains={selectedChains} onToggleChain={toggleChain} onToggleAll={toggleAll} chainUsd={perChainUsd} loading={loading}
           selectedWallets={selectedWallets} onToggleWallet={toggleWallet} />
         <div className="app-stack">
           <div id="sec-summary"><PortfolioSummary flow={flow} view={view} /></div>

@@ -39,7 +39,7 @@
   --shadow-lg:0 16px 48px rgba(24,24,30,.18), 0 2px 10px rgba(24,24,30,.08);
 
   --r:12px; --r-md:10px; --r-sm:8px; --pill:999px;
-  --maxw:1180px;
+  --maxw:1560px;
   --ease:cubic-bezier(.2,.8,.2,1);
 
   --fs-base:13.5px;
@@ -244,10 +244,19 @@ button{font:inherit;color:inherit;cursor:pointer;border:none;background:none}
 .add-wallet svg{width:16px;height:16px}
 
 .chains{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.chain-pill{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 12px;border-radius:var(--pill);
+.chain-pill{display:inline-flex;align-items:center;gap:9px;height:46px;padding:0 16px 0 12px;border-radius:23px;
   font-size:12.5px;font-weight:500;color:var(--ink-2);background:var(--surface);border:1px solid var(--line-2);transition:all .15s}
 .chain-pill .cd{width:8px;height:8px;border-radius:50%}
-.chain-pill .chain-logo{width:16px;height:16px;flex:none;display:block}
+.chain-pill .chain-logo{width:20px;height:20px;flex:none;display:block}
+.chain-pill .cp-txt{display:flex;flex-direction:column;align-items:flex-start;line-height:1.2;gap:1px}
+.chain-pill .cp-name{font-size:12.5px;font-weight:550}
+.chain-pill .cp-usd{font-size:11px;font-weight:450;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.chain-pill[aria-pressed="true"] .cp-usd{color:var(--ink-2)}
+/* "All chains" / layout actions: borderless, greyish — clearly not a chain pill. */
+.chain-actions{display:flex;align-items:center;gap:14px;margin-left:auto}
+.link-btn{background:none;border:0;padding:4px 2px;font:inherit;font-size:12.5px;font-weight:500;color:var(--ink-3);cursor:pointer;transition:color .15s}
+.link-btn:hover{color:var(--ink)}
+.link-btn[aria-pressed="true"]{color:var(--ink-2)}
 /* NEAR pill: the near.org lockup (symbol + "near" wordmark) replaces icon + label. */
 .chain-pill .near-lockup{height:18px;width:auto;flex:none;display:block;color:currentColor}
 .chain-pill[aria-pressed="true"]{color:var(--ink);border-color:var(--ink);background:var(--surface)}
@@ -911,7 +920,9 @@ label.check input{width:auto;padding:0;margin:0}
 .nav-item.active .nav-ic{color:var(--accent)}
 .nav-sep{height:1px;background:var(--line);margin:8px 6px}
 @media (min-width:1280px){
-  .nav-rail{display:block;position:fixed;left:14px;top:76px;width:130px;z-index:25}
+  /* Rail hugs the left edge of the (centered) content box instead of the window,
+     so on wide screens it sits next to the cards rather than far off in the margin. */
+  .nav-rail{display:block;position:fixed;left:max(14px, calc((100vw - var(--maxw)) / 2 + 12px));top:76px;width:130px;z-index:25}
   .app,.provision{padding-left:158px}
 }
 
