@@ -1300,3 +1300,8 @@ mark.ph{background:var(--accent-wash-2);color:var(--ink);border-radius:3px;paddi
 .verify-result dd{margin:0}
 .verify-scope{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
 .verify-scope ul{list-style:disc;padding-left:18px;color:var(--ink-2)}
+.verify-livecheck{border-top:1px solid var(--line);padding-top:8px;display:flex;flex-direction:column;gap:6px;font-size:13px}
+.verify-livecheck p{margin:0;color:var(--ink-2)}
+.verify-livecheck p.ok{color:var(--ink)}
+.verify-livecheck p.bad{color:var(--neg)}
+.verify-livecheck .btn{align-self:flex-start}

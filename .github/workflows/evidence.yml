@@ -1,0 +1,41 @@
+name: evidence
+
+# Re-runs the evidence on GitHub's machines, not ours: every claim in
+# evidence/manifest.json checked against the offline suite, the guard-removal
+# matrix, and the live (key-less) check that the receipt signer is an attested
+# NEAR AI enclave key right now. The JSON results are kept as run artifacts.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Claims (offline, no keys)
+        run: node scripts/verify-evidence.mjs --out evidence/ci-run.json
+      - name: Recorded run still matches this checkout
+        run: node scripts/verify-evidence.mjs --check evidence/run-2026-11-14.json || echo "::notice::inputs changed since the recorded run (expected after later commits)"
+      - name: Guard removal (each guard removed must break a test)
+        run: npm run verify:guards
+      - name: Receipt signer is an attested enclave key now (live, no API key)
+        run: node --test --test-name-pattern="^live: the receipt signer" tests/receipt.test.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: evidence-${{ github.sha }}
+          path: |
+            evidence/ci-run.json
+            evidence/guards-*.json

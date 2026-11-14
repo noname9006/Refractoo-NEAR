@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { verifyReceiptBundle } from '../near/receiptBundle.js';
+import { verifyReceiptBundle, checkSignerLive } from '../near/receiptBundle.js';
 
 // /verify: re-check a saved NEAR AI receipt in this browser, with no key, no
 // account and no network. Runs the same SDK verifier the app ran when the
@@ -8,10 +8,17 @@ import { verifyReceiptBundle } from '../near/receiptBundle.js';
 export default function VerifyReceipt() {
   const [state, setState] = useState(null); // null | { name, bundle, result } | { error }
   const [over, setOver] = useState(false);
+  const [live, setLive] = useState(null); // null | 'running' | result | { error }
+  const runLive = async () => {
+    setLive('running');
+    try { setLive(await checkSignerLive(state.bundle)); }
+    catch (e) { setLive({ error: String(e?.message || e) }); }
+  };
 
   const check = async (name, text) => {
     try {
       const bundle = JSON.parse(text);
+      setLive(null);
       setState({ name, bundle, result: await verifyReceiptBundle(bundle) });
     } catch (e) { setState({ error: `${name}: ${e?.message || e}` }); }
   };
@@ -75,6 +82,21 @@ export default function VerifyReceipt() {
                 {state.bundle.liveChecks.map((c) => <li key={c.id} className={c.ok ? 'ok' : 'bad'}><span>{c.ok ? '✓' : '✗'}</span>{c.id}: {c.detail}</li>)}
               </ul>
             </>
+          )}
+          {r.ok && (
+            <div className="verify-livecheck">
+              <h3>Is this key an attested NEAR AI enclave right now?</h3>
+              <p>Asks NEAR AI Cloud for fresh model attestations with a new nonce (no API key; only the model name is sent), verifies each Intel TDX quote and NVIDIA GPU report in this browser, and looks for this receipt's signer among them.</p>
+              <button className="btn sm" onClick={runLive} disabled={live === 'running'}>{live === 'running' ? 'Checking…' : 'Check signer against NEAR AI now'}</button>
+              {live?.error && <p className="bad">Could not check: {live.error}</p>}
+              {live && live !== 'running' && !live.error && (
+                <p className={live.ok ? 'ok' : 'bad'}>
+                  {live.ok
+                    ? <>✓ Match: this signer is the key of an attested enclave for {live.model} now (TDX {live.match.tcbStatus}, GPU {live.match.gpuEvidence}, {live.verifiedReports}/{live.totalReports} reports verified, nonce <code>{String(live.nonce).slice(0, 12)}…</code>, {new Date(live.at).toLocaleTimeString()}).</>
+                    : <>✗ No match: none of the {live.verifiedReports} verified attestations for {live.model} uses this signer today. The key may have rotated, or the receipt was not signed by NEAR AI.</>}
+                </p>
+              )}
+            </div>
           )}
           <div className="verify-scope">
             <div><h3>Established by this check</h3><ul>{r.established.map((s) => <li key={s}>{s}</li>)}{!r.established.length && <li>Nothing: the check failed.</li>}</ul></div>

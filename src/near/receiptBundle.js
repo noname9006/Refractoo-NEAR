@@ -60,7 +60,7 @@ export const ESTABLISHED_OFFLINE = [
   'The signature covers the exact request and response bytes: one flipped byte fails.',
 ];
 export const NOT_ESTABLISHED_OFFLINE = [
-  'That the signing key lives in a genuine Intel TDX enclave with an NVIDIA GPU in CC mode: checked live when the answer arrived (see liveChecks), not re-proven from this file.',
+  'That the signing key lives in a genuine Intel TDX enclave with an NVIDIA GPU in CC mode: checked live when the answer arrived (see liveChecks), not re-proven from this file. "Check signer against NEAR AI now" re-proves it live, with a fresh nonce.',
   'Freshness: the attestation was bound to a browser nonce at the time; this file carries no new nonce.',
   'That the key is NEAR AI’s: compare `signer` with the address the gateway attests for this model today.',
 ];
@@ -93,6 +93,48 @@ export async function verifyReceiptBundle(bundle, { pinnedSigner = null } = {}) 
   const tamper = { ...run(forged), byteIndex: i };
   const ok = signature.ok && hashesOk && tamper.ok === false;
   return { ok, signature, tamper, hashes: { ok: hashesOk }, kind: bundle.kind, signer: signerAddr, established: ok ? ESTABLISHED_OFFLINE : [], notEstablished: NOT_ESTABLISHED_OFFLINE };
+}
+
+/**
+ * LIVE, no API key: asks NEAR AI Cloud for fresh model attestations (new nonce
+ * from this client), verifies each report (Intel TDX quote + NVIDIA GPU
+ * evidence, bound to that nonce) and looks for the bundle's signer among them.
+ * A match means: the key that signed this receipt is, right now, the key of an
+ * attested enclave for that model. Network required; nothing from the bundle
+ * except model name and signer address is sent.
+ */
+export async function checkSignerLive(bundle, { attestationClient, gpuVerifier } = {}) {
+  const t0 = Date.now();
+  const model = bundle?.model;
+  const signer = String(bundle?.signer?.signingAddress || '').toLowerCase();
+  const algo = bundle?.signer?.signingAlgo || 'ecdsa';
+  if (!model || !signer) return { ok: false, error: 'bundle has no model or signer' };
+  const sdk = await import('@nearai/inference-sdk');
+  const { createSkewTolerantGpuVerifier } = await import('./nrasVerifier.js');
+  const client = attestationClient || new sdk.AttestationClient();
+  const fetched = await client.fetchModelAttestations({ model, signingAlgo: algo });
+  const verifiers = { gpuEvidence: gpuVerifier || createSkewTolerantGpuVerifier() };
+  const reports = [];
+  for (const attestation of fetched.attestations) {
+    try {
+      const v = await sdk.verifyModelAttestation({ attestation, clientBinding: fetched.clientBinding, verifiers });
+      reports.push({ ok: true, signer: String(v.signer?.signingAddress || '').toLowerCase(), tcbStatus: v.tcbStatus, gpuEvidence: v.gpuEvidence });
+    } catch (e) {
+      reports.push({ ok: false, error: e?.failure?.code || String(e?.message || e) });
+    }
+  }
+  const match = reports.find((r) => r.ok && r.signer === signer) || null;
+  return {
+    ok: !!match,
+    model,
+    signer,
+    nonce: fetched.clientBinding?.nonce || null,
+    verifiedReports: reports.filter((r) => r.ok).length,
+    totalReports: reports.length,
+    match,
+    at: new Date().toISOString(),
+    ms: Date.now() - t0,
+  };
 }
 
 export function receiptFileName(bundle) {

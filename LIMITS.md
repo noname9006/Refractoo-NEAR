@@ -15,6 +15,8 @@ claim more than this page, this page is right.
 | E4 | The external-tier prompt contains no real EVM address, NEAR account, staking pool or tx hash, and amounts are rounded to 4 significant figures | `tests/claims.test.mjs` B1, B2 |
 | E5 | The request preview is byte-identical to the request sent | [`tests/outbound.test.mjs`](tests/outbound.test.mjs) |
 | E6 | The app's own server is called on exactly four same-origin endpoints, none carrying a wallet address | [`tests/trustBoundaries.test.mjs`](tests/trustBoundaries.test.mjs) |
+| E6b | The real receipt's signer is, right now, the key of an attested NEAR AI enclave for that model (fresh nonce, TDX + NVIDIA verified, no API key) | `/verify` → "Check signer against NEAR AI now"; `tests/receipt.test.mjs` `live:` test; CI |
+| E8 | All of the above re-run on GitHub's machines on every push, results kept as artifacts | [`.github/workflows/evidence.yml`](.github/workflows/evidence.yml) |
 | E7 | The tests catch the guards being removed, not just pass | [guard-removal matrix](JUDGES.md#do-the-tests-catch-anything-guard-removal) via `npm run verify:guards` |
 
 One command produces a file recording all of this with the commit and input hashes:
@@ -24,7 +26,7 @@ One command produces a file recording all of this with the commit and input hash
 
 | # | Not established | Why, and what would establish it |
 |---|---|---|
-| N1 | **That the receipt's signing key is in a genuine TDX enclave *now*.** | The fixture proves "signed by this key". The enclave link (TDX quote + NVIDIA evidence bound to a fresh nonce) was checked live at capture and is recorded in `attestation.json`, not re-proven offline. Re-proving needs Intel collateral and a new nonce: run `npm test` with `NEARAI_API_KEY`, or "Verify NEAR AI gateway now" in the app. |
+| N1 | **Offline, that the receipt's signing key is in a genuine TDX enclave.** | The fixture alone proves "signed by this key". The enclave link needs a fresh TDX quote + NVIDIA evidence bound to a new nonce, so it is **live-only**, but anyone can run it with no API key: **Check signer against NEAR AI now** on `/verify`, or the `live:` test in `tests/receipt.test.mjs` (also run in CI on every push). It matched on 2026-11-14 (TDX UpToDate, GPU verified, 3/3 reports). It proves the key is attested *today*; if NEAR AI rotates the key, an old receipt will stop matching, which is the honest result. |
 | N2 | **That the plaintext prompt in the fixture is what was encrypted.** | With E2EE the signed request is ciphertext. `request-plaintext.json` shows what the app built; it is not covered by the signature. |
 | N3 | **The NEAR AI operator, Intel, NVIDIA.** | TEE security is a hardware and vendor trust assumption, not cryptography alone. |
 | N4 | **Prompt-injection resistance in general.** | Detection is a pattern list; a cleverly worded token name can pass it. The charset/length cut and the system-prompt rule are the second and third layers. A model can still be misled by plain-looking data. |

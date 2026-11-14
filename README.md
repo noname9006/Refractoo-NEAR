@@ -115,7 +115,9 @@ test that proves it, and [LIMITS.md](LIMITS.md) lists what we do not claim.
 writes `evidence/run-<date>.json`: commit, input hashes and the status of each claim.
 `npm run verify:guards` removes each of 14 guards in turn and shows the tests catch it.
 A real NEAR AI receipt is in [`fixtures/nearai-receipt/`](fixtures/nearai-receipt/);
-check it in the browser at `/verify`.
+check it in the browser at `/verify`, and re-prove live (no key) that its signer is an
+attested enclave key today. CI re-runs all of it on every push
+([`evidence` workflow](.github/workflows/evidence.yml)).
 
 Tests: `npm test` — unit tests plus live checks against public endpoints (NEAR
 RPC, FastNEAR, the key-less NEAR AI gateway check). Tests that spend NEAR AI

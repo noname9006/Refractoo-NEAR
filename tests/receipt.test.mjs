@@ -69,3 +69,15 @@ test('real receipt: the live checks at capture are recorded, all passed, and lab
   for (const c of att.liveChecks) assert.equal(c.ok, true, `${c.id}: ${c.detail}`);
   assert.match(att.note, /not re-verifiable offline/i);
 });
+
+// LIVE, no API key: closes the offline gap above. Fresh model attestations
+// (new nonce), TDX + NVIDIA verified, and the pinned signer must be among them.
+test('live: the receipt signer is an attested NEAR AI enclave key right now (fresh nonce, no API key)', { timeout: 120_000 }, async () => {
+  const { checkSignerLive } = await import('../src/near/receiptBundle.js');
+  const r = await checkSignerLive(bundle);
+  assert.equal(r.ok, true, JSON.stringify(r));
+  assert.equal(r.match.gpuEvidence, 'verified');
+  assert.match(r.nonce, /^[0-9a-f]{64}$/);
+  const swapped = await checkSignerLive({ ...bundle, signer: { ...bundle.signer, signingAddress: 'ab'.repeat(32) } });
+  assert.equal(swapped.ok, false);
+});
