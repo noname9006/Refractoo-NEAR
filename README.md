@@ -133,6 +133,7 @@ The hackathon diff: [`pre-hackathon...main`](https://github.com/noname9006/Refra
 | **NEAR DeFi positions** by account name: Rhea Lend supplied/collateral/borrowed with the protocol's own health-factor rule; liquid staking (stNEAR, LiNEAR, rNEAR) shown as staking, plus NEAR unstaking inside those contracts; public NEAR Intents balances. A failed protocol read is reported, never zero-filled | [`src/near/defi/`](src/near/defi) |
 | **Pseudonymization** of off-device prompts, per-tier amount precision (TEE exact, external 4 significant figures), local restore of real addresses | [`src/utils/pseudonymize.js`](src/utils/pseudonymize.js) |
 | **Per-model reasoning controls**: the Think toggle and an effort selector send the parameter each NEAR AI model actually honours (there is no single switch) — see [Reasoning controls](#reasoning-controls-per-near-ai-model) | [`reasoningProfiles.js`](src/near/reasoningProfiles.js), [`outbound.js`](src/utils/outbound.js), [`reasoning-probe.mjs`](spike/reasoning-probe.mjs) |
+| **Context window and chat cost**: max context next to every model, a live context-fill meter and an estimated cost for the current chat, from NEAR AI's own usage counts — see [Context window and chat cost](#context-window-and-chat-cost) | [`usage.js`](src/near/usage.js), `ContextStrip` in [`Assistant.jsx`](src/components/dashboard/Assistant.jsx), [`ModelSwitcher.jsx`](src/components/dashboard/ModelSwitcher.jsx), [`key-info-probe.mjs`](spike/key-info-probe.mjs) |
 | Tier switcher with the who-sees-what table | [`TierPanel.jsx`](src/components/dashboard/TierPanel.jsx) |
 | **Review before sending**: the exact request body for NEAR AI / external API, sent only on "Send"; one builder makes both the preview and the request | [`OutboundReview.jsx`](src/components/dashboard/OutboundReview.jsx), [`outbound.js`](src/utils/outbound.js) |
 | **Every party, and what it sees**: hosting, RPCs, your wallet, the Intents API, private-shard validators, NEAR AI gateway/enclave, external operator — tested against the code | [`trustBoundaries.js`](src/data/trustBoundaries.js) |
@@ -209,6 +210,42 @@ model accepts that value; a model with no off switch always reasons; the budget
 maps to `thinking_token_budget` only on GLM; `nearAiRequestBody` carries the
 result. [`tests/outbound.test.mjs`](tests/outbound.test.mjs) still proves the
 previewed body deep-equals what is handed to the NEAR AI SDK.
+
+### Context window and chat cost
+
+- **Max context when choosing a model.** The model list in the assistant header
+  and both model selects in Settings show each model's context window
+  (`1.05M ctx`, `262k ctx`): NEAR AI models from the public catalog
+  (`/v1/model/{id}` → `contextLength`), on-device models from the registry's
+  `nCtx`.
+- **Context fill in the current chat.** A strip above the messages shows
+  `Context 4.8k / 1.05M · <1%` with a bar (amber from 70%, red from 90%).
+  "Used" is what the last answer's request carried — prompt + completion
+  tokens — i.e. what the next question will bring along. The counts come from
+  NEAR AI's own usage chunk (`stream_options.include_usage`, visible in the
+  review dialog), not from a local tokenizer estimate. They are stored on the
+  message, so the meter survives a reload and follows the chat you switch to.
+  On-device and external-API tiers do not report usage; there the strip shows
+  only the maximum.
+- **Chat cost (estimate).** `Chat cost ≈ $0.0005`: token counts × the model's
+  public price, summed over the chat's answers.
+
+**Balance and spend limits cannot be read with the API key.** Checked against
+the docs and live ([`spike/key-info-probe.mjs`](spike/key-info-probe.mjs)): the
+balance and usage endpoints (`/v1/organizations/{org_id}/usage/balance`, API-key
+usage history, spend limits) accept only a cloud.near.ai session token and
+answer an inference key with 401/404; completions carry no rate-limit headers.
+The inference key can read exactly two things: the usage chunk of its own
+request, and that request's cost via `POST /v1/billing/costs`. So the app shows
+what it can stand behind — per-chat tokens and an estimated cost — and does not
+ask for an account session token, which would be a far broader credential than
+the app needs.
+
+**Tests** ([`tests/usage.test.mjs`](tests/usage.test.mjs), offline): token
+formatting, reading the usage chunk, cost = tokens × price with an unknown price
+giving "unknown" (never $0), context fill taken from the last answer that
+reported usage and capped at 100%, the per-chat cost sum, and that the request
+asks for the usage chunk.
 
 ## Baseline (pre-hackathon work)
 
