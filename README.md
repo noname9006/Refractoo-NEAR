@@ -158,26 +158,50 @@ Type a question or pick one of the suggestions. The model gets the facts
 Refractoo computed (it never guesses balances), with your addresses replaced by
 `WALLET_1`, `NEAR_1`… Real names are restored in the answer on your device.
 
-Want to see exactly what leaves the device? Turn on **review before sending**:
-the full request is shown and goes out only when you click **Send**.
+<p align="center"><img src="docs/media/ai-answer.gif" alt="Asking 'Where is my money and what is at risk?': review what leaves the device, Send, the answer streams in, the Verified 6/6 receipt opens, then a simulated tampered answer fails the signature check" width="900"></p>
 
-Every NEAR AI answer gets a **Verified · 6/6 checks** receipt: gateway TDX,
+<p align="center"><img src="docs/media/ai-answer.png" alt="A real NEAR AI answer: where the money is, by asset and chain, and what is at risk — concentration, unlimited approvals, spam dust transfers" width="900"></p>
+
+<table>
+<tr>
+<td width="42%" valign="top">
+
+**See exactly what leaves the device.** With **review before sending** on,
+the full request is shown first: your question, the facts, and how many
+identifiers were replaced with placeholders. It goes out only when you click
+**Send**, encrypted to the enclave.
+
+</td>
+<td width="58%" valign="top">
+<img src="docs/media/review.png" alt="Review what leaves this device: 8 identifiers replaced with placeholders, 18 KB readable only inside the attested enclave" width="100%">
+</td>
+</tr>
+</table>
+
+**Every answer comes with a receipt.** **Verified · 6/6 checks**: gateway TDX,
 model TDX, NVIDIA GPU, fresh nonce, end-to-end encryption and the enclave's
-signature. Click **Simulate tampered answer** to flip one byte and watch the
-check fail. **Save receipt** lets anyone re-check it later at
-[refractoo.xyz/verify](https://refractoo.xyz/verify).
+signature over the exact answer bytes.
+
+<p align="center"><img src="docs/media/receipt.png" alt="Verified 6/6 checks receipt under a NEAR AI answer" width="820"></p>
+
+**Don't take our word for it.** **Simulate tampered answer** flips one byte of
+the real answer in memory and re-runs the same check. It fails:
+
+<p align="center"><img src="docs/media/receipt-tampered.png" alt="Simulated tampering: one flipped byte, signature rejected, receipt turns red" width="820"></p>
+
+**Save receipt** downloads the answer's bytes, signature and signer, so anyone
+can re-check it later at [refractoo.xyz/verify](https://refractoo.xyz/verify),
+offline, and re-prove live that the signer is an attested enclave key.
 
 **No key yet?** Click **Verify NEAR AI gateway now**: your browser checks the
 live NEAR AI enclave in a few seconds, no account needed.
 
-<p align="center"><img src="docs/media/verify.gif" alt="Key-less NEAR AI gateway check: Intel TDX quote verified, fresh nonce, gateway signing key" width="820"></p>
-
 <table>
 <tr>
-<td width="50%" valign="top">
-<img src="docs/media/gateway-box.png" alt="Gateway check result" width="100%">
+<td width="55%" valign="top">
+<img src="docs/media/verify.gif" alt="Key-less NEAR AI gateway check: Intel TDX quote verified, fresh nonce, gateway signing key" width="100%">
 </td>
-<td width="50%" valign="top">
+<td width="45%" valign="top">
 <img src="docs/media/verify-card.png" alt="Verify a NEAR AI receipt: signature valid, live signer check matches an attested enclave" width="100%">
 </td>
 </tr>
