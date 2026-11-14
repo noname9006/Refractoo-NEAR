@@ -1,5 +1,39 @@
 # Refractoo — private AI analysis of your whole portfolio, NEAR included
 
+One dashboard for every wallet you own, with an AI assistant that never exposes
+what is in them.
+
+## Why Refractoo exists
+
+Crypto has been here for years. Mass adoption still hasn't arrived.
+
+**What crypto does well: you own your money.** No bank, no third party you
+have to trust. What it never gave you is privacy. A bank keeps your income,
+deposits, yields and trades between you and the bank; a public chain shows
+them to everyone.
+
+**NEAR Intents closes that gap.** With Confidential Intents, balances and swaps
+stay off the public chain — private, and still self-custodial.
+
+**The other barrier is complexity.** Web3 is fragmented: many wallets and keys,
+many chains (EVM and not), many protocols, liquidity spread across all of them.
+Untangling DeFi is a job for AI, not for a human being.
+
+**But handing private finances to an inference provider discloses them.**
+Refractoo gives you two ways around that:
+
+- **Run the model on your own hardware** — two clicks in Refractoo, and nothing
+  leaves the device. The cost: it is slow, and most machines can't run a
+  powerful model at all.
+- **Use NEAR AI (recommended)** — TEE-based inference, verified and integrated
+  in the web interface. Strong modern models, no hardware requirements. The
+  prompt is encrypted end to end to an enclave that your browser attests before
+  sending anything, so the operator can't read it.
+
+Either way, Refractoo stores nothing server-side.
+
+## What it does
+
 Refractoo reads your wallets — EVM chains, public NEAR accounts and your
 **NEAR Confidential Intents (private-shard) balances** — computes the numbers
 deterministically in the browser, and lets an AI explain them. You choose where
