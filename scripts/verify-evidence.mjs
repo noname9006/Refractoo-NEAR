@@ -44,9 +44,10 @@ const total = (k) => Number((r.stdout.match(new RegExp(`^# ${k} (\\d+)$`, 'm')) 
 
 const claims = manifest.claims.map((c) => {
   const tests = c.tests.map((t) => {
-    const hits = t.endsWith('*') ? [...results].filter(([n]) => n.startsWith(t.slice(0, -1))) : results.has(t) ? [[t, results.get(t)]] : [];
-    const status = hits.length === 0 ? 'missing' : hits.every(([, s]) => s === 'pass') ? 'pass' : 'fail';
-    return { name: t, status, matched: hits.length };
+    // Exact names only: a wildcard would let one deleted test hide behind its siblings.
+    if (t.includes('*')) return { name: t, status: 'wildcard-not-allowed', matched: 0 };
+    const status = !results.has(t) ? 'missing' : results.get(t);
+    return { name: t, status, matched: results.has(t) ? 1 : 0 };
   });
   return { id: c.id, claim: c.claim, ok: tests.every((t) => t.status === 'pass'), tests };
 });
