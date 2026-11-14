@@ -27,11 +27,13 @@ jobs:
       - name: Claims (offline, no keys)
         run: node scripts/verify-evidence.mjs --out evidence/ci-run.json
       - name: Recorded run still matches this checkout
-        run: node scripts/verify-evidence.mjs --check evidence/run-2026-11-14.json || echo "::notice::inputs changed since the recorded run (expected after later commits)"
+        run: |
+          node scripts/verify-evidence.mjs --check evidence/run-2026-11-14.json || echo "::notice::inputs changed since the recorded run (expected after later commits)"
       - name: Guard removal (each guard removed must break a test)
         run: npm run verify:guards
       - name: Receipt signer is an attested enclave key now (live, no API key)
-        run: node --test --test-name-pattern="^live: the receipt signer" tests/receipt.test.mjs
+        run: |
+          node --test --test-name-pattern="^live: the receipt signer" tests/receipt.test.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
