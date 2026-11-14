@@ -631,9 +631,15 @@ a.tx .ic,.tx a.ic{cursor:pointer}
 .res-strip .res-k{font-weight:600;letter-spacing:.02em;color:var(--ink-2)}
 .res-strip .res-v{color:var(--ink);font-weight:600}
 .res-strip .res-t{color:var(--ink-3)}
-.chat-sidebar{width:0;flex:none;overflow:hidden;display:flex;flex-direction:column;
+/* Always visible: a narrow icon-only rail that widens (.open) to show titles. */
+.chat-sidebar{width:50px;padding:10px 7px;flex:none;overflow:hidden;display:flex;flex-direction:column;
   background:var(--surface-2);border-right:1px solid var(--line);transition:width .2s var(--ease)}
 .chat-sidebar.open{width:208px;padding:10px 8px}
+.chat-sidebar:not(.open) .newchat-lbl,.chat-sidebar:not(.open) .conv-title,.chat-sidebar:not(.open) .conv-del{display:none}
+.chat-sidebar:not(.open) .newchat-btn,.chat-sidebar:not(.open) .conv-item{justify-content:center;padding-left:0;padding-right:0}
+.chat-sidebar:not(.open) .conv-list{padding-right:0;scrollbar-width:none}
+.chat-sidebar:not(.open) .conv-list::-webkit-scrollbar{display:none}
+.chat-sidebar:not(.open) .conv-ico svg{width:16px;height:16px}
 .assistant.full .chat-sidebar.open{width:248px}
 .newchat-btn{display:flex;align-items:center;gap:8px;width:100%;padding:9px 11px;border-radius:9px;font-size:13px;font-weight:600;
   color:var(--ink);background:var(--surface);border:1px solid var(--line-2);transition:all .14s;flex:none}

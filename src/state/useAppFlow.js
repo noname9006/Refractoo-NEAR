@@ -702,7 +702,9 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
       }
       setCluster({ ...cl });
       if (added > 0) {
-        await loadCluster(); // fetch + enrich + price for the (now larger) cluster
+        // Not awaited: `busy` covers the wallet prompt only. The chain fetch can
+        // take minutes on public RPCs and the cards show their own progress.
+        loadCluster(); // fetch + enrich + price for the (now larger) cluster
       } else {
         // The wallet returned an account already in the cluster. Tell the user
         // how to add a *different* one instead of silently doing nothing.
@@ -746,7 +748,9 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
       }
       setCluster({ ...cl });
       if (nearNew.length) loadNearAccounts(nearNew);
-      await loadCluster();
+      // Not awaited (see connectMore): the "+" spinner must stop once the demo
+      // wallets are in place, not after every chain of every wallet answered.
+      loadCluster();
     } catch (e) {
       setError(String(e.message || e));
     } finally {

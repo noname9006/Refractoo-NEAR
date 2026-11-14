@@ -18,7 +18,7 @@ import { pseudonymizeForRemote, precisionFor } from '../../utils/pseudonymize.js
 import { nearAccountFacts } from '../../near/nearAccount.js';
 import { describeOutbound } from '../../utils/outbound.js';
 import OutboundReview from './OutboundReview.jsx';
-import { getLayout, setCardCollapsed } from '../../storage/local.js';
+import { getLayout, setLayout, setCardCollapsed } from '../../storage/local.js';
 
 const THINK_KEY = 'pwai.thinking';
 // Default OFF to match Qwen3.5's documented behavior (reasoning is disabled by
@@ -76,7 +76,10 @@ export default function Assistant({ ctx, flow, onOpenSettings }) {
   const [talking, setTalking] = useState(false);
   const [hint, setHint] = useState('');
   const [elapsedMs, setElapsedMs] = useState(0);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  // The conversations rail is always visible (icons only); this widens it to
+  // show titles. The choice survives reloads (pwai.layout).
+  const [sidebarOpen, setSidebarOpen] = useState(() => !!getLayout().chatSidebarOpen);
+  const toggleSidebar = () => setSidebarOpen((o) => { setLayout({ chatSidebarOpen: !o }); return !o; });
   const [thinking, setThinking] = useState(loadThinking); // Qwen <think> on/off
   const [liveMsg, setLiveMsg] = useState(null);
   // Off-device review step: { info, resolve } while the dialog is open.
@@ -153,9 +156,14 @@ export default function Assistant({ ctx, flow, onOpenSettings }) {
     };
   }, [store, running]);
 
-  // The sidebar is open by default in full-screen (room for it) and collapsed
-  // in the inline card; the user can still toggle it either way.
-  useEffect(() => { setSidebarOpen(full); }, [full]);
+  // Entering full-screen widens the rail (room for it); leaving restores the
+  // saved choice. The user can still toggle it either way.
+  const fullSeen = useRef(full);
+  useEffect(() => {
+    if (fullSeen.current === full) return; // mount: keep the saved state
+    fullSeen.current = full;
+    setSidebarOpen(full || !!getLayout().chatSidebarOpen);
+  }, [full]);
 
   // Settings → "Delete conversation history" wipes every thread.
   useEffect(() => {
@@ -513,8 +521,9 @@ export default function Assistant({ ctx, flow, onOpenSettings }) {
     <>
       <section className={`assistant card${collapsed ? ' collapsed' : ''}${full ? ' full' : ''}`}>
         <div className="asst-head" onClick={(e) => { if (!e.target.closest('button')) setCollapsed((c) => !c); }}>
-          <button className={`icon-btn sb-toggle${sidebarOpen ? ' on' : ''}`} title="Conversations"
-            onClick={(e) => { e.stopPropagation(); setSidebarOpen((o) => !o); }}><IList /></button>
+          <button className={`icon-btn sb-toggle${sidebarOpen ? ' on' : ''}`}
+            title={sidebarOpen ? 'Collapse conversations to icons' : 'Expand conversations'} aria-expanded={sidebarOpen}
+            onClick={(e) => { e.stopPropagation(); setCollapsed(false); toggleSidebar(); }}><IList /></button>
           <div className="ai"><PrismMark /></div>
           <div className="ttl">Wallet Assistant
             <small><span className="dot" style={{ background: statusDot }} />{statusText}
@@ -526,14 +535,13 @@ export default function Assistant({ ctx, flow, onOpenSettings }) {
             <button className="btn ghost sm" title="Retry loading the local AI"
               onClick={(e) => { e.stopPropagation(); flow.retryModel(); }}>Retry</button>
           )}
-          {modelReady && (tier === 'local' ? (
+          {modelReady && tier === 'local' && (
             <button className="btn ghost sm" title="Unload the model to free memory"
               onClick={(e) => { e.stopPropagation(); flow.unloadModel(); }}><IPower /> Unload</button>
-          ) : (
-            // Nothing to free for a remote model — the useful action is its settings.
-            <button className="btn ghost sm" title="Open AI model settings"
-              onClick={(e) => { e.stopPropagation(); onOpenSettings?.('ai'); }}><IGear /> Settings</button>
-          ))}
+          )}
+          {/* Always reachable — also before a model is ready (demo, no API key). */}
+          <button className="icon-btn" title="AI model settings" aria-label="AI model settings"
+            onClick={(e) => { e.stopPropagation(); onOpenSettings?.('ai'); }}><IGear /></button>
           <button className="icon-btn" title="Full screen" onClick={(e) => { e.stopPropagation(); setFull((f) => !f); setCollapsed(false); }}>
             {full ? <IShrink /> : <IExpand />}
           </button>
@@ -545,7 +553,7 @@ export default function Assistant({ ctx, flow, onOpenSettings }) {
         <div className="asst-body">
           <div className="asst-layout">
             <aside className={`chat-sidebar${sidebarOpen ? ' open' : ''}`}>
-              <button className="newchat-btn" onClick={newChat} disabled={running}><IPlus /> New chat</button>
+              <button className="newchat-btn" onClick={newChat} disabled={running} title="New chat"><IPlus /><span className="newchat-lbl">New chat</span></button>
               <div className="conv-list">
                 {sortedConvs.map((c) => (
                   <div key={c.id} className={`conv-item${c.id === store.activeId ? ' active' : ''}${running ? ' locked' : ''}`}
