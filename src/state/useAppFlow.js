@@ -594,6 +594,13 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
         const acct = await loadNearAccount(id);
         // Removed while loading? Don't resurrect it.
         if (!getCluster().nearAccounts.includes(id)) return;
+        // A partial read (index throttled: no tokens or pools) must not replace
+        // a full one already on screen.
+        const prev = nearRef.current.find((a) => a.accountId === id);
+        if (acct.partial && prev && !prev.partial) {
+          setNearStatus((s) => ({ ...s, [id]: { status: 'ready', error: null } }));
+          return;
+        }
         nearRef.current = [...nearRef.current.filter((a) => a.accountId !== id), acct];
         setNearData(nearRef.current);
         setNearStatus((s) => ({ ...s, [id]: acct.exists ? { status: 'ready', error: null } : { status: 'missing', error: 'Account not found on NEAR mainnet' } }));
@@ -1091,7 +1098,8 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
         ? {
             ...p,
             approvals: p.approvals.filter(
-              (a) => !(a.token === approval.token && a.spender === approval.spender)
+              (a) => !(a.token === approval.token && a.spender === approval.spender
+                && a.chainId === approval.chainId && a.owner === approval.owner)
             ),
           }
         : p

@@ -43,11 +43,11 @@ export function trustRows(prefs = {}) {
       other: 'Your IP and page loads; token contract addresses whose icons are looked up (/api/coinicon) — i.e. which tokens appear in your portfolio. Self-hosted locally (npm run server), this is your own machine.',
     },
     {
-      id: 'rpc', group: 'public', party: 'Public RPCs and explorers (publicnode, Etherscan, NearBlocks, FastNEAR)',
+      id: 'rpc', group: 'public', party: 'Public RPCs and explorers (publicnode, Etherscan, NearBlocks, FastNEAR, NEAR RPC)',
       ids: yes('Yes — every address or account you look up'),
       amounts: part('Only public on-chain balances, which anyone can read'),
       question: no(),
-      other: 'Your IP. For a NEAR account, the FastNEAR RPC also sees which DeFi contracts are asked about it (Meta Pool, LiNEAR, RHEA LST, intents.near, Rhea Lend) — read-only view calls, the same for every account. The provider list is fixed in src/config (there is no in-app RPC setting yet); self-hosters can change it there.',
+      other: 'Your IP. For a NEAR account, the NEAR RPC endpoints also see which DeFi contracts are asked about it (Meta Pool, LiNEAR, RHEA LST, intents.near, Rhea Lend) — read-only view calls, the same for every account. FastNEAR is tried first; when it throttles, the official NEAR RPC (rpc.mainnet.near.org, run by NEAR) gets the same calls. The endpoints are fixed in src/near/rpc.js (there is no in-app RPC setting yet); self-hosters can change them there.',
     },
     {
       id: 'prices', group: 'public', party: 'Price and token-metadata APIs (DefiLlama)',

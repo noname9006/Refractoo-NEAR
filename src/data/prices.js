@@ -213,10 +213,10 @@ const RANGE = {
   '90D': { span: 90, period: '1d', searchWidth: 43200 },
 };
 
-// Keys per /chart request. Smaller chunks mean a smaller JSON payload per
-// response, which reduces the chance of hitting DefiLlama's body-size limit on
-// longer ranges — each key returns 30-45 price entries for 30/90-day spans.
-const HISTORY_CHUNK = 20;
+// /chart refuses any request whose keys × span exceeds 500 data points
+// ("Requested 504 data points exceeds the maximum of 500"). Keys per request
+// therefore depend on the range's span: 5 at 7D (span 84), 4 at 30D (span 120).
+const CHART_MAX_POINTS = 500;
 
 // Reconstruct the portfolio-value time series from whatever priceAt holds so
 // far. Used both for the final result and for mid-fetch partial updates.
@@ -289,13 +289,10 @@ export async function fetchPortfolioHistory(holdings, range = '7D') {
   const { keys, keyOf } = holdingKeys(valued);
   const { span, period, searchWidth } = RANGE[range] || RANGE['7D'];
 
-  // Build per-key timestamp→price across chunks fetched in parallel.
-  // The /chart endpoint only accepts chain:address format — coingecko: keys (used
-  // for native ETH/POL) cause a 400. Those holdings fall back to h.price in
-  // buildPortfolioSeries, which is an acceptable approximation for native tokens.
-  // coingecko: keys (native tokens) work on /chart too — verified live. A bad
-  // key in a batch is isolated by the bisection in fetchKeys, and any holding
-  // left without history still falls back to h.price. Excluding them made a
+  // Build per-key timestamp→price across chunks fetched in parallel. Native
+  // tokens use coingecko: keys, which /chart accepts (verified live). A bad key
+  // in a batch is isolated by the bisection in fetchKeys, and any holding left
+  // without history still falls back to h.price. Excluding them made a
   // native-only selection (e.g. NEAR alone) produce no chart at all.
   const chartKeys = keys;
   const priceAt = new Map();
@@ -329,9 +326,10 @@ export async function fetchPortfolioHistory(holdings, range = '7D') {
     }
   };
 
+  const perRequest = Math.max(1, Math.floor(CHART_MAX_POINTS / span));
   const chunks = [];
-  for (let i = 0; i < chartKeys.length; i += HISTORY_CHUNK) chunks.push(chartKeys.slice(i, i + HISTORY_CHUNK));
-  await Promise.all(chunks.map(fetchKeys));
+  for (let i = 0; i < chartKeys.length; i += perRequest) chunks.push(chartKeys.slice(i, i + perRequest));
+  await runLimited(chunks.map((batch) => () => fetchKeys(batch)), PRICE_CONCURRENCY);
 
   return buildPortfolioSeries(priceAt, valued, keyOf);
 }

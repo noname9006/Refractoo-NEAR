@@ -19,6 +19,7 @@
 import { ed25519 } from '@noble/curves/ed25519';
 import { sha256 } from '@noble/hashes/sha256';
 import { encodeBase58, decodeBase58, toBeArray } from 'ethers';
+import { rpcView } from './rpc.js';
 
 export const NEP413_TAG = 2 ** 31 + 413;
 export const INTENTS_RECIPIENT = 'intents.near';
@@ -89,19 +90,15 @@ export function versionedNonce(salt, deadline, now = Date.now()) {
   return b;
 }
 
-// intents.near `current_salt` (a hex string) → 4 bytes. Public view call.
+// intents.near `current_salt` (a hex string) → 4 bytes. Public view call, sent
+// through the shared NEAR RPC gate so it is paced and retried like the others.
 export async function fetchIntentsSalt({ fetchImpl = (...a) => fetch(...a) } = {}) {
-  const r = await fetchImpl('https://rpc.mainnet.fastnear.com', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0', id: 1, method: 'query',
-      params: { request_type: 'call_function', finality: 'final', account_id: 'intents.near', method_name: 'current_salt', args_base64: btoa('{}') },
-    }),
-  });
-  const j = await r.json();
-  if (j.error || !Array.isArray(j.result?.result)) throw new Error('Could not read the intents.near salt');
-  const hex = JSON.parse(new TextDecoder().decode(new Uint8Array(j.result.result)));
+  let hex;
+  try {
+    hex = await rpcView(fetchImpl, 'intents.near', 'current_salt');
+  } catch {
+    throw new Error('Could not read the intents.near salt');
+  }
   if (!/^[0-9a-f]{8}$/i.test(hex)) throw new Error(`Unexpected intents salt "${hex}"`);
   return Uint8Array.from(hex.match(/../g), (h) => parseInt(h, 16));
 }

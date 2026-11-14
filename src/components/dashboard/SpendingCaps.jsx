@@ -30,8 +30,12 @@ export default function SpendingCaps({ flow, view, loading, updating }) {
   const [err, setErr] = useState(null);
   const unlimited = approvals.filter((a) => a.unlimited).length;
 
+  // The same token → spender approval can exist for several wallets and chains,
+  // so the row id needs both.
+  const rowId = (a) => `${a.chainId}:${a.owner}:${a.token}:${a.spender}`;
+
   const revoke = async (a) => {
-    const id = `${a.token}:${a.spender}`;
+    const id = rowId(a);
     setBusy(id); setErr(null);
     try {
       await flow.revoke(a);
@@ -67,7 +71,7 @@ export default function SpendingCaps({ flow, view, loading, updating }) {
             <div className="empty-note">No active token approvals detected{!import.meta.env.VITE_ETHERSCAN_KEY ? ' — set VITE_ETHERSCAN_KEY to scan approvals' : ''}.</div>
           )}
           {approvals.map((a) => {
-            const id = `${a.token}:${a.spender}`;
+            const id = rowId(a);
             return (
               <div className="cap" key={id}>
                 <TokenIcon chainId={a.chainId} address={a.token} symbol={a.tokenSymbol} glyph={a.glyph} color={a.color} className="cap-tok" />

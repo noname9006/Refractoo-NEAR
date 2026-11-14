@@ -16,7 +16,8 @@ import { fetchRheaLend, rheaLendTokens, rheaLendPosition } from './defi/rheaLend
 //
 // All are public, CORS-enabled endpoints called from the browser. They
 // see the account name you look up — the same exposure as the EVM explorers,
-// stated in the "who sees what" panel. Nothing here is cached to disk.
+// stated in the "who sees what" panel. RPC reads fall back to the official NEAR
+// RPC when FastNEAR throttles (src/near/rpc.js). Nothing here is cached to disk.
 //
 // Output rows use chainId 'near' and the same shape buildPortfolio() expects,
 // so NEAR holdings, staking and totals flow through the existing dashboard.
@@ -54,14 +55,29 @@ export { fromBaseUnits };
 export async function fetchNearAccountRaw(accountId, { fetchImpl = (...a) => fetch(...a) } = {}) {
   const id = normalizeAccountId(accountId);
   if (!isNearAccountId(id)) throw new Error(`"${accountId}" is not a NEAR account id`);
-  const r = await fetchImpl(`${FASTNEAR}/${encodeURIComponent(id)}/full`);
-  if (!r.ok) throw new Error(`FastNEAR ${r.status}`);
-  const full = await r.json();
+  // The index (FT list + staking pools) has no second source. If it stays
+  // throttled after its retries, the account is still read over RPC: NEAR balance
+  // and DeFi positions, marked `partial` so a caller holding a full earlier read
+  // can keep that instead.
+  let full = null;
+  let indexError = null;
+  try {
+    full = await fetchIndex(fetchImpl, id);
+  } catch (e) {
+    indexError = e;
+    console.warn(`[near] index read failed for ${id}:`, e?.message || e);
+  }
   // FastNEAR's index sometimes has no `state` for an account that exists on
   // chain (seen on contract sub-accounts); confirm with RPC before saying "not found".
   let state = full?.state || null;
   if (!state) {
-    const acc = await rpcAccount(fetchImpl, id).catch(() => null);
+    let acc;
+    try {
+      acc = await rpcAccount(fetchImpl, id);
+    } catch (e) {
+      if (indexError) throw indexError; // nothing could be read at all
+      acc = null;
+    }
     if (!acc) return { accountId: id, exists: false, nativeYocto: '0', tokens: [], pools: [] };
     state = { balance: acc.amount, locked: acc.locked };
   }
@@ -72,8 +88,8 @@ export async function fetchNearAccountRaw(accountId, { fetchImpl = (...a) => fet
     .slice(0, MAX_TOKENS)
     .map((t) => ({ contract: t.contract_id, raw: String(t.balance) }));
 
-  const defiErrors = [];
-  const guard = (name, p) => p.catch((e) => { defiErrors.push(name); console.warn(`[near] ${name} read failed:`, e?.message || e); return null; });
+  const defiErrors = indexError ? ['Tokens and staking pools (FastNEAR index)'] : [];
+  const guard =(name, p) => p.catch((e) => { defiErrors.push(name); console.warn(`[near] ${name} read failed:`, e?.message || e); return null; });
   const poolIds = (full?.pools || []).map((p) => p?.pool_id).filter(Boolean).slice(0, MAX_POOLS);
   const [staked, unstakes, intents, rheaLend] = await Promise.all([
     pool(poolIds, 4, (p) => rpcView(fetchImpl, p, 'get_account_total_balance', { account_id: id })),
@@ -96,7 +112,34 @@ export async function fetchNearAccountRaw(accountId, { fetchImpl = (...a) => fet
     intents: intents || { tokens: [], otherCount: 0 },
     rheaLend: rheaLend || null,
     defiErrors,
+    ...(indexError ? { partial: true } : {}),
   };
+}
+
+// FastNEAR account index, retried on 429/5xx before giving up.
+const INDEX_RETRY_MS = [1000, 2500];
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+async function fetchIndex(fetchImpl, id) {
+  for (let attempt = 0; ; attempt++) {
+    const r = await fetchImpl(`${FASTNEAR}/${encodeURIComponent(id)}/full`);
+    if (r.ok) return r.json();
+    const retryable = r.status === 429 || r.status >= 500;
+    if (!retryable || attempt >= INDEX_RETRY_MS.length) throw new Error(`FastNEAR ${r.status}`);
+    await sleep(INDEX_RETRY_MS[attempt]);
+  }
+}
+
+// ft_metadata never changes for a contract, and the same token turns up in many
+// accounts and on every refresh, so each contract is read once per session.
+// Failed reads are not remembered and get retried next time.
+const ftMetaCache = new Map();
+function ftMetadata(fetchImpl, contract) {
+  if (!ftMetaCache.has(contract)) {
+    const p = rpcView(fetchImpl, contract, 'ft_metadata');
+    ftMetaCache.set(contract, p);
+    p.catch(() => ftMetaCache.delete(contract));
+  }
+  return ftMetaCache.get(contract);
 }
 
 // Raw account → priced holdings in buildPortfolio()'s shape, plus DeFi
@@ -110,7 +153,7 @@ export async function priceNearAccount(raw, { fetchImpl = (...a) => fetch(...a),
 
   // Decimals: DefiLlama has them for priced tokens; ask the contract otherwise.
   const missing = contracts.filter((c) => !Number.isInteger(prices.get(`near:${c}`)?.decimals)).slice(0, MAX_METADATA);
-  const metas = await pool(missing, 4, (c) => rpcView(fetchImpl, c, 'ft_metadata'));
+  const metas = await pool(missing, 4, (c) => ftMetadata(fetchImpl, c));
   const metaBy = new Map(missing.map((c, i) => [c, metas[i]]));
 
   // contract → { decimals, price, symbol, name } | null (can't size it)
@@ -188,6 +231,7 @@ export async function priceNearAccount(raw, { fetchImpl = (...a) => fetch(...a),
     positions,
     intentsOtherCount: raw.intents?.otherCount || 0,
     defiErrors: raw.defiErrors || [],
+    ...(raw.partial ? { partial: true } : {}),
     fetchedAt: Date.now(),
   };
 }
