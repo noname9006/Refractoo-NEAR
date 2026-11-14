@@ -854,7 +854,14 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
   // Resolves once with the full series — the chart is built only when complete.
   // `viewHoldings` (optional) is the already wallet/chain-filtered holdings list,
   // so the curve matches the selection; omitted ⇒ whole portfolio.
-  const loadHistory = useCallback(async (range, viewHoldings) => {
+  // `viewTotal` (optional) is the headline total for the same selection. The
+  // headline also counts value that has no price history — protocol positions
+  // (Aave/Morpho/Rhea…, already USD-denominated), revealed shielded balances and
+  // holdings past the top 40 — so without it the curve ended at "public holdings"
+  // while the headline jumped as DeFi positions loaded. That remainder is added
+  // as a flat offset (the same "flat" treatment the 24h delta gives it), so the
+  // curve always ends exactly at the headline total.
+  const loadHistory = useCallback(async (range, viewHoldings, viewTotal) => {
     const p = viewHoldings ? { holdings: viewHoldings } : portfolio;
     // Top holdings by value only: a full registry probe yields hundreds of dust
     // holdings; charting them all makes the request/response huge (the longer
@@ -865,10 +872,15 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
       .sort((a, b) => b.usd - a.usd)
       .slice(0, 40);
     if (!holdings.length) return [];
-    return fetchPortfolioHistory(
+    const series = await fetchPortfolioHistory(
       holdings.map((h) => ({ chainId: h.chainId, address: h.address, amount: h.amount, price: h.price })),
       range
     );
+    const total = viewHoldings ? viewTotal : portfolio?.total;
+    const charted = holdings.reduce((s, h) => s + h.usd, 0);
+    const flat = total != null && isFinite(total) ? total - charted : 0;
+    if (!series.length || !(flat > 0.005)) return series;
+    return series.map((pt) => ({ ...pt, value: pt.value + flat }));
   }, [portfolio]);
 
   // Commit a new shielded list: state, ref, LLM facts and the portfolio all move

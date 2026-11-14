@@ -33,14 +33,14 @@ export default function PortfolioSummary({ flow, view }) {
     lastRange.current = range;
     if (rangeChanged) setSeries([]);
     setChartLoading(true);
-    flow.loadHistory(range, view?.holdings || []).then((s) => {
+    flow.loadHistory(range, view?.holdings || [], view?.total).then((s) => {
       if (id === reqId.current) { setSeries(s || []); setChartLoading(false); }
     }).catch(() => {
       // On failure drop the spinner; only clear the curve if this was a range
       // change (a failed background refresh leaves the existing curve intact).
       if (id === reqId.current) { if (rangeChanged) setSeries([]); setChartLoading(false); }
     });
-  }, [range, flow.portfolio, view?.holdings]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [range, flow.portfolio, view?.holdings, view?.total]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const p = view;
   const delta = p?.change24h || { usd: 0, pct: 0 };
