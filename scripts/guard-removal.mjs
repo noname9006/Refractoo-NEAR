@@ -89,6 +89,10 @@ export const GUARDS = [
   { id: 'G22', guard: 'Agent: approval bound to the exact proposal bytes', file: 'src/agent/actions.js',
     find: "if (approval.hash !== r.proposal.hash) throw new ActionError('approval_mismatch');", replace: '',
     tests: ['tests/agentActions.test.mjs'], mustFail: ['agent: nothing executes without an approval of these exact bytes'] },
+  { id: 'G23', guard: 'Agent UI bridge: state changes only after execute() passes', file: 'src/agent/apply.js',
+    find: "try { r = execute(s0, p, approval); } catch (e) { return { error: e.code || 'refused' }; }",
+    replace: "r = { state: { ...s0, hiddenTokens: [...s0.hiddenTokens, p.args?.symbol] } };",
+    tests: ['tests/agentApply.test.mjs'], mustFail: ['apply: no setter is called without a matching approval'] },
 ];
 
 const only = process.argv.slice(2).filter((a) => /^G\d+$/.test(a));

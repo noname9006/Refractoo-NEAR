@@ -6,6 +6,7 @@ import { startRecording, transcribeWhisper } from '../../voice/index.js';
 import { getModel, formatSize } from '../../models/registry.js';
 import { LiveMarkdownView, MarkdownView } from './MarkdownRenderer.jsx';
 import { parseProposals, approve } from '../../agent/actions.js';
+import { DEMO_AGENT_QUESTION, DEMO_AGENT_RAW } from '../../near/demoFixtures.js';
 import { loadStore, saveStore, clearStore, newConversation, titleFrom, loadScrollPositions, saveScrollPositions } from './chatStore.js';
 import { startResourceMonitor, subscribeResources, getResourceSnapshot } from '../../utils/resource-monitor.js';
 import { fmtBytesBin } from '../../utils/system-info.js';
@@ -430,6 +431,7 @@ export default function Assistant({ ctx, flow, onOpenSettings, onAgentAction }) 
     appendUserMessage(text);
     setRunning(true);
     let lastVisible = '';
+    let rawFinal = ''; // model text BEFORE restore(): placeholders intact, for action parsing
     let finalText = '';
     let finalThink = '';
     let needsReload = false;
@@ -448,6 +450,7 @@ export default function Assistant({ ctx, flow, onOpenSettings, onAgentAction }) 
     try {
       console.info(`[assistant] Sending prompt (${messages.length} messages) via ${flow.model.mode || 'local'} backend… thinking=${thinkOn}${effort ? ` effort=${effort}` : ''}${redacted?.labels != null ? ` · pseudonymized (${redacted.labels} identifiers)` : ''}`);
       const res = await ctx.analyze(messages, (rawVisible, rawThink, isThinking, _tps, rawPreview = []) => {
+        rawFinal = rawVisible;
         const visible = restore(rawVisible);
         const think = restore(rawThink);
         const thinkPreview = rawPreview.map(restore);
@@ -510,6 +513,7 @@ export default function Assistant({ ctx, flow, onOpenSettings, onAgentAction }) 
         ...(verification ? { verification } : {}),
         ...(redacted ? { redacted } : {}),
         ...(usage ? { usage } : {}),
+        ...actionFields(rawFinal, restore),
       });
       setLiveMsg(null);
       setRunning(false);
@@ -609,6 +613,18 @@ export default function Assistant({ ctx, flow, onOpenSettings, onAgentAction }) 
                     <p>{isNearAi
                       ? 'Computed from your real on-chain facts, answered by an attested NEAR AI enclave — every answer comes with a receipt.'
                       : 'Computed from your real on-chain facts, answered by a model running on your device.'}</p>
+                    {onAgentAction && (
+                      <button className="btn ghost sm" onClick={() => {
+                        const counter = firstCounterparty(flow.clusterData);
+                        const restoreDemo = (t) => (counter ? t.replaceAll('ADDR_1', counter) : t);
+                        setMsgs((m) => [...m, { role: 'user', text: DEMO_AGENT_QUESTION, done: true }, {
+                          role: 'ai', done: true, text: restoreDemo(DEMO_AGENT_RAW),
+                          ...actionFields(DEMO_AGENT_RAW, restoreDemo),
+                        }]);
+                      }} title="Adds a recorded sample answer with suggested view changes. No model runs; nothing is sent.">
+                        Try suggested actions (sample)
+                      </button>
+                    )}
                   </div>
                 )}
                 {msgs.map((mm, i) => mm.role === 'user' ? (
@@ -812,7 +828,7 @@ const AssistantBubble = memo(function AssistantBubble({ msg, live = false, elaps
             {!normalized.done && <span className="caret" />}
           </div>
         )}
-        {normalized.done && !live && onAgentAction && <ActionProposals text={normalized.text} onAgentAction={onAgentAction} />}
+        {normalized.done && !live && onAgentAction && <ActionProposals text={normalized.actionSource || normalized.text} placeholders={normalized.placeholders} onAgentAction={onAgentAction} />}
         {normalized.done && normalized.verification && <VerifiedPanel receipt={normalized.verification} />}
         {normalized.done && normalized.redacted && (
           <div className={`redact-note${normalized.redacted.off ? ' off' : ''}`}>
@@ -826,6 +842,34 @@ const AssistantBubble = memo(function AssistantBubble({ msg, live = false, elaps
   );
 });
 
+// Demo only: a real counterparty from loaded activity, so the sample label
+// lands on a visible Activity row.
+function firstCounterparty(cluster) {
+  for (const [addr, d] of Object.entries(cluster || {})) {
+    const own = addr.toLowerCase();
+    for (const c of d?.chains || []) {
+      if (c.chainId !== 1) continue;
+      for (const tx of c.recentTxs || []) {
+        const other = tx.from?.toLowerCase() === own ? tx.to : tx.from;
+        if (other && other.toLowerCase() !== own) return other.toLowerCase();
+      }
+    }
+  }
+  return null;
+}
+
+// Proposals are parsed from the raw (pseudonymized) text so set_label targets
+// stay placeholders; each placeholder is resolved here, locally, via restore().
+function actionFields(raw, restore) {
+  if (typeof raw !== 'string' || !raw.includes('```action')) return {};
+  const placeholders = {};
+  for (const m of raw.matchAll(/(?:WALLET|ADDR)_\d{1,3}/g)) {
+    const real = restore(m[0]);
+    if (real && real !== m[0]) placeholders[m[0]] = real;
+  }
+  return { actionSource: raw, placeholders };
+}
+
 const ACTION_BLOCK = /```action\s*\n[\s\S]*?```/g;
 function stripActionBlocks(t) { return typeof t === 'string' ? t.replace(ACTION_BLOCK, '').trimEnd() : t; }
 
@@ -838,12 +882,12 @@ const ACTION_TEXT = {
 
 // Model-proposed view changes. Nothing runs until the user clicks Approve;
 // the approval is bound to the proposal's hash (src/agent/actions.js).
-const ActionProposals = memo(function ActionProposals({ text, onAgentAction }) {
+const ActionProposals = memo(function ActionProposals({ text, placeholders, onAgentAction }) {
   const { proposals, rejected } = useMemo(() => parseProposals(text), [text]);
   const [status, setStatus] = useState({}); // hash → { state, undo, error }
   if (!proposals.length && !rejected.length) return null;
   const run = (p) => {
-    const r = onAgentAction(p, approve(p));
+    const r = onAgentAction(p, approve(p), { resolvePlaceholder: (ph) => placeholders?.[ph] || null });
     setStatus((s) => ({ ...s, [p.hash]: r?.error ? { state: 'error', error: r.error } : { state: 'done', undo: r?.undo } }));
   };
   const undo = (p) => { status[p.hash]?.undo?.(); setStatus((s) => ({ ...s, [p.hash]: { state: 'undone' } })); };

@@ -16,7 +16,7 @@ import DetailsDrawer from './DetailsDrawer.jsx';
 import ConnectOverlay from './ConnectOverlay.jsx';
 import NavPanel from './dashboard/NavPanel.jsx';
 import Settings from './Settings.jsx';
-import { execute } from '../agent/actions.js';
+import { applyAgentAction } from '../agent/apply.js';
 
 // Chains available in the active network profile (mainnet or testnet).
 const ALL_CHAINS = VIEW_CHAIN_IDS; // EVM chains + NEAR (read by account name)
@@ -109,25 +109,15 @@ export default function Dashboard({ ctx, flow }) {
     applyChains(next);
   };
   // Agent actions: the Assistant hands over a proposal plus the user's
-  // hash-bound approval; execute() re-validates and refuses anything else.
-  const onAgentAction = (p, approval) => {
-    const chainId = (name) => ALL_CHAINS.find((id) => String(CHAIN_META[id]?.name || id).toLowerCase().split(' ')[0] === (name === 'bsc' ? 'bnb' : name));
-    const s0 = { hiddenTokens: flow.prefs.hiddenTokens || [], chain: null };
-    let r;
-    try { r = execute(s0, p, approval); } catch (e) { return { error: e.code || 'refused' }; }
-    if (p.kind === 'select_chain') {
-      const id = chainId(p.args.chain);
-      if (id == null) return { error: 'chain_not_in_view' };
-      const before = new Set(selectedChains);
-      applyChains(new Set([id]));
-      return { undo: () => applyChains(before) };
-    }
-    if (p.kind === 'hide_token' || p.kind === 'show_token') {
-      flow.updatePref({ hiddenTokens: r.state.hiddenTokens });
-      return { undo: () => flow.updatePref({ hiddenTokens: r.undo.hiddenTokens }) };
-    }
-    return { error: 'not_wired' };
-  };
+  // hash-bound approval; applyAgentAction() re-validates via execute().
+  const onAgentAction = (p, approval, extra = {}) => applyAgentAction(p, approval, {
+    hiddenTokens: flow.prefs.hiddenTokens, labels: flow.prefs.agentLabels,
+    selectedChains, chainIds: ALL_CHAINS, chainMeta: CHAIN_META,
+    resolvePlaceholder: extra.resolvePlaceholder,
+    setHiddenTokens: (v) => flow.updatePref({ hiddenTokens: v }),
+    setLabels: (v) => flow.updatePref({ agentLabels: v }),
+    setChains: applyChains,
+  });
   // "All chains" toggles: select everything, or — when everything is already
   // selected — deselect all (the dashboard then shows nothing).
   const toggleAll = () =>

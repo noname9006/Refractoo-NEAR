@@ -84,7 +84,7 @@ export function saveStore(store) {
         updatedAt: c.updatedAt,
         msgs: (c.msgs || [])
           .slice(-MAX_MSGS_PER_CONV)
-          .map(({ role, text, think, verification, redacted }) => ({
+          .map(({ role, text, think, verification, redacted, actionSource, placeholders }) => ({
             role,
             text: clampText(text, MAX_TEXT_CHARS),
             think: clampText(think, MAX_THINK_CHARS),
@@ -93,6 +93,9 @@ export function saveStore(store) {
             // prompt or answer content.
             ...(verification ? { verification } : {}),
             ...(redacted ? { redacted } : {}),
+            // Agent proposals: raw text (placeholders intact) + the local
+            // placeholder → real map. Same data the restored text already shows.
+            ...(actionSource ? { actionSource: clampText(actionSource, MAX_TEXT_CHARS), placeholders } : {}),
             done: true,
           })),
       }));

@@ -58,6 +58,12 @@ The model can only *propose* local view changes (hide/show token, select chain,
 label a placeholder). Each proposal is checked against a closed allowlist,
 money-moving kinds are denied, and execution needs a user approval bound to the
 sha256 of the exact proposal. Tests: `tests/agentActions.test.mjs`; guards G19–G22.
-UI: proposals render as cards under the answer (Approve / Dismiss / Undo);
-hide/show token and select chain are wired. set_label is allowlisted but not
-wired in the UI. The click path has no automated UI test yet. Nothing here signs, sends or fetches.
+UI: proposals render as cards under the answer (Approve / Dismiss / Undo).
+hide/show token, select chain and set_label are wired through src/agent/apply.js
+(tests/agentApply.test.mjs, guard G23). set_label is parsed from the raw
+pseudonymized answer; the placeholder is resolved to a real address only on
+this device, at execution. The demo has a recorded sample answer ("Try suggested
+actions") to show the flow without a model. In the demo, set_label is refused
+when no EVM activity is loaded (no Etherscan key): there is no counterparty to
+resolve. React clicks are checked by hand in the browser, not by an automated
+UI test. Nothing here signs, sends or fetches.

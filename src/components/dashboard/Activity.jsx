@@ -314,7 +314,7 @@ export default function Activity({ flow, selectedChains, selectedWallets, loadin
                       : <span className={`cd ${CHAIN_META[g.chainId]?.cd}`} style={{ width: 7, height: 7, borderRadius: '50%' }} />}
                     {CHAIN_META[g.chainId]?.name}{g.private ? ' · private' : ''}{counter ? <> · {out ? 'to' : 'from'}{' '}
                       <button className={`addr-link${addrFilter && counterLc === addrFilter ? ' on' : ''}`}
-                        title="Filter by this address" onClick={() => toggleAddr(counterLc)}>{counterName(g.chainId, counter)}</button></> : null}
+                        title="Filter by this address" onClick={() => toggleAddr(counterLc)}>{flow.prefs?.agentLabels?.[counterLc] || counterName(g.chainId, counter)}</button></> : null}
                   </div>
                 </div>
                 <div className="amt num">
