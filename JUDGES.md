@@ -20,6 +20,12 @@ list of what is **not** established, then prints the SHA-256 of that file.
 `node scripts/verify-evidence.mjs --check evidence/run-<date>.json` tells you whether
 your checkout still matches a recorded run.
 
+Recorded run in the repo: [`evidence/run-2026-11-14.json`](evidence/run-2026-11-14.json),
+commit `fbe6e24`, clean tree, 21/21 claims, 140/140 tests, canonical SHA-256
+`174be696ecec430eef8476a67b6af3c836afe5dde4c01fdedfdbda4921c11f62`.
+Negative control: rename or delete any test the manifest names and the run fails with
+`missing: <test name>` and exit code 1.
+
 What we do **not** claim is in [LIMITS.md](LIMITS.md).
 
 Plain tests only: `npm run test:offline`. That is 140 tests, about 11 seconds. `npm test` additionally runs the `live:` tests
