@@ -3,7 +3,7 @@
 // attestation, E2EE chat, client.verifyResponse(), then exportReceipt().
 // After this, tests/receipt.test.mjs verifies the fixture offline forever.
 //
-//   node spike/capture-receipt.mjs [model]
+//   node spike/capture-receipt.mjs [model] [folder]   e.g. … qwen/qwen3-30b nearai-receipt-2
 // Key: NEARAI_API_KEY from the environment or .env (gitignored). Never printed or saved.
 import fs from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -21,7 +21,12 @@ const key = process.env.NEARAI_API_KEY || (() => {
 if (!key) { console.error('NEARAI_API_KEY not set'); process.exit(2); }
 
 const model = process.argv[2] || NEARAI_DEFAULT_MODEL;
-const dir = new URL('../fixtures/nearai-receipt/', import.meta.url);
+// Second arg: fixture folder name under fixtures/ (default nearai-receipt).
+// Refuses to overwrite an existing receipt: committed fixtures are evidence.
+const outName = process.argv[3] || 'nearai-receipt';
+if (!/^nearai-receipt[\w-]*$/.test(outName)) { console.error('folder must start with nearai-receipt'); process.exit(2); }
+const dir = new URL(`../fixtures/${outName}/`, import.meta.url);
+if (fs.existsSync(new URL('receipt.json', dir))) { console.error(`fixtures/${outName}/receipt.json exists; pick another folder`); process.exit(2); }
 fs.mkdirSync(dir, { recursive: true });
 
 // Real-looking identifiers that must NOT appear in what is sent (checked by the test).

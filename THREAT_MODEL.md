@@ -189,5 +189,5 @@ honest-but-curious.
 ## Known gaps
 
 - API keys are stored unencrypted in `localStorage`.
-- No automated E2E of a full keyed NEAR AI answer in CI; the live signer check
-  runs key-less.
+- The full keyed NEAR AI end-to-end runs nightly ([`nightly-nearai`](.github/workflows/nightly-nearai.yml)),
+  not on every push, and only when the repository has the `NEARAI_API_KEY` secret.

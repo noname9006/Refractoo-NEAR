@@ -96,3 +96,19 @@ test('live: the receipt signer is an attested NEAR AI enclave key right now (fre
   const swapped = await checkSignerLive({ ...bundle, signer: { ...bundle.signer, signingAddress: 'ab'.repeat(32) } });
   assert.equal(swapped.ok, false);
 });
+
+// SECOND real receipt (different model), if captured into fixtures/nearai-receipt-2/.
+// Same checks as the first, against that receipt's own signer: a second model
+// and a second key, so one odd fixture cannot carry the claim alone.
+const second = new URL('../fixtures/nearai-receipt-2/receipt.json', import.meta.url);
+test('second real receipt: a different model verifies offline; a flipped byte and a forged signature fail', { skip: !fs.existsSync(second) && 'not captured yet' }, async () => {
+  const b2 = JSON.parse(fs.readFileSync(second, 'utf8'));
+  assert.equal(b2.type, RECEIPT_TYPE);
+  assert.notEqual(b2.model, bundle.model, 'a second model, not a copy of the first');
+  const ok = await verifyReceiptBundle(b2, { pinnedSigner: b2.signer.signingAddress });
+  assert.equal(ok.ok, true, ok.signature.code);
+  assert.equal(ok.tamper.ok, false);
+  const s = b2.signature.signature;
+  const forged = await verifyReceiptBundle({ ...b2, signature: { ...b2.signature, signature: (s[0] === '0' ? '1' : '0') + s.slice(1) } });
+  assert.equal(forged.ok, false);
+});

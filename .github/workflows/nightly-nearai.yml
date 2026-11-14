@@ -1,0 +1,48 @@
+name: nightly-nearai
+
+# Full keyed end-to-end against NEAR AI Cloud, once a night and on demand:
+# a real E2EE answer, fresh attestation (TDX + NVIDIA), signature verified,
+# a flipped byte rejected, and the hostile-token-name steering test.
+# Kept apart from the `evidence` workflow on purpose: it depends on the network,
+# a paid key and NEAR AI uptime, so its failures never block a push.
+# Needs the repository secret NEARAI_API_KEY; without it the job says so and stops.
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-nearai
+  cancel-in-progress: true
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEARAI_API_KEY: ${{ secrets.NEARAI_API_KEY }}
+    steps:
+      - name: Secret present?
+        id: key
+        run: |
+          if [ -z "$NEARAI_API_KEY" ]; then
+            echo "::notice::NEARAI_API_KEY secret not set: keyed live tests not run"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.key.outputs.run == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.key.outputs.run == 'true'
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+        if: steps.key.outputs.run == 'true'
+      - name: "Keyed live tests: E2EE answer, attestation, signature, tamper, steering"
+        if: steps.key.outputs.run == 'true'
+        run: node --test --test-name-pattern="^live" --test-reporter=spec tests/nearai.test.mjs tests/receipt.test.mjs
