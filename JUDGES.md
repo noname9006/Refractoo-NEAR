@@ -21,8 +21,8 @@ list of what is **not** established, then prints the SHA-256 of that file.
 your checkout still matches a recorded run.
 
 Recorded run in the repo: [`evidence/run-2026-11-14.json`](evidence/run-2026-11-14.json),
-commit `28f1f17`, clean tree, 22/22 claims, 143/143 tests, canonical SHA-256
-`b2d34be2cbb2d1bd9edc0cbf330d3e2deee64b52e8b1e296112ebb4c6a9bcf25`.
+commit `5a4b957`, clean tree, 22/22 claims, 154/154 tests, canonical SHA-256
+`700c3ccc4a4b5cb8427551bb2bf0ecf90acb7076b483362501a8fe866839754a`.
 Negative control: rename or delete any test the manifest names and the run fails with
 `missing: <test name>` and exit code 1.
 
@@ -136,7 +136,7 @@ npm run verify:guards        # about 1 minute → evidence/guards-<date>.json
 | G17 | Untrusted token symbol cut to a plain charset | `cleanSymbol()` passes the raw string through ([`untrusted.js`](src/prompts/untrusted.js)) | `untrusted.test.mjs` "guardString: … plain short charset" | caught |
 | G18 | Intents sessions are memory-only | session also written to `localStorage` ([`confidentialIntents.js`](src/near/confidentialIntents.js)) | `confidentialBalances.test.mjs` "memory-only: …" | caught |
 
-**18/18 caught** on the recorded run ([`evidence/`](evidence)); the JSON lists every failing test per guard.
+**23/23 caught** on the recorded run ([`evidence/`](evidence)); the JSON lists every failing test per guard.
 
 ## See it in the browser (2 minutes)
 

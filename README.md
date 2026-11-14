@@ -347,7 +347,7 @@ The hackathon diff: [`pre-hackathon...main`](https://github.com/noname9006/Refra
 | Private-shard activity: invite-only history explained, never a second wallet prompt | [`historyNote.js`](src/near/historyNote.js) |
 | **Prompt-injection guard** for attacker-controlled chain text; the demo plants a hostile token to show it | [`src/prompts/untrusted.js`](src/prompts/untrusted.js) |
 | Demo mode for reviewers (live NEAR account, labelled sample private-shard data, planted prompt-injection token) | [`src/near/demoFixtures.js`](src/near/demoFixtures.js) |
-| **Evidence**: claim manifest, one-command evidence file, guard-removal matrix (18/18), two real NEAR AI receipts (two models) verified offline, **Save receipt** and the **`/verify`** page | [`evidence/`](evidence), [`scripts/`](scripts), [`fixtures/nearai-receipt/`](fixtures/nearai-receipt), [`receiptBundle.js`](src/near/receiptBundle.js), [`VerifyReceipt.jsx`](src/components/VerifyReceipt.jsx) |
+| **Evidence**: claim manifest, one-command evidence file, guard-removal matrix (23/23), two real NEAR AI receipts (two models) verified offline, agent actions (model proposes → user approves a hash-bound proposal → app executes, money-moving kinds denied), **Save receipt** and the **`/verify`** page | [`evidence/`](evidence), [`scripts/`](scripts), [`fixtures/nearai-receipt/`](fixtures/nearai-receipt), [`receiptBundle.js`](src/near/receiptBundle.js), [`VerifyReceipt.jsx`](src/components/VerifyReceipt.jsx) |
 | Tests, claim by claim in [JUDGES.md](JUDGES.md) | [`tests/`](tests) |
 
 ### Baseline (pre-hackathon work)
