@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { connectWallet, requestWalletAccounts, fetchClusterData } from '../data/public.js';
+import { connectWallet, requestWalletAccounts, fetchClusterCore, fetchClusterHistory } from '../data/public.js';
 import { enrichCluster } from '../data/enrich.js';
 import { fetchPrices, fetchPortfolioHistory } from '../data/prices.js';
 import { revokeApproval } from '../data/approvals.js';
@@ -108,7 +108,9 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
   //   1. cache-first paint — last-good balances + their prices, instantly;
   //   2. tier-1 live balances per chain as each chain resolves, priced as a set;
   //   3. the long-tail (tier-2) balances + a final reprice.
-  const enrichAndPrice = useCallback(async (clusterDataFresh) => {
+  // historyReady: optional promise of clusterDataFresh with the Etherscan tx
+  // history folded in (see fetchStaged) — enrichment starts without it.
+  const enrichAndPrice = useCallback(async (clusterDataFresh, historyReady = null) => {
     const addresses = Object.keys(clusterDataFresh);
     clusterDataRef.current = clusterDataFresh;
     setPricing(true);
@@ -127,9 +129,10 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
           const p = prev.find((x) => x.chainId === s.chainId);
           if (!p) return s;
           let next = s;
-          if (s.extrasDone === false) next = { ...next, aave: p.aave, defi: p.defi || [], approvals: p.approvals || [] };
-          // A failed approvals scan (rate limit) is "unknown", not "none".
-          else if (s.approvals == null) next = { ...next, approvals: p.approvals || [] };
+          if (s.extrasDone === false) next = { ...next, aave: p.aave, defi: p.defi || [] };
+          // Approvals land on their own (slow, Etherscan-paced) schedule. A
+          // failed scan (rate limit) is "unknown", not "none".
+          if (s.capsDone === false || s.approvals == null) next = { ...next, approvals: p.approvals || [] };
           // Until this chain's long tail is re-probed, keep last pass's tokens
           // that tier-1 didn't return, so holdings rows don't vanish and reappear.
           if (s.tailDone === false && p.balances?.length) {
@@ -143,13 +146,26 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
       }
       return out;
     };
+    // clusterDataRef, not clusterDataFresh: the tx history lands mid-pass and
+    // replaces it (commitHistory) — a later render must not roll that back.
+    let renderTimer = null;
+    let renderPending = null;
     const render = (raw) => {
+      clearTimeout(renderTimer);
+      renderTimer = null;
       const enriched = withCarry(raw);
       enrichedRef.current = enriched;
       setPortfolio(buildPortfolio({
-        clusterData: clusterDataFresh, enriched,
+        clusterData: clusterDataRef.current || clusterDataFresh, enriched,
         prices: pricesRef.current, shielded: shieldedRef.current, near: nearRef.current,
       }));
+    };
+    // Per-slot progress arrives in bursts (wallets × chains × 3 phases); each
+    // would rebuild the whole portfolio and re-render the dashboard. Coalesce
+    // them so the main thread stays responsive while data streams in.
+    const renderSoon = (raw) => {
+      renderPending = raw;
+      if (!renderTimer) renderTimer = setTimeout(() => render(renderPending), 150);
     };
 
     // Price the currently-known holdings and re-render. Calls are CHAINED
@@ -165,7 +181,7 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
       priceQueue = priceQueue.then(async () => {
         try {
           const prices = await fetchPrices(
-            holdingPriceTargets(clusterDataFresh, enriched, shieldedRef.current)
+            holdingPriceTargets(clusterDataRef.current || clusterDataFresh, enriched, shieldedRef.current)
           );
           pricesRef.current = new Map([...(pricesRef.current || []), ...prices]); // merge: a partial reprice must not drop known prices
           render(enriched);
@@ -193,19 +209,25 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
       // set as soon as it lands, then reprice once the long tail is in. ──
       const enriched = await enrichCluster(addresses, {
         clusterData: clusterDataFresh,
+        historyReady,
         onProgress: (en, phase) => {
+          if (phase === 'partial') { renderSoon(en); return; }
           render(en);
-          if (phase === 'tier1') price(en);
+          if (phase === 'tier1' || phase === 'tier2') price(en);
+          // Each card stops showing "updating…" as soon as ITS data is final,
+          // not when the slowest phase (the approvals scan) finishes.
+          else if (phase === 'tail') price(en).then(() => patchRefreshing({ holdings: false }));
+          else if (phase === 'defi') patchRefreshing({ defi: false });
         },
       });
-      // Enrichment fully resolved: DeFi positions and approvals are now final.
-      // Holdings keep spinning until the reprice below lands.
+      // Enrichment fully resolved: approvals are now final too.
       patchRefreshing({ defi: false, caps: false });
       await price(enriched);
       patchRefreshing({ holdings: false });
     } catch (e) {
       console.warn('[flow] enrich/price failed', e);
     } finally {
+      clearTimeout(renderTimer);
       setPricing(false);
       // Safety net: clear any flag THIS pass owns that is still set (e.g. because
       // enrich/price threw). Deliberately not NO_REFRESH: confidential-token
@@ -281,6 +303,69 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
     });
   }, []);
 
+  // Two-step read of the cluster's raw public data, so nothing waits on the
+  // rate-limited Etherscan history:
+  //   quick        — RPC-only data (native balances, tx counts), with the tx
+  //                  history and any failed chain carried over from `prev`;
+  //   historyReady — promise of `quick` with the fresh history folded in.
+  // Never rejects past `quick`: a history failure resolves to `quick` itself.
+  const fetchStaged = useCallback(async (addresses, prev = {}) => {
+    const core = await fetchClusterCore(addresses, {});
+    const quick = {};
+    for (const a of addresses) {
+      const f = core[a] || { address: a, chains: [] };
+      const p = prev[a];
+      quick[a] = {
+        ...f,
+        chains: (f.chains || []).map((fc) => {
+          const pc = p?.chains?.find((c) => c.chainId === fc.chainId && !c.error);
+          // A chain that errored falls back to its last good data so a transient
+          // RPC failure doesn't blank it.
+          if (fc.error) return pc ? { ...pc, stale: true } : fc;
+          return pc ? { ...fc, recentTxs: pc.recentTxs || [], tokenTransfers: pc.tokenTransfers || [] } : fc;
+        }),
+      };
+    }
+    const historyReady = fetchClusterHistory(addresses, {}).then((hist) => {
+      const full = {};
+      for (const a of addresses) {
+        full[a] = {
+          ...quick[a],
+          chains: quick[a].chains.map((c) => {
+            const h = hist[a]?.[c.chainId];
+            if (c.error || !h) return c;
+            // null = this list could not be read; keep the last-known one.
+            return { ...c, recentTxs: h.recentTxs ?? c.recentTxs, tokenTransfers: h.tokenTransfers ?? c.tokenTransfers };
+          }),
+        };
+      }
+      return full;
+    }).catch(() => quick);
+    return { quick, historyReady };
+  }, []);
+
+  // The tx history landed: publish it (Recent activity, facts, cache). Dropped
+  // when a newer load/refresh has started since — its data supersedes this.
+  const clusterGen = useRef(0);
+  const commitHistory = useCallback((gen, full) => {
+    if (gen !== clusterGen.current) return;
+    clusterDataRef.current = full;
+    setClusterData(full);
+    setFacts(buildClusterFacts(full, shieldedRef.current));
+    patchRefreshing({ activity: false });
+    // Cache only chains that succeeded so the fallback pool stays clean.
+    for (const [a, d] of Object.entries(full)) {
+      const good = (d.chains || []).filter((c) => !c.error && !c.stale);
+      if (good.length) setCachedData(a, { ...d, chains: good });
+    }
+    if (enrichedRef.current) {
+      setPortfolio(buildPortfolio({
+        clusterData: full, enriched: enrichedRef.current,
+        prices: pricesRef.current, shielded: shieldedRef.current, near: nearRef.current,
+      }));
+    }
+  }, [patchRefreshing]);
+
   // --- stage work (called by effects on stage entry) ---
 
   const loadCluster = useCallback(async () => {
@@ -310,41 +395,20 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
         // chip would be redundant.
         patchRefreshing({ activity: true, holdings: true, defi: true, caps: true });
       }
-      // background refresh from chain.
-      const fresh = await fetchClusterData(addresses, {});
-
-      // For chains that errored in the fresh fetch, fall back to the last cached
-      // good data for that chain so transient RPC failures don't blank whole chains.
-      const merged = {};
-      for (const a of addresses) {
-        const f = fresh[a] || { address: a, chains: [] };
-        const c = cached[a];
-        merged[a] = {
-          ...f,
-          chains: (f.chains || []).map((fc) => {
-            if (!fc.error) return fc;
-            const fallback = c?.chains?.find((cc) => cc.chainId === fc.chainId && !cc.error);
-            return fallback ? { ...fallback, stale: true } : fc;
-          }),
-        };
-      }
+      // Background refresh from chain. RPC data first: the dashboard paints and
+      // enrichment starts from it; the tx history follows on its own schedule.
+      const gen = ++clusterGen.current;
+      const { quick: merged, historyReady } = await fetchStaged(addresses, cached);
 
       setClusterData(merged);
       setFacts(buildClusterFacts(merged, shieldedRef.current));
-      // Recent activity is driven by the raw chain data, which is now final.
-      patchRefreshing({ activity: false });
-
-      // Cache only chains that succeeded so the fallback pool stays clean.
-      for (const a of addresses) {
-        const f = fresh[a];
-        if (!f) continue;
-        const goodChains = (f.chains || []).filter((c) => !c.error);
-        if (goodChains.length > 0) setCachedData(a, { ...f, chains: goodChains });
-      }
+      // Recent activity is driven by the tx history, which is still loading.
+      patchRefreshing({ activity: true });
+      historyReady.then((full) => commitHistory(gen, full));
 
       // kick off enrichment + pricing in the background (don't block the flow)
       liveEnrichStarted.current = true;
-      enrichAndPrice(merged);
+      enrichAndPrice(merged, historyReady);
       // Confidential-token discovery runs alongside it. Read-only view calls, so
       // it needs no wallet signature and never blocks the dashboard.
       discoverShieldedRef.current?.(addresses);
@@ -361,7 +425,7 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
     } finally {
       loadingCluster.current = false;
     }
-  }, [enrichAndPrice, paintFromCache, patchRefreshing]);
+  }, [enrichAndPrice, paintFromCache, patchRefreshing, fetchStaged, commitHistory]);
 
   const loadModel = useCallback(async () => {
     if (loadingModel.current) return;
@@ -833,13 +897,14 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
     if (nearAccounts.length) loadNearAccounts(nearAccounts);
     if (!addresses.length) return;
     patchRefreshing({ activity: true, holdings: true, defi: true, caps: true });
-    const fresh = await fetchClusterData(addresses, {});
-    setClusterData(fresh);
-    setFacts(buildClusterFacts(fresh, shieldedRef.current));
-    patchRefreshing({ activity: false }); // txs are final
-    for (const a of addresses) if (fresh[a] && !fresh[a].error) setCachedData(a, fresh[a]);
+    const gen = ++clusterGen.current;
+    const { quick, historyReady } = await fetchStaged(addresses, clusterDataRef.current || {});
+    setClusterData(quick);
+    setFacts(buildClusterFacts(quick, shieldedRef.current));
+    const landed = historyReady.then((full) => commitHistory(gen, full)); // txs final -> activity chip off
     discoverShieldedRef.current?.(addresses);
-    await enrichAndPrice(fresh);
+    await enrichAndPrice(quick, historyReady);
+    await landed;
   };
 
   // Refresh button: same as the auto-refresh, but flags itself so the Total

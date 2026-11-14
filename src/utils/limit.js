@@ -45,7 +45,46 @@ export function rpcLimitFor(chainId, custom = false) {
   return lim;
 }
 
-// Etherscan V2 free tier is ~5 req/sec against ONE host with ONE key shared by
-// every chain. Firing all chains' tx/token/log queries at once returns "NOTOK"
-// (rate limited). Funnel them through a tight limiter so they don't trip it.
-export const etherscanLimit = createLimiter(2);
+// Etherscan V2 free tier allows 3 req/sec against ONE host with ONE key shared
+// by every chain ("Max calls per sec rate limit reached (3/sec)"). A concurrency
+// cap alone doesn't hold that — two fast responses in a row still burst — so
+// requests are also PACED: at most ETHERSCAN_MAX starts per ETHERSCAN_WINDOW_MS.
+const ETHERSCAN_MAX = 3;
+const ETHERSCAN_WINDOW_MS = 1250; // 2.4 req/sec, headroom for network jitter
+// Responses routinely take 1–9 s, so the in-flight cap is kept wide: the pacing
+// below is what holds the rate, and a narrow cap just idles the queue.
+const _etherscanQueue = createLimiter(6);
+const _etherscanStarts = []; // start times of the last ETHERSCAN_MAX requests
+export const etherscanLimit = (fn) => _etherscanQueue(async () => {
+  // Sliding window, re-checked against the clock after every sleep. A fixed
+  // per-request delay breaks in a background tab, where timers are clamped to
+  // ≥1 s and fire together: it either bursts past the limit or crawls.
+  for (;;) {
+    const now = Date.now();
+    while (_etherscanStarts.length && now - _etherscanStarts[0] >= ETHERSCAN_WINDOW_MS) _etherscanStarts.shift();
+    if (_etherscanStarts.length < ETHERSCAN_MAX) break;
+    await new Promise((r) => setTimeout(r, _etherscanStarts[0] + ETHERSCAN_WINDOW_MS - now));
+  }
+  _etherscanStarts.push(Date.now());
+  return fn();
+});
+
+// Chains this key can't query for the rest of the session: not on the free plan
+// (Optimism, Base, BNB, …), not served by the V2 API at all (Manta, zkSync, …),
+// or out of daily quota. Every wallet × chain × endpoint would otherwise spend a
+// paced slot (and a console line) re-learning the same refusal each refresh.
+// Callers check BEFORE queueing and again INSIDE the limiter — requests queued
+// before the first refusal came back must not fire either.
+const ETHERSCAN_REFUSAL = /not supported for this chain|upgrade your api plan|unsupported chainid|free api limit reached/i;
+const _etherscanBlocked = new Set();
+export const etherscanBlocked = (chainId) => _etherscanBlocked.has(chainId);
+// Returns true when `message` is a refusal that blocks the chain for the session.
+export function noteEtherscanRefusal(chainId, chainName, message) {
+  const msg = String(message || '');
+  if (!ETHERSCAN_REFUSAL.test(msg)) return false;
+  if (!_etherscanBlocked.has(chainId)) {
+    _etherscanBlocked.add(chainId);
+    console.info(`[etherscan] ${chainName || chainId}: skipped for this session — ${msg.split('.')[0]}`);
+  }
+  return true;
+}
