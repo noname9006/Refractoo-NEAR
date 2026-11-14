@@ -147,10 +147,15 @@
       ]
     },
     {
-      "claim": "A REAL NEAR AI answer (captured fixture) verifies offline against the pinned enclave signer; one flipped byte, a swapped signer or a forged signature fails; the prompt it answered carried no real identifier",
+      "claim": "Two REAL NEAR AI answers from two models and two enclave keys (GLM-5.3 Flash, Qwen3.8-27B) verify offline against the pinned enclave signer; one flipped byte, a swapped signer or a forged signature fails; the prompt it answered carried no real identifier",
       "id": "R1",
       "ok": true,
       "tests": [
+        {
+          "matched": 1,
+          "name": "second real receipt: a different model verifies offline; a flipped byte and a forged signature fail",
+          "status": "pass"
+        },
         {
           "matched": 1,
           "name": "negative fixture: the committed forged-signature receipt is rejected, the hashes still match",
@@ -436,7 +441,7 @@
     }
   ],
   "command": "node --test --test-skip-pattern=^live tests/*.test.mjs",
-  "commit": "bd209c0b9d6724cee16315c1aa777e7113095f9b",
+  "commit": "28f1f17d6b9ba117a9fd59d047d44de30b7498db",
   "complete": {
     "claimsChecked": 22,
     "claimsExpected": 22,
@@ -445,7 +450,9 @@
   "dirty": false,
   "dirtyFiles": [],
   "inputs": {
-    "evidence/manifest.json": "sha256:2e90117ab7a5fedcc1b9859509f27233460ff3ff2fbb8a9ba18b3cfa0809289d",
+    "evidence/manifest.json": "sha256:6a5bc94fafcdd69eac2da5af84b3462f946cffe1368dbd17ac28339925a68472",
+    "fixtures/nearai-receipt-2/receipt.json": "sha256:cad9170139c880d5aa9443ff77c355567c5479db38e0c4497c0df4f489f2c954",
+    "fixtures/nearai-receipt-2/request-plaintext.json": "sha256:dd6b3e801f17f0fba2d0cae451885f1e327e5f4ecd562a9a11899288352ed747",
     "fixtures/nearai-receipt-forged/receipt.json": "sha256:3237ef5ec9d7a829ba2f7bde70c9a40a0e65db36d7f63fdf0fe21cfdfbe9829e",
     "fixtures/nearai-receipt/attestation.json": "sha256:a396ea7bd914290057a3710e39bace82717218c05f6fe8bf38c74a4562e70a86",
     "fixtures/nearai-receipt/receipt.json": "sha256:24841d549dcea54639c84279e462a1011c8f9eb0bcf003c0a7f58ea835667e22",
@@ -482,7 +489,7 @@
     "tests/outbound.test.mjs": "sha256:cd49c4dfa83e3ed34b0cce1c0dc99c8f08f3958921a40785975f05009c5a8021",
     "tests/pseudonymize.test.mjs": "sha256:1992ea4b4405e9d4086438d2b078fcecfe668855ebbc9ab63010c948ac45621e",
     "tests/reasoningProfiles.test.mjs": "sha256:3610ec34f344eadba6cca81cd24bb1bb558c4f1d95b0cd72c9cee64d15e1f27d",
-    "tests/receipt.test.mjs": "sha256:f37e8d169762d53c14848da549c3e2ebf6a74b1dab982b77a00c6151505ea38b",
+    "tests/receipt.test.mjs": "sha256:30998b8b5156d74e12b728974270f41bdab0d51ae60f46de41b1992f84615257",
     "tests/tamper.test.mjs": "sha256:87c9610709725558d242bd5a45e944973e8f81c1174d00b757460dd38d91946f",
     "tests/trustBoundaries.test.mjs": "sha256:a5b01390d7d1a6bee89d58af429724a3548048030abdad09b0b7313ca33cfc58",
     "tests/untrusted.test.mjs": "sha256:dcc214009c64880197ec6099b10b8a2b22d2428282e1b48cac08754205a3c0ea",
@@ -498,13 +505,13 @@
     "Session tokens live in memory only: by code inspection, not by a test."
   ],
   "platform": "win32",
-  "ranAt": "2026-11-14T22:51:09.723Z",
+  "ranAt": "2026-11-14T22:56:57.367Z",
   "suite": {
     "exitCode": 0,
     "fail": 0,
-    "pass": 142,
+    "pass": 143,
     "skipped": 0,
-    "tests": 142
+    "tests": 143
   },
   "version": 1
 }

@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "commit": "bd209c0b9d6724cee16315c1aa777e7113095f9b",
-  "ranAt": "2026-11-14T22:51:40.589Z",
+  "commit": "28f1f17d6b9ba117a9fd59d047d44de30b7498db",
+  "ranAt": "2026-11-14T22:57:28.231Z",
   "node": "v22.17.1",
   "guards": [
     {
@@ -19,7 +19,8 @@
       "failedTests": [
         "real receipt: NEAR AI enclave signature over the exact bytes verifies offline, signer pinned",
         "real receipt: one flipped byte of the answer or the request is rejected",
-        "negative fixture: the committed forged-signature receipt is rejected, the hashes still match"
+        "negative fixture: the committed forged-signature receipt is rejected, the hashes still match",
+        "second real receipt: a different model verifies offline; a flipped byte and a forged signature fail"
       ]
     },
     {
