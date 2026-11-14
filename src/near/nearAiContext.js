@@ -455,7 +455,7 @@ export class NearAiContext {
   // reasoningBudget: tokens the model may spend thinking when `thinking` is on
   // (0 = unlimited, undefined = DEFAULT_REASONING_BUDGET). Read per request so a
   // Settings change applies without reconnecting.
-  async analyze(messages, onStream, thinkParserFactory, { thinking = true, reasoningBudget } = {}) {
+  async analyze(messages, onStream, thinkParserFactory, { thinking = true, reasoningBudget, reasoningEffort } = {}) {
     if (!this.modelLoaded || !this.client) throw new Error('NEAR AI model not connected');
     const maxTokens = outputTokenLimit(thinking, reasoningBudget);
     const client = this.client; // stable for this request even if unload() runs
@@ -494,7 +494,7 @@ export class NearAiContext {
     try {
       // Same builder as previewRequest(): the review dialog shows this body.
       const stream = await client.chat.completions.create(
-        nearAiRequestBody(model, messages, { thinking, maxTokens }),
+        nearAiRequestBody(model, messages, { thinking, maxTokens, effort: reasoningEffort, reasoningBudget }),
         { signal: this._abort.signal }
       );
       for await (const chunk of stream) {
@@ -569,9 +569,9 @@ export class NearAiContext {
 
   // The exact request analyze() would send for these args (plaintext, before
   // the SDK encrypts it to the enclave). Nothing is sent.
-  previewRequest(messages, { thinking = true, reasoningBudget } = {}) {
+  previewRequest(messages, { thinking = true, reasoningBudget, reasoningEffort } = {}) {
     const model = this.config?.model || '';
-    return { body: nearAiRequestBody(model, messages, { thinking, maxTokens: outputTokenLimit(thinking, reasoningBudget) }) };
+    return { body: nearAiRequestBody(model, messages, { thinking, maxTokens: outputTokenLimit(thinking, reasoningBudget), effort: reasoningEffort, reasoningBudget }) };
   }
 
   stop() {

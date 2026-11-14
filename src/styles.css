@@ -736,6 +736,8 @@ a.tx .ic,.tx a.ic{cursor:pointer}
 .think-btn:hover{color:var(--ink-2);border-color:var(--ink-3)}
 .think-btn svg{width:15px;height:15px}
 .think-btn.on{background:var(--accent-wash);border-color:var(--accent);color:var(--accent)}
+.think-btn:disabled{cursor:default;opacity:.75}
+.effort-sel{height:36px;flex:none;width:auto;padding:0 8px;border-radius:10px;font-size:12px;font-weight:550;color:var(--ink-2);background:var(--surface)}
 .send{width:36px;height:36px;border-radius:10px;flex:none;display:grid;place-items:center;background:var(--accent);color:#fff;transition:background .14s,opacity .14s}
 .send:hover{background:var(--accent-press)} .send:disabled{opacity:.4;cursor:default}
 .send svg{width:16px;height:16px}

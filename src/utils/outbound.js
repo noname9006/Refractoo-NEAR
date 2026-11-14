@@ -1,3 +1,5 @@
+import { reasoningParams } from '../near/reasoningProfiles.js';
+
 // What an off-device tier actually sends — one builder per backend, used BOTH
 // by the backend to make the request and by the "review before sending"
 // preview, so the preview cannot drift from the wire.
@@ -10,14 +12,16 @@
 //              header and is never shown.
 
 // maxTokens: from nearAiContext.outputTokenLimit (null = no cap).
-export function nearAiRequestBody(model, messages, { thinking = true, maxTokens = null } = {}) {
+// effort / reasoningBudget: the user's reasoning settings (see reasoningProfiles).
+export function nearAiRequestBody(model, messages, { thinking = true, maxTokens = null, effort = '', reasoningBudget } = {}) {
   return {
     model, messages, stream: true, temperature: 0.7, top_p: 0.8,
     // Reasoning models otherwise think by default; with the toggle off the
     // trace is hidden anyway, and on a full wallet-facts prompt Qwen 3.8
     // spent the entire 4096-token budget thinking (2+ min, no answer).
-    // vLLM honours this chat-template switch; E2EE leaves it intact.
-    chat_template_kwargs: { enable_thinking: !!thinking },
+    // The switch (and the effort level) is a different parameter per model —
+    // reasoningParams picks the one this model honours. E2EE leaves it intact.
+    ...reasoningParams(model, { thinking, effort, budget: reasoningBudget }),
     // Omitted (unlimited) → vLLM allows up to the rest of the context window.
     ...(maxTokens != null ? { max_tokens: maxTokens } : {}),
   };

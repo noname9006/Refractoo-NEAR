@@ -13,7 +13,8 @@ import { PrivacyBadge } from './PrivacyBadge.jsx';
 import TierPanel from './TierPanel.jsx';
 import ModelSwitcher from './ModelSwitcher.jsx';
 import GatewayCheck from './GatewayCheck.jsx';
-import { verificationChecks, hasTamperEvidence, tamperTest, tamperedReceipt } from '../../near/nearAiContext.js';
+import { verificationChecks, hasTamperEvidence, tamperTest, tamperedReceipt, NEARAI_DEFAULT_MODEL } from '../../near/nearAiContext.js';
+import { reasoningProfile } from '../../near/reasoningProfiles.js';
 import { pseudonymizeForRemote, precisionFor } from '../../utils/pseudonymize.js';
 import { nearAccountFacts } from '../../near/nearAccount.js';
 import { describeOutbound } from '../../utils/outbound.js';
@@ -182,6 +183,15 @@ export default function Assistant({ ctx, flow, onOpenSettings }) {
   const tier = m.status === 'idle' ? (flow.prefs.inference || 'nearai') : (m.mode || 'local');
   const isExternal = tier === 'external';
   const isNearAi = tier === 'nearai';
+  // NEAR AI reasoning controls differ per model (see near/reasoningProfiles.js):
+  // some cannot be switched off (Think is then locked on), some take an effort
+  // level. A saved effort the current model does not accept falls back to default.
+  const rProfile = isNearAi ? reasoningProfile(flow.prefs.nearAi?.model || NEARAI_DEFAULT_MODEL) : null;
+  const thinkLocked = !!rProfile && !rProfile.canDisable;
+  const thinkOn = thinking || thinkLocked;
+  const efforts = rProfile?.efforts || [];
+  const effort = efforts.includes(flow.prefs.nearAi?.reasoningEffort) ? flow.prefs.nearAi.reasoningEffort : '';
+  const chooseEffort = (e) => flow.updatePref({ nearAi: { ...(flow.prefs.nearAi || {}), reasoningEffort: e } });
   const statusDot = modelReady ? 'var(--pos)' : modelError ? 'var(--neg)' : 'var(--warn)';
   // The model name itself is the ModelSwitcher button next to this text.
   const statusText = modelReady
@@ -381,7 +391,7 @@ export default function Assistant({ ctx, flow, onOpenSettings }) {
 
     // Review step (on by default for both off-device tiers): show the exact
     // request — the same object the backend sends — and send only on "Send".
-    const analyzeOpts = { thinking, reasoningBudget: flow.prefs.nearAi?.reasoningBudget };
+    const analyzeOpts = { thinking: thinkOn, reasoningBudget: flow.prefs.nearAi?.reasoningBudget, reasoningEffort: effort };
     if (remote && flow.prefs.reviewRemote !== false) {
       const request = ctx.previewRequest?.(messages, analyzeOpts);
       if (request) {
@@ -420,7 +430,7 @@ export default function Assistant({ ctx, flow, onOpenSettings }) {
       liveTrimmed: false,
     });
     try {
-      console.info(`[assistant] Sending prompt (${messages.length} messages) via ${flow.model.mode || 'local'} backend… thinking=${thinking}${redacted?.labels != null ? ` · pseudonymized (${redacted.labels} identifiers)` : ''}`);
+      console.info(`[assistant] Sending prompt (${messages.length} messages) via ${flow.model.mode || 'local'} backend… thinking=${thinkOn}${effort ? ` effort=${effort}` : ''}${redacted?.labels != null ? ` · pseudonymized (${redacted.labels} identifiers)` : ''}`);
       const res = await ctx.analyze(messages, (rawVisible, rawThink, isThinking, _tps, rawPreview = []) => {
         const visible = restore(rawVisible);
         const think = restore(rawThink);
@@ -616,11 +626,20 @@ export default function Assistant({ ctx, flow, onOpenSettings }) {
                       onChange={(e) => { setInput(e.target.value); autoGrow(e.target); }}
                       onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} />
                     {isQwen && (
-                      <button className={`think-btn${thinking ? ' on' : ''}`}
-                        title={thinking ? 'Reasoning on — click to disable thinking' : 'Reasoning off — click to enable thinking'}
-                        aria-pressed={thinking} onClick={toggleThinking}>
+                      <button className={`think-btn${thinkOn ? ' on' : ''}`} disabled={thinkLocked}
+                        title={thinkLocked ? 'This model always reasons — it has no off switch'
+                          : thinkOn ? 'Reasoning on — click to disable thinking' : 'Reasoning off — click to enable thinking'}
+                        aria-pressed={thinkOn} onClick={toggleThinking}>
                         <ISpark /> Think
                       </button>
+                    )}
+                    {thinkOn && efforts.length > 0 && (
+                      <select className="effort-sel" value={effort} aria-label="Reasoning effort"
+                        title="Reasoning effort — how much this model thinks before answering"
+                        onChange={(e) => chooseEffort(e.target.value)}>
+                        <option value="">Effort: default</option>
+                        {efforts.map((e) => <option key={e} value={e}>Effort: {e}</option>)}
+                      </select>
                     )}
                     <button className={`mic${talking ? ' live' : ''}`} title={voiceOn ? 'Hold to talk' : 'Enable voice in setup to use the mic'}
                       disabled={!voiceOn || running}
