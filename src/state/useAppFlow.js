@@ -127,7 +127,7 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
           const p = prev.find((x) => x.chainId === s.chainId);
           if (!p) return s;
           let next = s;
-          if (s.extrasDone === false) next = { ...next, aave: p.aave, approvals: p.approvals || [] };
+          if (s.extrasDone === false) next = { ...next, aave: p.aave, defi: p.defi || [], approvals: p.approvals || [] };
           // A failed approvals scan (rate limit) is "unknown", not "none".
           else if (s.approvals == null) next = { ...next, approvals: p.approvals || [] };
           // Until this chain's long tail is re-probed, keep last pass's tokens
@@ -721,14 +721,24 @@ export function useAppFlow(ctx, { initialStage = 'welcome' } = {}) {
       let cl = persistRename(DEMO_ADDRESS, 'Demo · vitalik.eth');
       // Plus a public NEAR account (live, read-only). Skipped if the visitor
       // already added it themselves — the demo label would purge it on reload.
-      const { DEMO_NEAR_ACCOUNT } = await import('../near/demoFixtures.js');
-      const nearAdded = !cl.nearAccounts.includes(DEMO_NEAR_ACCOUNT);
-      if (nearAdded) {
-        addNearAccount(DEMO_NEAR_ACCOUNT);
-        cl = persistRename(DEMO_NEAR_ACCOUNT, `Demo · ${DEMO_NEAR_ACCOUNT}`);
+      const { DEMO_NEAR_ACCOUNT, DEMO_NEAR_DEFI_ACCOUNT, DEMO_EVM_DEFI_WALLETS } = await import('../near/demoFixtures.js');
+      // Extra demo EVM wallets that each carry a protocol position (Aave, Morpho,
+      // SparkLend, Uniswap v3). Skipped if the visitor already added the address
+      // themselves — the demo label would purge it on reload.
+      for (const w of DEMO_EVM_DEFI_WALLETS) {
+        if (cl.addresses.some((x) => x.toLowerCase() === w.address.toLowerCase())) continue;
+        addWallet(w.address);
+        cl = persistRename(w.address, `Demo · ${w.label}`);
+      }
+      const nearNew = [];
+      for (const id of [DEMO_NEAR_ACCOUNT, DEMO_NEAR_DEFI_ACCOUNT]) {
+        if (cl.nearAccounts.includes(id)) continue;
+        addNearAccount(id);
+        cl = persistRename(id, `Demo · ${id}`);
+        nearNew.push(id);
       }
       setCluster({ ...cl });
-      if (nearAdded) loadNearAccounts([DEMO_NEAR_ACCOUNT]);
+      if (nearNew.length) loadNearAccounts(nearNew);
       await loadCluster();
     } catch (e) {
       setError(String(e.message || e));
