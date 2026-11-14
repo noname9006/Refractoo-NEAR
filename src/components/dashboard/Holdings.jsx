@@ -35,7 +35,7 @@ function SkeletonRows({ count = 3 }) {
   ));
 }
 
-export default function Holdings({ view, loading, updating, smallUsd = DEFAULT_SMALL_USD, onSmallUsdChange }) {
+export default function Holdings({ view, hiddenTokens, loading, updating, smallUsd = DEFAULT_SMALL_USD, onSmallUsdChange }) {
   // Draft text so typing "0." etc. isn't clobbered; committed on blur / Enter.
   const [draft, setDraft] = useState(null);
   const commitSmall = (v) => {
@@ -58,7 +58,8 @@ export default function Holdings({ view, loading, updating, smallUsd = DEFAULT_S
   const privateRows = allShielded
     .filter((s) => s.stack === 'near-intents' && s.amount != null)
     .map((s) => ({ ...s, chainId: 'near', name: symbolName(s.symbol), private: true }));
-  const holdings = [...(view?.holdings || []), ...privateRows].sort((a, b) => (b.usd ?? -1) - (a.usd ?? -1));
+  const agentHidden = new Set(hiddenTokens || []);
+  const holdings = [...(view?.holdings || []), ...privateRows].filter((h) => !agentHidden.has(h.symbol)).sort((a, b) => (b.usd ?? -1) - (a.usd ?? -1));
   const priceSub = (h) => `${amount(h.amount)} ${h.symbol} · ${h.private ? originChainName(h.originChain) : CHAIN_META[h.chainId]?.name || ''}`;
 
   // Hidden by default: dust (priced under the user's small-balance threshold)

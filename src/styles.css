@@ -1305,3 +1305,10 @@ mark.ph{background:var(--accent-wash-2);color:var(--ink);border-radius:3px;paddi
 .verify-livecheck p.ok{color:var(--ink)}
 .verify-livecheck p.bad{color:var(--neg)}
 .verify-livecheck .btn{align-self:flex-start}
+
+/* Agent action proposals (src/agent/actions.js) */
+.agent-actions { margin-top: 8px; border: 1px solid var(--line, #e3e6ea); border-radius: 10px; padding: 8px 10px; display: grid; gap: 6px; font-size: 13px; }
+.agent-actions-head { font-size: 12px; opacity: .7; }
+.agent-action { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.agent-action-text { flex: 1 1 auto; min-width: 0; }
+.agent-action.rejected { font-size: 12px; }

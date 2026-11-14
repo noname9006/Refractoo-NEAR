@@ -58,5 +58,6 @@ The model can only *propose* local view changes (hide/show token, select chain,
 label a placeholder). Each proposal is checked against a closed allowlist,
 money-moving kinds are denied, and execution needs a user approval bound to the
 sha256 of the exact proposal. Tests: `tests/agentActions.test.mjs`; guards G19–G22.
-Not yet: the approval UI in the Dashboard is not wired up — the core is tested
-offline only. Nothing here signs, sends or fetches.
+UI: proposals render as cards under the answer (Approve / Dismiss / Undo);
+hide/show token and select chain are wired. set_label is allowlisted but not
+wired in the UI. The click path has no automated UI test yet. Nothing here signs, sends or fetches.

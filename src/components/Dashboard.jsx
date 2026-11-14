@@ -1,7 +1,7 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { filterPortfolioView, chainTotals } from '../analytics/portfolio.js';
 import { getLayout, setLayout, saveDeselected } from '../storage/local.js';
-import { VIEW_CHAIN_IDS } from '../config/networks.js';
+import { VIEW_CHAIN_IDS, CHAIN_META } from '../config/networks.js';
 import TopBar from './dashboard/TopBar.jsx';
 import Toolbar from './dashboard/Toolbar.jsx';
 import PortfolioSummary from './dashboard/PortfolioSummary.jsx';
@@ -16,6 +16,7 @@ import DetailsDrawer from './DetailsDrawer.jsx';
 import ConnectOverlay from './ConnectOverlay.jsx';
 import NavPanel from './dashboard/NavPanel.jsx';
 import Settings from './Settings.jsx';
+import { execute } from '../agent/actions.js';
 
 // Chains available in the active network profile (mainnet or testnet).
 const ALL_CHAINS = VIEW_CHAIN_IDS; // EVM chains + NEAR (read by account name)
@@ -107,6 +108,26 @@ export default function Dashboard({ ctx, flow }) {
     next.has(id) ? next.delete(id) : next.add(id);
     applyChains(next);
   };
+  // Agent actions: the Assistant hands over a proposal plus the user's
+  // hash-bound approval; execute() re-validates and refuses anything else.
+  const onAgentAction = (p, approval) => {
+    const chainId = (name) => ALL_CHAINS.find((id) => String(CHAIN_META[id]?.name || id).toLowerCase().split(' ')[0] === (name === 'bsc' ? 'bnb' : name));
+    const s0 = { hiddenTokens: flow.prefs.hiddenTokens || [], chain: null };
+    let r;
+    try { r = execute(s0, p, approval); } catch (e) { return { error: e.code || 'refused' }; }
+    if (p.kind === 'select_chain') {
+      const id = chainId(p.args.chain);
+      if (id == null) return { error: 'chain_not_in_view' };
+      const before = new Set(selectedChains);
+      applyChains(new Set([id]));
+      return { undo: () => applyChains(before) };
+    }
+    if (p.kind === 'hide_token' || p.kind === 'show_token') {
+      flow.updatePref({ hiddenTokens: r.state.hiddenTokens });
+      return { undo: () => flow.updatePref({ hiddenTokens: r.undo.hiddenTokens }) };
+    }
+    return { error: 'not_wired' };
+  };
   // "All chains" toggles: select everything, or — when everything is already
   // selected — deselect all (the dashboard then shows nothing).
   const toggleAll = () =>
@@ -168,7 +189,7 @@ export default function Dashboard({ ctx, flow }) {
   const upd = (k) => !loading && !!rf[k];
 
   const cardEls = {
-    holdings: <Holdings view={view} loading={loading} updating={upd('holdings')} smallUsd={flow.prefs.smallBalanceUsd} onSmallUsdChange={(n) => flow.updatePref({ smallBalanceUsd: n })} />,
+    holdings: <Holdings view={view} hiddenTokens={flow.prefs.hiddenTokens} loading={loading} updating={upd('holdings')} smallUsd={flow.prefs.smallBalanceUsd} onSmallUsdChange={(n) => flow.updatePref({ smallBalanceUsd: n })} />,
     shielded: <Shielded flow={flow} view={view} updating={upd('shielded')} />,
     defi: <DefiPositions view={view} loading={loading} updating={upd('defi')} />,
     activity: <Activity flow={flow} selectedChains={selectedChains} selectedWallets={deferredWallets} loading={loading} updating={upd('activity')} />,
@@ -188,7 +209,7 @@ export default function Dashboard({ ctx, flow }) {
           selectedWallets={selectedWallets} onToggleWallet={toggleWallet} />
         <div className="app-stack">
           <div id="sec-summary"><PortfolioSummary flow={flow} view={view} /></div>
-          <div id="sec-assistant"><Assistant ctx={ctx} flow={flow} onOpenSettings={openSettings} /></div>
+          <div id="sec-assistant"><Assistant ctx={ctx} flow={flow} onOpenSettings={openSettings} onAgentAction={onAgentAction} /></div>
           <div className="columns" ref={columnsRef}>
             <div className="col" style={{ flex: `${colRatio} 1 0` }}>
               {cardOrder.slice(0, COL1_SLOTS).map((id) => (

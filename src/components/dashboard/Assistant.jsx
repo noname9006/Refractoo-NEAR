@@ -5,6 +5,7 @@ import { portfolioFacts } from '../../analytics/portfolio.js';
 import { startRecording, transcribeWhisper } from '../../voice/index.js';
 import { getModel, formatSize } from '../../models/registry.js';
 import { LiveMarkdownView, MarkdownView } from './MarkdownRenderer.jsx';
+import { parseProposals, approve } from '../../agent/actions.js';
 import { loadStore, saveStore, clearStore, newConversation, titleFrom, loadScrollPositions, saveScrollPositions } from './chatStore.js';
 import { startResourceMonitor, subscribeResources, getResourceSnapshot } from '../../utils/resource-monitor.js';
 import { fmtBytesBin } from '../../utils/system-info.js';
@@ -67,7 +68,7 @@ function scheduleIdleTask(callback, timeout = 400) {
 // wllama model over the real cluster + portfolio facts. Push-to-talk uses the
 // local Whisper engine (only when voice was enabled in onboarding). Keeps a
 // list of conversations (Claude/ChatGPT-style) in a collapsible left sidebar.
-export default function Assistant({ ctx, flow, onOpenSettings }) {
+export default function Assistant({ ctx, flow, onOpenSettings, onAgentAction }) {
   const [tiersOpen, setTiersOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(() => getLayout().collapsed.assistant);
   useEffect(() => { setCardCollapsed('assistant', collapsed); }, [collapsed]);
@@ -613,7 +614,7 @@ export default function Assistant({ ctx, flow, onOpenSettings }) {
                 {msgs.map((mm, i) => mm.role === 'user' ? (
                   <UserBubble key={i} text={mm.text} />
                 ) : (
-                  <AssistantBubble key={i} msg={mm} onToggleThink={() => toggleStoredThink(i)} />
+                  <AssistantBubble key={i} msg={mm} onToggleThink={() => toggleStoredThink(i)} onAgentAction={onAgentAction} />
                 ))}
                 {liveMsg && (
                   <AssistantBubble
@@ -772,7 +773,7 @@ const UserBubble = memo(function UserBubble({ text }) {
   return <div className="msg user">{text}</div>;
 });
 
-const AssistantBubble = memo(function AssistantBubble({ msg, live = false, elapsedMs = 0, onToggleThink }) {
+const AssistantBubble = memo(function AssistantBubble({ msg, live = false, elapsedMs = 0, onToggleThink, onAgentAction }) {
   const normalized = useMemo(() => {
     if (!msg?.text || msg.think) return msg;
     if (!/[<]\/?think[>]/i.test(msg.text)) return msg;
@@ -807,10 +808,11 @@ const AssistantBubble = memo(function AssistantBubble({ msg, live = false, elaps
         )}
         {normalized.text && (
           <div className="bub">
-            {live ? <LiveTextView content={normalized.text} trimmed={normalized.liveTrimmed} /> : <MarkdownView content={normalized.text} />}
+            {live ? <LiveTextView content={normalized.text} trimmed={normalized.liveTrimmed} /> : <MarkdownView content={normalized.done ? stripActionBlocks(normalized.text) : normalized.text} />}
             {!normalized.done && <span className="caret" />}
           </div>
         )}
+        {normalized.done && !live && onAgentAction && <ActionProposals text={normalized.text} onAgentAction={onAgentAction} />}
         {normalized.done && normalized.verification && <VerifiedPanel receipt={normalized.verification} />}
         {normalized.done && normalized.redacted && (
           <div className={`redact-note${normalized.redacted.off ? ' off' : ''}`}>
@@ -820,6 +822,52 @@ const AssistantBubble = memo(function AssistantBubble({ msg, live = false, elaps
           </div>
         )}
       </div>
+    </div>
+  );
+});
+
+const ACTION_BLOCK = /```action\s*\n[\s\S]*?```/g;
+function stripActionBlocks(t) { return typeof t === 'string' ? t.replace(ACTION_BLOCK, '').trimEnd() : t; }
+
+const ACTION_TEXT = {
+  hide_token: (a) => `Hide ${a.symbol} from Holdings`,
+  show_token: (a) => `Show ${a.symbol} in Holdings again`,
+  select_chain: (a) => `Show only ${a.chain}`,
+  set_label: (a) => `Label ${a.target} as “${a.label}”`,
+};
+
+// Model-proposed view changes. Nothing runs until the user clicks Approve;
+// the approval is bound to the proposal's hash (src/agent/actions.js).
+const ActionProposals = memo(function ActionProposals({ text, onAgentAction }) {
+  const { proposals, rejected } = useMemo(() => parseProposals(text), [text]);
+  const [status, setStatus] = useState({}); // hash → { state, undo, error }
+  if (!proposals.length && !rejected.length) return null;
+  const run = (p) => {
+    const r = onAgentAction(p, approve(p));
+    setStatus((s) => ({ ...s, [p.hash]: r?.error ? { state: 'error', error: r.error } : { state: 'done', undo: r?.undo } }));
+  };
+  const undo = (p) => { status[p.hash]?.undo?.(); setStatus((s) => ({ ...s, [p.hash]: { state: 'undone' } })); };
+  return (
+    <div className="agent-actions">
+      <div className="agent-actions-head">Suggested view changes · nothing runs without your approval</div>
+      {proposals.map((p) => {
+        const st = status[p.hash]?.state;
+        return (
+          <div className="agent-action" key={p.hash} title={`Proposal sha256 ${p.hash}`}>
+            <span className="agent-action-text">{ACTION_TEXT[p.kind](p.args)}</span>
+            {!st && <><button className="btn sm" onClick={() => run(p)}>Approve</button><button className="btn ghost sm" onClick={() => setStatus((s) => ({ ...s, [p.hash]: { state: 'dismissed' } }))}>Dismiss</button></>}
+            {st === 'done' && <><span className="muted">Applied ✓</span>{status[p.hash].undo && <button className="btn ghost sm" onClick={() => undo(p)}>Undo</button>}</>}
+            {st === 'undone' && <span className="muted">Undone</span>}
+            {st === 'dismissed' && <span className="muted">Dismissed</span>}
+            {st === 'error' && <span className="muted">Refused: {status[p.hash].error}</span>}
+          </div>
+        );
+      })}
+      {rejected.length > 0 && (
+        <div className="agent-action rejected muted">
+          {rejected.length} proposal{rejected.length === 1 ? '' : 's'} refused by the allowlist ({[...new Set(rejected.map((r) => r.kind ? `${r.kind}: ${r.reason}` : r.reason))].join(', ')}). Nothing was run.
+        </div>
+      )}
     </div>
   );
 });
