@@ -160,16 +160,19 @@ export default function Dashboard({ ctx, flow }) {
   if (flow.portfolio && !flow.pricing) settledOnce.current = true;
   const loading = !flow.portfolio || (flow.pricing && !settledOnce.current);
 
-  // Background refreshes are silent: cards keep their values and update in
-  // place, with no per-card "updating data…" chip. Only a manual refresh shows
-  // progress, and only on the Total value card (see PortfolioSummary).
+  // While a section is still being fetched (cache painted, or partial data
+  // already shown) its card shows a small "updating data…" chip so it's clear
+  // the list isn't complete yet. Skipped during the very first load, where
+  // the skeleton rows already say that.
+  const rf = flow.refreshing || {};
+  const upd = (k) => !loading && !!rf[k];
 
   const cardEls = {
-    holdings: <Holdings view={view} loading={loading} smallUsd={flow.prefs.smallBalanceUsd} onSmallUsdChange={(n) => flow.updatePref({ smallBalanceUsd: n })} />,
-    shielded: <Shielded flow={flow} view={view} />,
-    defi: <DefiPositions view={view} loading={loading} />,
-    activity: <Activity flow={flow} selectedChains={selectedChains} selectedWallets={deferredWallets} loading={loading} />,
-    caps: <SpendingCaps flow={flow} view={view} loading={loading} />,
+    holdings: <Holdings view={view} loading={loading} updating={upd('holdings')} smallUsd={flow.prefs.smallBalanceUsd} onSmallUsdChange={(n) => flow.updatePref({ smallBalanceUsd: n })} />,
+    shielded: <Shielded flow={flow} view={view} updating={upd('shielded')} />,
+    defi: <DefiPositions view={view} loading={loading} updating={upd('defi')} />,
+    activity: <Activity flow={flow} selectedChains={selectedChains} selectedWallets={deferredWallets} loading={loading} updating={upd('activity')} />,
+    caps: <SpendingCaps flow={flow} view={view} loading={loading} updating={upd('caps')} />,
   };
 
   // No wallet yet → focused connect/demo overlay instead of a dead $0 dashboard.
