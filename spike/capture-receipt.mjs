@@ -97,5 +97,5 @@ Or drop \`receipt.json\` on \`/app#/verify\` in the running app.
 **Not established offline:** that the key is in a genuine TDX enclave *now*: that was checked live at capture
 (\`attestation.json\`, all checks ${checks.every((c) => c.ok) ? 'passed' : 'NOT all passed'}). Re-proving it needs a fresh quote and nonce.
 `);
-console.log(`captured ${id} → fixtures/nearai-receipt/ · signer ${bundle.signer?.signingAddress} · live checks ${checks.filter((c) => c.ok).length}/${checks.length}`);
+console.log(`captured ${id} → fixtures/${outName}/ · signer ${bundle.signer?.signingAddress} · live checks ${checks.filter((c) => c.ok).length}/${checks.length}`);
 process.exit(0);

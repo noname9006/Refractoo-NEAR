@@ -1,0 +1,55 @@
+{
+  "note": "Summary of the live attestation at capture time (gateway + model TDX, NVIDIA GPU evidence, nonce). Recorded, not re-verifiable offline: the raw quotes need Intel collateral and a fresh nonce.",
+  "capturedAt": "2026-11-14T22:54:22.638Z",
+  "attestation": {
+    "model": "Qwen/Qwen3.8-27B",
+    "verifiedAt": 1794696824935,
+    "gateway": {
+      "tcbStatus": "UpToDate",
+      "advisoryIds": [],
+      "signer": "40599fb284…ad4acb",
+      "tlsBinding": "none"
+    },
+    "models": [
+      {
+        "tcbStatus": "UpToDate",
+        "advisoryIds": [],
+        "gpuEvidence": "verified",
+        "signer": "89154a43a4…cb2d93",
+        "algo": "ed25519"
+      }
+    ]
+  },
+  "liveChecks": [
+    {
+      "id": "gateway",
+      "ok": true,
+      "detail": "TDX quote · TCB UpToDate"
+    },
+    {
+      "id": "model",
+      "ok": true,
+      "detail": "1 quote · TCB UpToDate"
+    },
+    {
+      "id": "gpu",
+      "ok": true,
+      "detail": "NVIDIA NRAS verdict verified (clock tolerance ±120s)"
+    },
+    {
+      "id": "fresh",
+      "ok": true,
+      "detail": "verified 2:53:44 AM"
+    },
+    {
+      "id": "e2ee",
+      "ok": true,
+      "detail": "X25519 + XChaCha20-Poly1305 to the attested model key"
+    },
+    {
+      "id": "signature",
+      "ok": true,
+      "detail": "provider_tee signature over exact request/response bytes"
+    }
+  ]
+}

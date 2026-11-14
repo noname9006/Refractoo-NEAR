@@ -106,10 +106,16 @@ if (fs.existsSync(second)) test('second real receipt: a different model verifies
   const b2 = JSON.parse(fs.readFileSync(second, 'utf8'));
   assert.equal(b2.type, RECEIPT_TYPE);
   assert.notEqual(b2.model, bundle.model, 'a second model, not a copy of the first');
-  const ok = await verifyReceiptBundle(b2, { pinnedSigner: b2.signer.signingAddress });
+  // Pinned: the Qwen enclave signer recorded at capture (a different key from the GLM one).
+  const PINNED_2 = '89154a43a47684742c3d1753252bb6f49f61da9d8c84fc9b1def2df130cb2d93';
+  assert.notEqual(PINNED_2, PINNED);
+  const ok = await verifyReceiptBundle(b2, { pinnedSigner: PINNED_2 });
   assert.equal(ok.ok, true, ok.signature.code);
   assert.equal(ok.tamper.ok, false);
   const s = b2.signature.signature;
   const forged = await verifyReceiptBundle({ ...b2, signature: { ...b2.signature, signature: (s[0] === '0' ? '1' : '0') + s.slice(1) } });
   assert.equal(forged.ok, false);
+  const wire = JSON.stringify(JSON.parse(fs.readFileSync(new URL('../fixtures/nearai-receipt-2/request-plaintext.json', import.meta.url), 'utf8')).messages);
+  assert.doesNotMatch(wire, /0x[0-9a-fA-F]{8}/);
+  assert.doesNotMatch(wire, /[a-z0-9_-]+\.(near|tg)/i);
 });
