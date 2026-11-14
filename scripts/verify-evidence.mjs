@@ -51,7 +51,8 @@ const claims = manifest.claims.map((c) => {
   return { id: c.id, claim: c.claim, ok: tests.every((t) => t.status === 'pass'), tests };
 });
 
-const dirty = git('status --porcelain');
+// This script's own outputs (and the guard matrix's) do not make the tree dirty.
+const dirty = git('status --porcelain').split('\n').filter((l) => l && !/ evidence\/(run|guards)-[^/]*\.json$/.test(l)).join('\n');
 const body = {
   version: 1,
   commit: git('rev-parse HEAD'),
