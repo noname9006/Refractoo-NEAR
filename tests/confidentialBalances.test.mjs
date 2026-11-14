@@ -332,3 +332,30 @@ test('historyNote: restricted explains what is and is not missing; ok shows no n
   assert.doesNotMatch(historyNote({ state: 'unavailable', status: 502, message: 'Intents API HTTP 502' }).body, /"/);
   assert.match(historyNote({ state: 'restricted', demo: true }).body, /Demo/);
 });
+
+// Memory-only: sign-in, balance reads and refresh write nothing to browser storage.
+// Recording stand-ins for localStorage / sessionStorage / indexedDB catch any write.
+test('memory-only: Intents session tokens and balances never reach localStorage, sessionStorage or IndexedDB', async () => {
+  const writes = [];
+  const store = (name) => ({
+    getItem: () => null, key: () => null, length: 0,
+    setItem: (k, v) => writes.push(`${name}.setItem(${k})=${v}`),
+    removeItem: () => {}, clear: () => {},
+  });
+  const saved = { localStorage: globalThis.localStorage, sessionStorage: globalThis.sessionStorage, indexedDB: globalThis.indexedDB };
+  globalThis.localStorage = store('localStorage');
+  globalThis.sessionStorage = store('sessionStorage');
+  globalThis.indexedDB = { open: (n) => { writes.push(`indexedDB.open(${n})`); throw new Error('no idb'); } };
+  fakeApi();
+  const restore = quiet();
+  try {
+    const me = fakeIdentity();
+    await loadConfidentialHoldings(me);
+    await refreshConfidentialHoldings('near', ACCOUNT);
+    assert.equal(hasIntentsSession('near', ACCOUNT), true, 'the session exists, in memory');
+    assert.deepEqual(writes, [], 'nothing was written to browser storage');
+  } finally {
+    restore();
+    for (const [k, v] of Object.entries(saved)) { if (v === undefined) delete globalThis[k]; else globalThis[k] = v; }
+  }
+});

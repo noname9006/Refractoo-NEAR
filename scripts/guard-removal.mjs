@@ -60,6 +60,23 @@ export const GUARDS = [
   { id: 'G14', guard: 'No new same-origin endpoint (server never sees a wallet)', file: 'src/utils/system-info.js',
     find: "const r = await fetch('/api/sysinfo');", replace: "const r = await fetch('/api/sysinfo'); fetch(`/api/wallet?a=${globalThis.addr}`);",
     tests: ['tests/trustBoundaries.test.mjs'], mustFail: ['hosting row: the page calls exactly these same-origin endpoints, none carrying a wallet address'] },
+  { id: 'G15', guard: 'Preview is the wire: analyze() POSTs the same body the preview shows', file: 'src/utils/external-context.js',
+    find: 'body: JSON.stringify(externalRequestBody(this.config.model, messages)),',
+    replace: "body: JSON.stringify({ ...externalRequestBody(this.config.model, messages), user: 'unseen-extra-field' }),",
+    tests: ['tests/outbound.test.mjs'], mustFail: ['external: previewRequest body is byte-identical to what analyze() POSTs'] },
+  { id: 'G16', guard: 'restore(): placeholders in the answer map back to real identifiers locally', file: 'src/utils/pseudonymize.js',
+    find: 'return s.replace(LABEL_RE, (m, w, kind, n) => fromLabel.get(`${(w || kind).toUpperCase()}_${n}`) ?? m);',
+    replace: 'return s;',
+    tests: ['tests/claims.test.mjs', 'tests/pseudonymize.test.mjs'],
+    mustFail: ["B3. the answer is mapped back locally to the user's real identifiers", 'restore() maps placeholders back, tolerant of model spelling, no prefix collisions'] },
+  { id: 'G17', guard: 'Untrusted token symbol: plain charset, 16 chars max', file: 'src/prompts/untrusted.js',
+    find: "return String(s ?? '').replace(/[^A-Za-z0-9$._-]/g, '').slice(0, 16) || '?';",
+    replace: "return String(s ?? '') || '?';",
+    tests: ['tests/untrusted.test.mjs'], mustFail: ['guardString: detection runs on raw text, cleaning keeps a plain short charset'] },
+  { id: 'G18', guard: 'Intents session tokens are memory-only', file: 'src/near/confidentialIntents.js',
+    find: 'sessions.set(session.key, session);',
+    replace: "sessions.set(session.key, session); globalThis.localStorage?.setItem('pwai.intents', JSON.stringify(session));",
+    tests: ['tests/confidentialBalances.test.mjs'], mustFail: ['memory-only: Intents session tokens and balances never reach localStorage, sessionStorage or IndexedDB'] },
 ];
 
 const only = process.argv.slice(2).filter((a) => /^G\d+$/.test(a));

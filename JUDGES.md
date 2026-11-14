@@ -11,7 +11,7 @@ npm ci
 npm run verify:evidence
 ```
 
-Runs the offline suite (140 tests, about 11 seconds, no keys, no network) and checks
+Runs the offline suite (142 tests, about 11 seconds, no keys, no network) and checks
 every claim in [`evidence/manifest.json`](evidence/manifest.json) against it. A test the
 manifest names that is missing from the run fails the claim, so a deleted test cannot
 pass quietly. It writes `evidence/run-<date>.json` with the commit, a dirty-tree flag,
@@ -32,7 +32,7 @@ and keeps the JSON as a run artifact ([Actions → evidence](https://github.com/
 
 What we do **not** claim is in [LIMITS.md](LIMITS.md). Who could attack, what we trust, and which test catches it: [THREAT_MODEL.md](THREAT_MODEL.md).
 
-Plain tests only: `npm run test:offline`. That is 140 tests, about 11 seconds. `npm test` additionally runs the `live:` tests
+Plain tests only: `npm run test:offline`. That is 142 tests, about 11 seconds. `npm test` additionally runs the `live:` tests
 against public endpoints (NEAR RPC, `intents.near`, the NEAR AI gateway); the
 ones that need a NEAR AI or Intents API key skip themselves without one.
 
@@ -46,7 +46,7 @@ To see the features rather than the tests: [README → Try it in 3 minutes](READ
 |---|---|---|
 | Every answer is signed inside the attested enclave, over the exact request and response bytes: flip any single byte of the answer, the request or the signature and verification fails | `client.verifyResponse()` → `verifyModelResponse` in `@nearai/inference-sdk`, called from [`nearAiContext.js`](src/near/nearAiContext.js) `analyze()` | [`claims.test.mjs`](tests/claims.test.mjs) A1–A5 |
 | **See it yourself:** "Simulate tampered answer" on a Verified receipt re-runs the SDK's own signature check on that answer's exact bytes, as received (✓) and with one byte flipped (✗ `signature.payload_mismatch`); the receipt turns red. Nothing is faked and nothing is sent; the bytes stay in memory only | `tamperTest()` in [`nearAiContext.js`](src/near/nearAiContext.js), `VerifiedPanel` in [`Assistant.jsx`](src/components/dashboard/Assistant.jsx) | [`tamper.test.mjs`](tests/tamper.test.mjs); live: `nearai.test.mjs` "verified E2EE stream…" |
-| **A real NEAR AI answer, verifiable by anyone, offline.** [`fixtures/nearai-receipt/`](fixtures/nearai-receipt/) holds one answer captured from NEAR AI Cloud: the exact request/response bytes, the enclave's signature and the attested signer. The test pins that signer, verifies with the SDK, and requires a flipped byte, a swapped signer and a forged signature to fail. The prompt it answered contains no real identifier | [`receiptBundle.js`](src/near/receiptBundle.js), captured by [`spike/capture-receipt.mjs`](spike/capture-receipt.mjs) | [`receipt.test.mjs`](tests/receipt.test.mjs) (5 tests) |
+| **A real NEAR AI answer, verifiable by anyone, offline.** [`fixtures/nearai-receipt/`](fixtures/nearai-receipt/) holds one answer captured from NEAR AI Cloud: the exact request/response bytes, the enclave's signature and the attested signer. The test pins that signer, verifies with the SDK, and requires a flipped byte, a swapped signer and a forged signature to fail. A committed **negative fixture** ([`fixtures/nearai-receipt-forged/`](fixtures/nearai-receipt-forged/), one signature digit changed) must be rejected. The prompt it answered contains no real identifier | [`receiptBundle.js`](src/near/receiptBundle.js), captured by [`spike/capture-receipt.mjs`](spike/capture-receipt.mjs) | [`receipt.test.mjs`](tests/receipt.test.mjs) (6 tests) |
 | **Save receipt / verify it yourself:** under a Verified answer, **Save receipt** downloads that answer's bytes and signature as JSON. Drop it on **`/verify`** (or click "Check the sample receipt"): the browser re-runs the signature check, flips one byte as a control, and says separately what is established and what is not | `exportReceipt()` in [`nearAiContext.js`](src/near/nearAiContext.js), [`VerifyReceipt.jsx`](src/components/VerifyReceipt.jsx) | same verifier as `receipt.test.mjs` |
 | **That receipt's signer is an attested enclave key *right now*.** "Check signer against NEAR AI now" on `/verify` fetches fresh model attestations with a new nonce (no API key), verifies each Intel TDX quote and NVIDIA GPU report in the browser, and requires the receipt's signer among them. A swapped signer finds no match | `checkSignerLive()` in [`receiptBundle.js`](src/near/receiptBundle.js) | `receipt.test.mjs` live: "the receipt signer is an attested NEAR AI enclave key right now"; CI |
 | A valid signature from a key the attestation did not vouch for is rejected | same | `claims.test.mjs` A3 |
@@ -94,7 +94,7 @@ Limits: detection is a pattern list, so a cleverly worded name can get past it. 
 | Balances are parsed correctly: decimals applied, zero rows dropped, an unknown token shown in raw units instead of a guessed amount | `loadConfidentialHoldings()` | `confidentialBalances.test.mjs` (offline, fake Intents API) |
 | One signature per page load: repeat reads and the 1-minute refresh reuse the session; an expired session asks you to sign again rather than prompting on a timer | `sessionFor()`, `refreshConfidentialHoldings()` | `confidentialBalances.test.mjs` "session is reused …", "refresh without a session …" |
 | History is invite-only for now: the app says so, and a refusal never triggers a second wallet prompt | `classifyHistoryError()`, [`historyNote.js`](src/near/historyNote.js) | `confidentialBalances.test.mjs` "history refused …", "history 401 …" |
-| Session tokens and amounts live in memory only — nothing is written to localStorage or IndexedDB, so a reload forgets them | [`confidentialIntents.js`](src/near/confidentialIntents.js) (in-memory `sessions` map) | by inspection: the module never touches browser storage (dev builds only keep the last sign-in payload on `window` for debugging) |
+| Session tokens and amounts live in memory only — nothing is written to localStorage or IndexedDB, so a reload forgets them | [`confidentialIntents.js`](src/near/confidentialIntents.js) (in-memory `sessions` map) | `confidentialBalances.test.mjs` "memory-only: …" (recording stand-ins for all three stores; **G18**). Dev builds only keep the last sign-in payload on `window` for debugging |
 
 ### Who sees what
 
@@ -130,8 +130,12 @@ npm run verify:guards        # about 1 minute → evidence/guards-<date>.json
 | G12 | FHE balances stay words | `'ENCRYPTED — amount unknown'` → `0` | `confidentialBalances.test.mjs` "encrypted (FHE) entries stay words …" | caught |
 | G13 | NEP-413 signature verified before sending | `verifyNep413` check → `if (false)` | `intents.test.mjs` "nearIdentity refuses a signature that does not verify" | caught |
 | G14 | Server never sees a wallet | a fifth same-origin endpoint carrying an address | `trustBoundaries.test.mjs` "hosting row …" | caught |
+| G15 | Preview is the wire | `analyze()` POSTs an extra field the preview does not show ([`external-context.js`](src/utils/external-context.js)) | `outbound.test.mjs` "external: previewRequest body is byte-identical …" | caught |
+| G16 | Answers mapped back locally | `restore()` returns the text unchanged | `claims.test.mjs` B3; `pseudonymize.test.mjs` "restore() …" | caught |
+| G17 | Untrusted token symbol cut to a plain charset | `cleanSymbol()` passes the raw string through ([`untrusted.js`](src/prompts/untrusted.js)) | `untrusted.test.mjs` "guardString: … plain short charset" | caught |
+| G18 | Intents sessions are memory-only | session also written to `localStorage` ([`confidentialIntents.js`](src/near/confidentialIntents.js)) | `confidentialBalances.test.mjs` "memory-only: …" | caught |
 
-**14/14 caught** on the recorded run ([`evidence/`](evidence)); the JSON lists every failing test per guard.
+**18/18 caught** on the recorded run ([`evidence/`](evidence)); the JSON lists every failing test per guard.
 
 ## See it in the browser (2 minutes)
 

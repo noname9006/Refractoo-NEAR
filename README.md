@@ -316,7 +316,7 @@ the test that proves it; [LIMITS.md](LIMITS.md) lists what we do not claim.
 
 - `npm run verify:evidence`: all claims, no keys, no network, ~11 s; writes
   `evidence/run-<date>.json` with commit, input hashes and per-claim status.
-- `npm run verify:guards`: removes each of 14 guards in turn and shows the tests catch it.
+- `npm run verify:guards`: removes each of 18 guards in turn and shows the tests catch it.
 - A real NEAR AI receipt in [`fixtures/nearai-receipt/`](fixtures/nearai-receipt/),
   checkable at `/verify`, plus a live key-less re-proof that its signer is an
   attested enclave key today.
@@ -347,7 +347,7 @@ The hackathon diff: [`pre-hackathon...main`](https://github.com/noname9006/Refra
 | Private-shard activity: invite-only history explained, never a second wallet prompt | [`historyNote.js`](src/near/historyNote.js) |
 | **Prompt-injection guard** for attacker-controlled chain text; the demo plants a hostile token to show it | [`src/prompts/untrusted.js`](src/prompts/untrusted.js) |
 | Demo mode for reviewers (live NEAR account, labelled sample private-shard data, planted prompt-injection token) | [`src/near/demoFixtures.js`](src/near/demoFixtures.js) |
-| **Evidence**: claim manifest, one-command evidence file, guard-removal matrix (14/14), a real NEAR AI receipt verified offline, **Save receipt** and the **`/verify`** page | [`evidence/`](evidence), [`scripts/`](scripts), [`fixtures/nearai-receipt/`](fixtures/nearai-receipt), [`receiptBundle.js`](src/near/receiptBundle.js), [`VerifyReceipt.jsx`](src/components/VerifyReceipt.jsx) |
+| **Evidence**: claim manifest, one-command evidence file, guard-removal matrix (18/18), a real NEAR AI receipt verified offline, **Save receipt** and the **`/verify`** page | [`evidence/`](evidence), [`scripts/`](scripts), [`fixtures/nearai-receipt/`](fixtures/nearai-receipt), [`receiptBundle.js`](src/near/receiptBundle.js), [`VerifyReceipt.jsx`](src/components/VerifyReceipt.jsx) |
 | Tests, claim by claim in [JUDGES.md](JUDGES.md) | [`tests/`](tests) |
 
 ### Baseline (pre-hackathon work)

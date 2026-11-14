@@ -8,6 +8,7 @@ Captured 2026-11-14T20:32:15.743Z from NEAR AI Cloud, model `z-ai/glm-5.3-flash`
 | `receipt.json` | Exact request/response bytes (base64), the enclave signature over them, the attested signer. Type `refractoo.nearai-receipt.v1`. |
 | `request-plaintext.json` | The messages before E2EE encryption (not covered by the signature). |
 | `attestation.json` | The live attestation summary and receipt checks at capture time. |
+| [`../nearai-receipt-forged/receipt.json`](../nearai-receipt-forged/receipt.json) | **Negative fixture:** the same receipt with one hex digit of the signature changed. The bytes and hashes still match; the signature must not verify. |
 
 Signer (`provider_tee`, ed25519): `5a0210f2442c79355784f9de021985429561da5bacc3a4424b01ac52b7e0caff`
 SHA-256 of the response bytes: `748c0086f243750ff3c097dafb7ff976b2f36bf5e0b6c5376fe0bf1dfdf49d18`

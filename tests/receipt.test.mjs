@@ -70,6 +70,21 @@ test('real receipt: the live checks at capture are recorded, all passed, and lab
   assert.match(att.note, /not re-verifiable offline/i);
 });
 
+// NEGATIVE fixture: a committed receipt whose signature has one hex digit changed.
+// A verifier that says "ok" to this file is broken, whatever else it checks.
+const forged = JSON.parse(fs.readFileSync(new URL('../fixtures/nearai-receipt-forged/receipt.json', import.meta.url), 'utf8'));
+
+test('negative fixture: the committed forged-signature receipt is rejected, the hashes still match', async () => {
+  assert.match(forged._fixture, /NEGATIVE/);
+  assert.equal(forged.requestBody, bundle.requestBody);
+  assert.equal(forged.responseBody, bundle.responseBody);
+  assert.notEqual(forged.signature.signature, bundle.signature.signature);
+  const r = await verifyReceiptBundle(forged, { pinnedSigner: PINNED });
+  assert.equal(r.hashes.ok, true, 'bytes untouched: only the signature is wrong');
+  assert.equal(r.signature.ok, false);
+  assert.equal(r.ok, false);
+});
+
 // LIVE, no API key: closes the offline gap above. Fresh model attestations
 // (new nonce), TDX + NVIDIA verified, and the pinned signer must be among them.
 test('live: the receipt signer is an attested NEAR AI enclave key right now (fresh nonce, no API key)', { timeout: 120_000 }, async () => {

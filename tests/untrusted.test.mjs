@@ -3,7 +3,7 @@
 // nearai.test.mjs ("live: hostile token name…").
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { looksLikeInjection, guardString, sanitizeFacts, cleanLabel, WITHHELD } from '../src/prompts/untrusted.js';
+import { looksLikeInjection, guardString, sanitizeFacts, cleanLabel, cleanSymbol, WITHHELD } from '../src/prompts/untrusted.js';
 import { buildAnalysisMessages, SYSTEM_PROMPT } from '../src/prompts/wallet-analysis.js';
 import { buildFacts } from '../src/analytics/facts.js';
 import { portfolioFacts } from '../src/analytics/portfolio.js';
@@ -44,6 +44,9 @@ test('guardString: detection runs on raw text, cleaning keeps a plain short char
   assert.deepEqual(guardString('USDC', 'symbol'), { value: 'USDC', withheld: false });
   assert.equal(guardString('Weird "Name"\n\n{x}', 'label').value, 'Weird Name x');
   assert.equal(cleanLabel('a'.repeat(200)).length, 48);
+  // Token symbols: plain charset only, at most 16 characters.
+  assert.equal(cleanSymbol('<b>US DC</b>‮'), 'bUSDCb');
+  assert.equal(cleanSymbol('X'.repeat(40)).length, 16);
   // Already-withheld marker survives a second pass unchanged (and still counts).
   assert.deepEqual(guardString(WITHHELD, 'symbol'), { value: WITHHELD, withheld: true });
 });

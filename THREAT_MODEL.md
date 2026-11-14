@@ -5,7 +5,7 @@ data it handles (addresses, balances, private-shard holdings, the question you
 ask) is worth protecting, and much of what it reads (token names, labels) is
 written by strangers. This page lists who could attack, what each one could
 learn or change, what we trust and what we do not, and **which test or guard
-catches it**. Guards `G1`–`G14` are the mutations in
+catches it**. Guards `G1`–`G18` are the mutations in
 [JUDGES.md → guard removal](JUDGES.md#do-the-tests-catch-anything-guard-removal):
 each one deletes a defence and requires a test to fail.
 
@@ -59,7 +59,8 @@ honest-but-curious.
   and response bytes; the receipt needs a fresh nonce.
 - **Tests / guards:**
   - altered answer, request or signature → rejected: `claims.test.mjs` A1–A5,
-    `tamper.test.mjs` (**G2**), `receipt.test.mjs` (**G1**);
+    `tamper.test.mjs` (**G2**), `receipt.test.mjs` (**G1**), plus a committed forged-signature
+    fixture (`fixtures/nearai-receipt-forged/`) that must fail;
   - valid signature from a key the attestation did not vouch for → rejected:
     `claims.test.mjs` A3;
   - E2EE missing → receipt not Verified: **G4**;
@@ -97,12 +98,12 @@ honest-but-curious.
   - private-shard balances masked the same way: `confidentialBalances.test.mjs`
     "external tier: account name masked …"; FHE amounts stay words (**G12**);
   - what you saw in the preview is byte-identical to what is sent:
-    `outbound.test.mjs`;
+    `outbound.test.mjs` (**G15**);
   - nothing leaves until you click **Send**: checked in the browser
     (`OutboundReview.jsx`).
 - **Residual:** which assets and chains you hold, rough magnitudes, and the
   content of your question. Placeholders are restored locally (`restore()`,
-  `claims.test.mjs` B3), so the operator never learns the mapping.
+  `claims.test.mjs` B3, **G16**), so the operator never learns the mapping.
 
 ### T5. Hostile chain data (prompt injection)
 
@@ -113,7 +114,7 @@ honest-but-curious.
 - **Mitigations / tests:** guarded at the one place prompts are built
   (`untrusted.js`, `buildAnalysisMessages()`): instruction-like text, template
   markup and links are withheld, everything else is cut to a short plain charset
-  — `untrusted.test.mjs` (**G10**, **G11**). The system prompt marks FACTS as
+  — `untrusted.test.mjs` (**G10**, **G11**, **G17**). The system prompt marks FACTS as
   data between explicit markers. Live: `nearai.test.mjs` "hostile token name does
   not steer the answer" (needs a key).
 - **Residual:** detection is a pattern list; plain-looking but misleading data
@@ -142,7 +143,7 @@ honest-but-curious.
   as NEP-413 with a versioned nonce; the signature is verified locally before
   sending (**G13**, `nep413.test.mjs`, `intents.test.mjs`); `intents.near`'s own
   verifier accepts the payload (live, no key). Session tokens and amounts are
-  memory-only (by inspection of `confidentialIntents.js`; no automated test yet).
+  memory-only: `confidentialBalances.test.mjs` "memory-only: …" records every write to localStorage, sessionStorage and IndexedDB and requires none (**G18**).
 
 ### T8. App hosting
 
@@ -177,10 +178,10 @@ honest-but-curious.
 | T1 | Stolen API key | browser profile trusted; key in plaintext | `outbound.test.mjs` (key not in preview) |
 | T2 | Malicious gateway | no | A1–A5, A3, G1, G2, G4, G5, G6 |
 | T3 | Broken Intel/NVIDIA roots | **yes** (assumption) | G3, G5, G6 limit it; forgery itself undetectable |
-| T4 | External API operator | no | B1–B3, G7, G8, G9, G12, `outbound.test.mjs` |
-| T5 | Hostile chain data | no | G10, G11, `untrusted.test.mjs`, live steer test |
+| T4 | External API operator | no | B1–B3, G7, G8, G9, G12, G15, G16 |
+| T5 | Hostile chain data | no | G10, G11, G17, live steer test |
 | T6 | FHE operator | scheme as documented | G12 |
-| T7 | Intents API / sign-in | sees private balances | G13, `nep413.test.mjs`, live verifier |
+| T7 | Intents API / sign-in | sees private balances | G13, G18, `nep413.test.mjs`, live verifier |
 | T8 | Hosting | code yes, data no | G14; self-host + offline `/verify` |
 | T9 | Public RPCs | sees addresses | trust table test |
 | T10 | Device access | yes | — (memory-only data is not persisted) |
@@ -188,6 +189,5 @@ honest-but-curious.
 ## Known gaps
 
 - API keys are stored unencrypted in `localStorage`.
-- "Memory-only" for Intents sessions is checked by inspection, not by a test.
 - No automated E2E of a full keyed NEAR AI answer in CI; the live signer check
   runs key-less.
