@@ -149,6 +149,20 @@ The app runs in one of two modes, chosen by `VITE_NETWORK_MODE` in `.env`:
 | Aave v3 | yes | no (no pool configured ⇒ skipped) |
 | Token discovery | curated + CoinGecko registry long tail | curated list + tokens seen in history |
 
+### Ethereum DeFi coverage (mainnet)
+
+All read on-chain from the connected/added address through the same public RPCs
+(or your own, per chain) — no protocol API, no indexer. USD comes only from
+DefiLlama; a leg with no price leaves that row's USD empty rather than guessing.
+
+| Protocol | What is read | Limits |
+|---|---|---|
+| Aave v3 | collateral, debt, health factor | |
+| SparkLend | collateral, debt, health factor | |
+| Morpho | per-market supply / collateral / borrow + health factor; MetaMorpho vault shares | only a curated list of the largest markets and vaults (`src/data/ethDefiRegistry.js`) — Morpho Blue has no on-chain "list my markets" call |
+| Uniswap v3 | liquidity NFTs → token amounts, in/out of range | excludes uncollected fees; v2/v4 not read; first 30 NFTs |
+| Lido, ether.fi, Ethena, Spark savings | stETH/wstETH, eETH/weETH, sUSDe, sDAI/sUSDS held in the wallet, as staking positions | Ethena cooldowns and withdrawal NFTs not shown |
+
 Two things worth knowing:
 
 - **Mainnet is not the "no privacy" mode.** Zama Protocol has been live on

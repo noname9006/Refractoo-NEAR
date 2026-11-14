@@ -74,6 +74,8 @@ export function buildPortfolio({ clusterData = {}, enriched = {}, prices = new M
 
       // Aave position (already USD-denominated)
       if (e?.aave) defiPositions.push({ ...e.aave, chainName: chain.chainName });
+      // SparkLend / Morpho / Uniswap v3 (Ethereum) — rows carry their own USD.
+      for (const p of e?.defi || []) defiPositions.push({ ...p, chainName: chain.chainName });
 
       // approvals
       for (const a of e?.approvals || []) approvals.push(a);
@@ -208,6 +210,18 @@ function finalizeHolding(h) {
 // entries. Confidential holdings DO carry a chain (the wrapper's), so unlike the
 // old single-value sealed balance they honour the chain filter like everything
 // else.
+// USD per chain, using the same definition as the headline total (public
+// holdings + Aave lending + shielded) so the per-chain figures add up to it.
+export function chainTotals(p) {
+  const out = {};
+  if (!p) return out;
+  const add = (id, v) => { out[id] = (out[id] || 0) + num(v); };
+  for (const h of p.holdings || []) add(h.chainId, h.usd);
+  for (const d of p.positions || []) if (d.kind === 'Lending') add(d.chainId, d.usd);
+  for (const t of p.shielded || []) add(t.chainId, t.usd);
+  return out;
+}
+
 export function filterPortfolioView(p, chainIds) {
   if (!p) return p;
   // null ⇒ no filter (show everything). An empty set ⇒ nothing selected, which

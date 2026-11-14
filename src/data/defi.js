@@ -24,19 +24,21 @@ const fromBase = (v) => Number(v) / 1e8;
 
 // Reads the wallet's Aave v3 position on one chain. Returns a position object or
 // null when there's no collateral. healthFactor is 1e18-scaled (∞ when no debt).
-export async function fetchAavePosition(owner, chain, rpcOverride) {
-  const pool = AAVE_V3_POOL[chain.chainId];
+// `opts` lets Aave-v3 forks (SparkLend) reuse the same read: { pool, protocol, glyph }.
+export async function fetchAavePosition(owner, chain, rpcOverride, opts = {}) {
+  const pool = opts.pool || AAVE_V3_POOL[chain.chainId];
+  const protocol = opts.protocol || 'Aave v3';
   if (!pool) return null;
-  const provider = createChainProvider(chain, rpcOverride);
-  const contract = new Contract(pool, AAVE_POOL_ABI, provider);
+  // opts.getAccountData(pool, owner) replaces the RPC read (tests).
+  const contract = opts.getAccountData ? null : new Contract(pool, AAVE_POOL_ABI, createChainProvider(chain, rpcOverride));
 
   let data;
   try {
     // Route through the chain's limiter so Aave reads share the budget with the
     // balance multicalls instead of bursting the endpoint independently.
-    data = await rpcLimitFor(chain.chainId, !!rpcOverride)(() => contract.getUserAccountData(owner));
+    data = await rpcLimitFor(chain.chainId, !!rpcOverride)(() => (opts.getAccountData ? opts.getAccountData(pool, owner) : contract.getUserAccountData(owner)));
   } catch (err) {
-    console.warn(`[defi] Aave read failed on ${chain.name}:`, err?.message || err);
+    console.warn(`[defi] ${protocol} read failed on ${chain.name}:`, err?.message || err);
     return null;
   }
 
@@ -47,11 +49,11 @@ export async function fetchAavePosition(owner, chain, rpcOverride) {
   const healthFactor = debt > 0 ? Number(hfRaw) / 1e18 : null;
 
   return {
-    protocol: 'Aave v3',
+    protocol,
     chainId: chain.chainId,
     chainName: chain.name,
     kind: 'Lending',
-    glyph: '👻',
+    glyph: opts.glyph || '👻',
     usd: collateral - debt, // net position value
     healthFactor,
     legs: [

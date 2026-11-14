@@ -17,6 +17,7 @@ import { CHAINS } from './public.js';
 import { TOKENS, makeToken } from './tokens.js';
 import { probeBalances } from './balances.js';
 import { fetchAavePosition } from './defi.js';
+import { fetchEthDefiPositions } from './ethDefi.js';
 import { fetchApprovals } from './approvals.js';
 import { getTokenRegistry } from './tokenRegistry.js';
 import { USE_TOKEN_REGISTRY } from '../config/networks.js';
@@ -142,12 +143,15 @@ export async function enrichCluster(addresses, { rpcOverrides = {}, clusterData 
   await Promise.all(addresses.flatMap((a) =>
     CHAINS.map(async (chain) => {
       const rpc = rpcOverrides[chain.chainId];
-      const [aave, approvals] = await Promise.all([
+      const [aave, approvals, eth] = await Promise.all([
         fetchAavePosition(a, chain, rpc).catch(() => null),
         fetchApprovals(a, chain, rpc).catch(() => null), // null = scan failed, unknown
+        fetchEthDefiPositions(a, chain, rpc).catch(() => ({ positions: [], failed: [] })), // SparkLend / Morpho / Uniswap (Ethereum only)
       ]);
       const slot = slotOf(a, chain.chainId);
       slot.aave = aave;
+      slot.defi = eth.positions;
+      slot.defiFailed = eth.failed;
       slot.approvals = approvals;
       slot.extrasDone = true;
       emit('partial');

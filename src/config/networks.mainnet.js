@@ -155,6 +155,15 @@ const TOKENS = [
   t(1, '0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0', 'wstETH', 'Wrapped stETH', 18, 'Ξ', { tint: 'stake', kind: 'eth', protocol: 'Lido', label: 'Staking' }),
   t(1, '0xae78736Cd615f374D3085123A210448E74Fc6393', 'rETH', 'Rocket Pool ETH', 18, 'Ξ', { tint: 'stake', kind: 'eth', protocol: 'Rocket Pool', label: 'Staking' }),
   t(1, '0xBe9895146f7AF43049ca1c1AE358B0541Ea49704', 'cbETH', 'Coinbase Wrapped Staked ETH', 18, 'Ξ', { tint: 'stake', kind: 'eth', protocol: 'Coinbase', label: 'Staking' }),
+  // ether.fi liquid restaking, Ethena staked USDe, Spark savings (sDAI / sUSDS):
+  // plain priced ERC-20s, so they surface as staking positions like stETH does.
+  // (Addresses checked on-chain: symbol() matches.)
+  t(1, '0x35fA164735182de50811E8e2E824cFb9B6118ac2', 'eETH', 'ether.fi Staked ETH', 18, 'Ξ', { tint: 'stake', kind: 'eth', protocol: 'ether.fi', label: 'Staking' }),
+  t(1, '0xCd5fE23C85820F7B72D0926FC9b05b43E359b7ee', 'weETH', 'Wrapped eETH', 18, 'Ξ', { tint: 'stake', kind: 'eth', protocol: 'ether.fi', label: 'Staking' }),
+  t(1, '0x4c9EDD5852cd905f086C759E8383e09bff1E68B3', 'USDe', 'Ethena USDe', 18, '$', { tint: 'stable', kind: 'stable' }),
+  t(1, '0x9D39A5DE30e57443BfF2A8307A4256c8797A3497', 'sUSDe', 'Staked USDe', 18, '$', { tint: 'stake', kind: 'stable', protocol: 'Ethena', label: 'Staking' }),
+  t(1, '0x83F20F44975D03b1b09e64809B757c47f942BEeA', 'sDAI', 'Savings Dai', 18, '$', { tint: 'stake', kind: 'stable', protocol: 'Spark', label: 'Staking' }),
+  t(1, '0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD', 'sUSDS', 'Savings USDS', 18, '$', { tint: 'stake', kind: 'stable', protocol: 'Spark', label: 'Staking' }),
   t(1, '0x514910771AF9Ca656af840dff83E8264EcF986CA', 'LINK', 'Chainlink', 18, 'L', { tint: 'gov', kind: 'token' }),
   t(1, '0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984', 'UNI', 'Uniswap', 18, 'U', { tint: 'gov', kind: 'token' }),
   t(1, '0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9', 'AAVE', 'Aave', 18, 'A', { tint: 'gov', kind: 'token' }),
