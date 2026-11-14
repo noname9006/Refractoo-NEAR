@@ -13,7 +13,8 @@ import { PrivacyBadge } from './PrivacyBadge.jsx';
 import TierPanel from './TierPanel.jsx';
 import ModelSwitcher from './ModelSwitcher.jsx';
 import GatewayCheck from './GatewayCheck.jsx';
-import { verificationChecks, hasTamperEvidence, tamperTest, tamperedReceipt, NEARAI_DEFAULT_MODEL } from '../../near/nearAiContext.js';
+import { verificationChecks, hasTamperEvidence, tamperTest, tamperedReceipt, NEARAI_DEFAULT_MODEL, listConfidentialModels } from '../../near/nearAiContext.js';
+import { contextFill, conversationCostUsd, usageCostUsd, fmtTokens, fmtUsdSmall } from '../../near/usage.js';
 import { reasoningProfile } from '../../near/reasoningProfiles.js';
 import { pseudonymizeForRemote, precisionFor } from '../../utils/pseudonymize.js';
 import { nearAccountFacts } from '../../near/nearAccount.js';
@@ -186,7 +187,20 @@ export default function Assistant({ ctx, flow, onOpenSettings }) {
   // NEAR AI reasoning controls differ per model (see near/reasoningProfiles.js):
   // some cannot be switched off (Think is then locked on), some take an effort
   // level. A saved effort the current model does not accept falls back to default.
-  const rProfile = isNearAi ? reasoningProfile(flow.prefs.nearAi?.model || NEARAI_DEFAULT_MODEL) : null;
+  const naiModelId = flow.prefs.nearAi?.model || NEARAI_DEFAULT_MODEL;
+  // Catalog row of the NEAR AI model in use (context window + price). The list
+  // is cached module-side, so this costs nothing after the first load.
+  const [naiModels, setNaiModels] = useState(null);
+  useEffect(() => {
+    if (!isNearAi) return undefined;
+    let live = true;
+    listConfidentialModels().then((l) => { if (live) setNaiModels(l); }).catch(() => {});
+    return () => { live = false; };
+  }, [isNearAi]);
+  const naiRow = isNearAi ? (naiModels || []).find((x) => x.id === naiModelId) || null : null;
+  // Context window of the model in use: NEAR AI catalog, or the local model's n_ctx.
+  const ctxMax = isNearAi ? naiRow?.contextLength ?? null : (!isExternal && m.id ? getModel(m.id)?.nCtx ?? null : null);
+  const rProfile = isNearAi ? reasoningProfile(naiModelId) : null;
   const thinkLocked = !!rProfile && !rProfile.canDisable;
   const thinkOn = thinking || thinkLocked;
   const efforts = rProfile?.efforts || [];
@@ -419,6 +433,7 @@ export default function Assistant({ ctx, flow, onOpenSettings }) {
     let finalThink = '';
     let needsReload = false;
     let verification = null;
+    let usage = null;
     setLiveMsg({
       role: 'ai',
       text: '',
@@ -453,6 +468,10 @@ export default function Assistant({ ctx, flow, onOpenSettings }) {
         }));
       }, createThinkStreamParser, analyzeOpts);
       verification = res?.verification || null;
+      // Token counts of this request (NEAR AI only) + a cost estimate from the
+      // public per-model price; kept on the message so the context meter and
+      // the chat's running cost survive reloads.
+      if (res?.usage) usage = { ...res.usage, model: naiModelId, costUsd: usageCostUsd(res.usage, naiRow) };
       // The model can burn its entire token budget inside <think> and stop
       // before emitting an answer (finish_reason === 'length'). Don't leave the
       // turn looking blank — say what happened.
@@ -489,6 +508,7 @@ export default function Assistant({ ctx, flow, onOpenSettings }) {
         done: true,
         ...(verification ? { verification } : {}),
         ...(redacted ? { redacted } : {}),
+        ...(usage ? { usage } : {}),
       });
       setLiveMsg(null);
       setRunning(false);
@@ -579,6 +599,7 @@ export default function Assistant({ ctx, flow, onOpenSettings }) {
 
             <div className="asst-main">
               <ResourceStrip />
+              <ContextStrip msgs={msgs} max={ctxMax} />
               <div className="chat-thread" ref={threadRef} onScroll={onThreadScroll}>
                 {msgs.length === 0 && !liveMsg && (
                   <div className="empty">
@@ -887,6 +908,43 @@ const LiveTextView = memo(function LiveTextView({ content, trimmed }) {
     </div>
   );
 });
+
+// Context-window meter for the current chat: tokens the last answer's request
+// carried (prompt + completion) against the model's maximum, plus the chat's
+// estimated cost. Token counts come from NEAR AI's usage chunk; on tiers that do
+// not report usage only the maximum is shown.
+function ContextStrip({ msgs, max }) {
+  const { used, pct } = contextFill(msgs, max);
+  const cost = conversationCostUsd(msgs);
+  if (used == null && max == null) return null;
+  const level = pct == null ? '' : pct >= 90 ? ' full' : pct >= 70 ? ' warn' : '';
+  return (
+    <div className="res-strip ctx-strip" aria-label="Context window in use">
+      <span className="res-item"
+        title={used != null
+          ? 'Tokens the last request carried (prompt + answer) out of the model’s context window'
+          : 'Model’s context window — usage appears after the first answer'}>
+        <span className="res-k">Context</span>
+        <span className="res-v">{used != null ? fmtTokens(used) : '—'}</span>
+        <span className="res-t">/ {max != null ? fmtTokens(max) : '?'}</span>
+        {pct != null && (
+          <>
+            <span className={`ctx-bar${level}`} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(pct)}>
+              <i style={{ width: `${Math.max(2, pct)}%` }} />
+            </span>
+            <span className="res-t">{pct < 1 ? '<1' : Math.round(pct)}%</span>
+          </>
+        )}
+      </span>
+      {cost != null && (
+        <span className="res-item" title="Estimated cost of this chat: token counts × the model’s public price. The API key cannot read the account balance.">
+          <span className="res-k">Chat cost</span>
+          <span className="res-v">≈ {fmtUsdSmall(cost)}</span>
+        </span>
+      )}
+    </div>
+  );
+}
 
 // Live device RAM/VRAM at the top of the chat window. Subscribes to the shared
 // 15s resource snapshot (server-side probe) and self-hides when no data is

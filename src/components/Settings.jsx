@@ -1,3 +1,4 @@
+import { fmtTokens } from '../near/usage.js';
 import { useEffect, useMemo, useState } from 'react';
 import { MODELS, formatSize, getModel, getModelArch } from '../models/registry.js';
 import { describeOffload } from '../utils/offload-planner.js';
@@ -407,7 +408,7 @@ export default function Settings({ flow, onClose, section = null }) {
                 </div>
                 <select value={prefs.modelOverride || ''} onChange={onOverride} style={{ width: 'auto' }}>
                   <option value="">Auto (by device)</option>
-                  {MODELS.map((m) => <option key={m.id} value={m.id}>{m.name} — {formatSize(m.sizeBytes)}</option>)}
+                  {MODELS.map((m) => <option key={m.id} value={m.id}>{m.name} — {formatSize(m.sizeBytes)}{m.nCtx ? ` · ${fmtTokens(m.nCtx)} ctx` : ''}</option>)}
                 </select>
               </div>
 
@@ -505,7 +506,7 @@ export default function Settings({ flow, onClose, section = null }) {
                     {(() => {
                       const opt = (mm) => (
                         <option key={mm.id} value={mm.id}>
-                          {mm.name}{mm.tier === '3p' ? ` (${providerLabel(mm.provider)})` : ''}{mm.outUsdPerM != null && mm.inUsdPerM != null ? ` · $${mm.inUsdPerM.toFixed(2)} / $${mm.outUsdPerM.toFixed(2)} per M tok` : ''}
+                          {mm.name}{mm.tier === '3p' ? ` (${providerLabel(mm.provider)})` : ''}{mm.contextLength ? ` · ${fmtTokens(mm.contextLength)} ctx` : ''}{mm.outUsdPerM != null && mm.inUsdPerM != null ? ` · $${mm.inUsdPerM.toFixed(2)} / $${mm.outUsdPerM.toFixed(2)} per M tok` : ''}
                         </option>
                       );
                       const list = naiModels || [];

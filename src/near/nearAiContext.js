@@ -24,6 +24,7 @@
 // returns `verification`, a JSON-safe receipt the UI renders as "Verified".
 
 import { nearAiRequestBody } from '../utils/outbound.js';
+import { normalizeUsage } from './usage.js';
 
 // Verifier (and jose) load lazily with the SDK, keeping both out of the entry chunk.
 export const CLOCK_TOLERANCE_S = 120;
@@ -478,6 +479,7 @@ export class NearAiContext {
     let inThink = false;
     let finishReason = null;
     let completionId = null;
+    let usage = null; // final stream chunk (stream_options.include_usage)
     let lastEmitAt = 0;
     let chunks = 0;
     let firstAt = null;
@@ -499,6 +501,7 @@ export class NearAiContext {
       );
       for await (const chunk of stream) {
         if (chunk?.id) completionId = chunk.id;
+        if (chunk?.usage) usage = normalizeUsage(chunk.usage) || usage;
         const choice = chunk?.choices?.[0];
         if (choice?.finish_reason) finishReason = choice.finish_reason;
         const d = choice?.delta || {};
@@ -564,7 +567,7 @@ export class NearAiContext {
         response,
       };
     console.info(`[nearai] done in ${((performance.now() - startedAt) / 1000).toFixed(1)}s, signature=${response?.ok ? response.kind : 'unverified'}`);
-    return { text, finishReason, truncated: finishReason === 'length', stopped: this._userStopped, verification };
+    return { text, finishReason, truncated: finishReason === 'length', stopped: this._userStopped, verification, usage };
   }
 
   // The exact request analyze() would send for these args (plaintext, before

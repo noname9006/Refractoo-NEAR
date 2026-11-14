@@ -638,6 +638,10 @@ a.tx .ic,.tx a.ic{cursor:pointer}
 .res-strip .res-k{font-weight:600;letter-spacing:.02em;color:var(--ink-2)}
 .res-strip .res-v{color:var(--ink);font-weight:600}
 .res-strip .res-t{color:var(--ink-3)}
+.ctx-bar{display:inline-block;width:72px;height:5px;border-radius:3px;background:var(--surface-inset);overflow:hidden}
+.ctx-bar i{display:block;height:100%;border-radius:3px;background:var(--accent)}
+.ctx-bar.warn i{background:var(--warn)}
+.ctx-bar.full i{background:var(--neg)}
 /* Always visible: a narrow icon-only rail that widens (.open) to show titles. */
 .chat-sidebar{width:50px;padding:10px 7px;flex:none;overflow:hidden;display:flex;flex-direction:column;
   background:var(--surface-2);border-right:1px solid var(--line);transition:width .2s var(--ease)}

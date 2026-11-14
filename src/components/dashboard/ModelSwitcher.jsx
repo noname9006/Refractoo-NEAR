@@ -5,6 +5,8 @@ import {
   parseHotKey, currentHotKey, effectiveHotlist, hotLabel, TIER_LABELS,
 } from '../../models/hotlist.js';
 import { IChevDown, ICheck } from './icons.jsx';
+import { getModel } from '../../models/registry.js';
+import { fmtTokens } from '../../near/usage.js';
 
 // The model name in the Assistant header, as a button: opens the user's hotlist
 // (curated in Settings → AI model) and switches tier + model in one click.
@@ -107,7 +109,11 @@ export default function ModelSwitcher({ flow, disabled, onOpenSettings }) {
               <div className="mp-tier">{TIER_LABELS[g.t]}</div>
               {g.keys.map((k) => {
                 const { id } = parseHotKey(k);
-                const sub = g.t === 'nearai' && id === NEARAI_DEFAULT_MODEL ? 'default' : null;
+                // Max context window: NEAR AI catalog, or the local model's n_ctx.
+                const ctx = g.t === 'nearai' ? (naiModels || []).find((x) => x.id === id)?.contextLength
+                  : g.t === 'local' ? getModel(id)?.nCtx : null;
+                const sub = [g.t === 'nearai' && id === NEARAI_DEFAULT_MODEL ? 'default' : null, ctx ? `${fmtTokens(ctx)} ctx` : null]
+                  .filter(Boolean).join(' · ') || null;
                 return (
                   <button key={k} type="button" role="option" aria-selected={k === current}
                     className={`mp-item${k === current ? ' on' : ''}`} onClick={() => pick(k)}>
