@@ -39,7 +39,7 @@
   --shadow-lg:0 16px 48px rgba(24,24,30,.18), 0 2px 10px rgba(24,24,30,.08);
 
   --r:12px; --r-md:10px; --r-sm:8px; --pill:999px;
-  --maxw:1800px;
+  --maxw:1680px;
   --ease:cubic-bezier(.2,.8,.2,1);
 
   --fs-base:13.5px;
@@ -324,7 +324,11 @@ button{font:inherit;color:inherit;cursor:pointer;border:none;background:none}
 /* gap matches .sum-chart's margin-right (40px) below, so the chart gets equal
    clearance on both sides: from the breakdown on its left and from the collapse
    chevron (in .sum-head, above) on its right. */
-.sum-body{display:flex;align-items:flex-start;gap:40px;margin-top:18px;flex-wrap:wrap}
+.sum-body{display:flex;align-items:flex-start;gap:40px;margin-top:18px;flex-wrap:wrap;
+  /* Reserve the column under the two header buttons (2 × 34px + 10px gap) plus
+     the same 40px clearance as `gap`, so the free space the chart is centered in
+     runs from the balances block to the buttons' left edge. */
+  padding-right:calc(34px * 2 + 10px + 40px)}
 /* flex-grow:0 — sized to its own content (total + delta + breakdown), not
    stretched to fill leftover row width. Otherwise the chart (which DOES grow)
    ends up visually far from the breakdown, separated by invisible slack inside
@@ -364,13 +368,16 @@ button{font:inherit;color:inherit;cursor:pointer;border:none;background:none}
 /* margin-right clears the collapse chevron (.icon-btn is 34px) sitting at the
    card's right edge in .sum-head, directly above — so the chart's right edge
    stops left of the chevron's column instead of running underneath it. */
-.sum-chart{flex:1.4 1 340px;min-width:260px;max-width:640px;align-self:center;display:flex;align-items:stretch;gap:6px;margin-right:40px}
+/* align-self:stretch — the chart is exactly as tall as .sum-main (top of the
+   total value → bottom of the shielded "N encrypted" line). margin:auto centers
+   it horizontally in the free space left of the header buttons. */
+.sum-chart{flex:1.4 1 340px;min-width:260px;max-width:640px;align-self:stretch;display:flex;align-items:stretch;gap:6px;margin:0 auto}
 .range{display:flex;flex-direction:column;gap:4px;align-self:center}
 .rg{font-size:11px;font-weight:600;color:var(--ink-3);padding:3px 8px;border-radius:7px;transition:color .12s,background .12s}
 .rg:hover{color:var(--ink-2);background:var(--surface-inset)}
 .rg.on{color:var(--accent);background:var(--accent-wash)}
-.chart-col{position:relative;flex:1;min-width:0;height:120px}
-.trend{color:var(--accent);width:100%;height:100%;display:block}
+.chart-col{position:relative;flex:1;min-width:0;min-height:72px}
+.trend{color:var(--accent);position:absolute;inset:0;width:100%;height:100%;display:block}
 .chart-hl-col{display:flex;flex-direction:column;justify-content:space-between;padding:4px 0;min-width:48px;pointer-events:none}
 .chart-hl{font-size:10px;font-weight:500;color:var(--ink-3);white-space:nowrap;line-height:1;letter-spacing:-.01em}
 .hover-dot,.chart-end-dot{position:absolute;width:8px;height:8px;aspect-ratio:1;border-radius:50%;background:var(--surface);border:2px solid currentColor;transform:translate(-50%,-50%);pointer-events:none}
@@ -851,8 +858,9 @@ label.check input{width:auto;padding:0;margin:0}
   .topbar-in{padding:0 14px;gap:10px}.brand small{display:none}.brand-sub{padding-left:12px;margin-left:2px}.brand .powered{width:auto;min-width:0;justify-content:flex-start;gap:6px;font-size:11px;letter-spacing:.03em}.near-logo{height:11px}.synced-t{display:none}.synced{margin-left:0}.topbar-tools{margin-left:0;padding-left:8px}
   .app{padding:16px 14px 80px}
   .spark{justify-content:flex-start;flex-wrap:wrap}
-  .sum-chart{flex:1 1 100%;max-width:100%;min-width:0;margin-right:0}
-  .sum-body{flex-direction:column;gap:16px}
+  .sum-chart{flex:1 1 100%;max-width:100%;min-width:0;margin:0;align-self:auto}
+  .chart-col{height:120px}
+  .sum-body{flex-direction:column;gap:16px;padding-right:0}
 }
 
 /* ───────────── Wallet chips: select-to-filter, rename, inline disconnect ─────────────
