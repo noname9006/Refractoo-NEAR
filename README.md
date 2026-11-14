@@ -132,6 +132,7 @@ The hackathon diff: [`pre-hackathon...main`](https://github.com/noname9006/Refra
 | **Public NEAR accounts** by name: balance, FTs, per-pool staking, priced | [`src/near/nearAccount.js`](src/near/nearAccount.js) |
 | **NEAR DeFi positions** by account name: Rhea Lend supplied/collateral/borrowed with the protocol's own health-factor rule; liquid staking (stNEAR, LiNEAR, rNEAR) shown as staking, plus NEAR unstaking inside those contracts; public NEAR Intents balances. A failed protocol read is reported, never zero-filled | [`src/near/defi/`](src/near/defi) |
 | **Pseudonymization** of off-device prompts, per-tier amount precision (TEE exact, external 4 significant figures), local restore of real addresses | [`src/utils/pseudonymize.js`](src/utils/pseudonymize.js) |
+| **Per-model reasoning controls**: the Think toggle and an effort selector send the parameter each NEAR AI model actually honours (there is no single switch) — see [Reasoning controls](#reasoning-controls-per-near-ai-model) | [`reasoningProfiles.js`](src/near/reasoningProfiles.js), [`outbound.js`](src/utils/outbound.js), [`reasoning-probe.mjs`](spike/reasoning-probe.mjs) |
 | Tier switcher with the who-sees-what table | [`TierPanel.jsx`](src/components/dashboard/TierPanel.jsx) |
 | **Review before sending**: the exact request body for NEAR AI / external API, sent only on "Send"; one builder makes both the preview and the request | [`OutboundReview.jsx`](src/components/dashboard/OutboundReview.jsx), [`outbound.js`](src/utils/outbound.js) |
 | **Every party, and what it sees**: hosting, RPCs, your wallet, the Intents API, private-shard validators, NEAR AI gateway/enclave, external operator — tested against the code | [`trustBoundaries.js`](src/data/trustBoundaries.js) |
@@ -152,6 +153,62 @@ ERC-191 keys and read balances on every `npm test` run that has the Intents key.
 Also in the window: reasoning budget for NEAR AI models (Settings), token-name
 sanitizing before anything reaches a prompt (deployer-chosen names are
 untrusted text), and fixes found along the way — see the commit log.
+
+### Reasoning controls, per NEAR AI model
+
+NEAR AI Cloud has no single reasoning switch: every model (and every provider
+behind the gateway) honours a different parameter, and a wrong one is silently
+ignored. Sending `enable_thinking` to every model — what the app did before —
+left the Think toggle dead on Kimi and DeepSeek V3.2, and on GLM-5.3 moved the
+reasoning into the answer text.
+
+The assistant now has **Think** (on/off) and, where the model has levels, an
+**Effort** selector next to it. Each request carries the parameter that model
+honours:
+
+| Model | Tier | Think off | Think on | Effort levels |
+|---|---|---|---|---|
+| `z-ai/glm-5.3-flash` (default) | NEAR TEE | `reasoning_effort: "low"` (~15 reasoning tokens; there is no true off) | model default + `thinking_token_budget` | — |
+| `Qwen/Qwen3.8-27B` (+ abliterated) | NEAR TEE | `chat_template_kwargs.enable_thinking: false` | `enable_thinking: true` | low, medium, xhigh |
+| `deepseek-ai/DeepSeek-V4.1-Flash-1017` (+ abliterated) | NEAR TEE | `enable_thinking: false` | `enable_thinking: true` | low, high, xhigh, max |
+| `Qwen/Qwen3.6-35B-A3B-FP8`, unknown models | NEAR TEE | `enable_thinking: false` | `enable_thinking: true` | — |
+| `z-ai/glm-5.3` | 3P TEE (Tinfoil) | cannot be switched off — the toggle is locked on | model default + `thinking_token_budget` | low, high, max |
+| `moonshotai/kimi-k3` | 3P TEE (Chutes) | `chat_template_kwargs.thinking: false` | model default | low, high, xhigh |
+| `moonshotai/kimi-k2.6` | 3P TEE (Chutes) | `chat_template_kwargs.thinking: false` | model default | — |
+| `deepseek/deepseek-v3.2` | 3P TEE (Chutes) | nothing sent (does not reason by default) | `reasoning_effort` (default `medium`) | low, medium, high |
+
+- An effort the current model does not accept is never sent (Qwen3.8 answers
+  `high` with a 400, DeepSeek V4.1 rejects `medium`).
+- **Reasoning budget** (Settings) is still the shared `max_tokens` cap; on the
+  two GLM models it is also sent as `thinking_token_budget`, the only parameter
+  that really caps their reasoning. Without it GLM-5.3 Flash stops thinking at
+  8192 tokens whatever the budget says; "Unlimited" sends `null`.
+- The **review-before-sending** dialog shows these parameters: it is built by
+  the same function as the request.
+
+**How this was established.** The NEAR AI docs
+([reasoning models](https://docs.near.ai/cloud/reasoning-models)) cover only
+part of the catalog, so every row was measured against the live API with
+[`spike/reasoning-probe.mjs`](spike/reasoning-probe.mjs) on 2026-11-14: 11
+models × 14 parameter variants, one fixed prompt with no wallet data, counting
+reasoning tokens and rejected values. Run it again when the catalog changes:
+
+```bash
+node spike/reasoning-probe.mjs                      # the default model set
+node spike/reasoning-probe.mjs moonshotai/kimi-k3   # specific models
+```
+
+It needs `NEARAI_API_KEY` (env or `.env`) and costs a few cents. Limits of the
+measurement: one run per variant on an easy prompt, so on/off and rejected
+values are solid, while the difference *between* accepted effort levels on
+Qwen3.8 and DeepSeek V4.1 Flash did not show.
+
+**Tests** ([`tests/reasoningProfiles.test.mjs`](tests/reasoningProfiles.test.mjs),
+offline): each model gets the switch it honours; an effort is sent only when the
+model accepts that value; a model with no off switch always reasons; the budget
+maps to `thinking_token_budget` only on GLM; `nearAiRequestBody` carries the
+result. [`tests/outbound.test.mjs`](tests/outbound.test.mjs) still proves the
+previewed body deep-equals what is handed to the NEAR AI SDK.
 
 ## Baseline (pre-hackathon work)
 

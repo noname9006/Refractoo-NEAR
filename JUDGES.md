@@ -11,7 +11,7 @@ npm ci
 npm run test:offline
 ```
 
-118 tests, about 11 seconds. `npm test` additionally runs the `live:` tests
+122 tests, about 11 seconds. `npm test` additionally runs the `live:` tests
 against public endpoints (NEAR RPC, `intents.near`, the NEAR AI gateway); the
 ones that need a NEAR AI or Intents API key skip themselves without one.
 
@@ -57,6 +57,7 @@ Limits: detection is a pattern list, so a cleverly worded name can get past it. 
 |---|---|---|
 | Before any off-device request you see the exact request body, and nothing is sent until you click Send | [`OutboundReview.jsx`](src/components/dashboard/OutboundReview.jsx), `send()` in [`Assistant.jsx`](src/components/dashboard/Assistant.jsx) | checked in the browser (see below) |
 | The preview is the wire: one builder makes both the request and the preview | [`outbound.js`](src/utils/outbound.js), used by [`external-context.js`](src/utils/external-context.js) and [`nearAiContext.js`](src/near/nearAiContext.js) | [`outbound.test.mjs`](tests/outbound.test.mjs): the external POST body is byte-identical to the preview; the body handed to the NEAR AI SDK deep-equals it |
+| The Think toggle and effort level reach each NEAR AI model as the parameter that model honours (never a silently-ignored one), and they appear in the preview | [`reasoningProfiles.js`](src/near/reasoningProfiles.js), `nearAiRequestBody()` in [`outbound.js`](src/utils/outbound.js) | [`reasoningProfiles.test.mjs`](tests/reasoningProfiles.test.mjs) (4 tests); measured live with [`spike/reasoning-probe.mjs`](spike/reasoning-probe.mjs) |
 | Your API key is never shown in the preview | `previewRequest()` | `outbound.test.mjs` "external: previewRequest …" |
 
 ### NEAR Confidential Intents (private shard)
