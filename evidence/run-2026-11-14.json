@@ -436,7 +436,7 @@
     }
   ],
   "command": "node --test --test-skip-pattern=^live tests/*.test.mjs",
-  "commit": "1a661811abb7862f5ea266803c70c5fb468f57be",
+  "commit": "bd209c0b9d6724cee16315c1aa777e7113095f9b",
   "complete": {
     "claimsChecked": 22,
     "claimsExpected": 22,
@@ -482,7 +482,7 @@
     "tests/outbound.test.mjs": "sha256:cd49c4dfa83e3ed34b0cce1c0dc99c8f08f3958921a40785975f05009c5a8021",
     "tests/pseudonymize.test.mjs": "sha256:1992ea4b4405e9d4086438d2b078fcecfe668855ebbc9ab63010c948ac45621e",
     "tests/reasoningProfiles.test.mjs": "sha256:3610ec34f344eadba6cca81cd24bb1bb558c4f1d95b0cd72c9cee64d15e1f27d",
-    "tests/receipt.test.mjs": "sha256:a6e21f2b17c22ea396e720e6020dfdf87482b3a15e71bb81ddd1a320761b91b8",
+    "tests/receipt.test.mjs": "sha256:f37e8d169762d53c14848da549c3e2ebf6a74b1dab982b77a00c6151505ea38b",
     "tests/tamper.test.mjs": "sha256:87c9610709725558d242bd5a45e944973e8f81c1174d00b757460dd38d91946f",
     "tests/trustBoundaries.test.mjs": "sha256:a5b01390d7d1a6bee89d58af429724a3548048030abdad09b0b7313ca33cfc58",
     "tests/untrusted.test.mjs": "sha256:dcc214009c64880197ec6099b10b8a2b22d2428282e1b48cac08754205a3c0ea",
@@ -498,7 +498,7 @@
     "Session tokens live in memory only: by code inspection, not by a test."
   ],
   "platform": "win32",
-  "ranAt": "2026-11-14T22:45:09.137Z",
+  "ranAt": "2026-11-14T22:51:09.723Z",
   "suite": {
     "exitCode": 0,
     "fail": 0,
