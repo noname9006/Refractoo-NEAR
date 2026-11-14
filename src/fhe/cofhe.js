@@ -13,7 +13,7 @@
 // NO TOKEN STANDARD: unlike Zama's ERC-7984 wrappers, CoFHE ships no
 // confidential-token standard and no registry, so there is nothing to enumerate.
 // "Confidential holdings" here are whatever contracts the network profile points
-// at — each declaring its own getter and FHE type. contracts/ConfidentialDemo.sol
+// at — each declaring its own getter and FHE type. A self-deployed demo contract
 // is one such entry, deliberately just an item in a list.
 
 import { Interface } from 'ethers';
@@ -166,7 +166,7 @@ export async function reveal({ token, provider, signer, chain }) {
 // existing on-chain balance to find unless you write one yourself.
 //
 // Not wired to any UI; kept because it is the only way to exercise the CoFHE path
-// end to end against contracts/ConfidentialDemo.sol. Call it from the console:
+// end to end against a self-deployed confidential contract. Call it from the console:
 //   const m = await import('/src/fhe/cofhe.js');
 //   await m.writeSealedValue({ address, value: 4200n, provider, signer, chain });
 export async function writeSealedValue({ address, value, provider, signer, chain }) {

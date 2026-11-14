@@ -1,656 +1,347 @@
-# Refractoo — private AI analysis of your whole portfolio, NEAR included
+<div align="center">
 
-One dashboard for every wallet you own, with an AI assistant that never exposes
-what is in them.
+<a href="https://refractoo.xyz"><img src="docs/media/logo.svg" alt="Refractoo" width="200"></a>
 
-## Why Refractoo exists
+### Your private DeFi analyst
 
-Crypto has been here for years. Mass adoption still hasn't arrived.
+**Every wallet you own in one dashboard, and an AI that explains it without seeing whose it is.**
 
-**What crypto does well: you own your money.** No bank, no third party you
-have to trust. What it never gave you is privacy. A bank keeps your income,
-deposits, yields and trades between you and the bank; a public chain shows
-them to everyone.
+[![Open the app](https://img.shields.io/badge/Open_the_app-refractoo.xyz-0d9488?style=for-the-badge)](https://refractoo.xyz/app)
 
-**NEAR Intents closes that gap.** With Confidential Intents, balances and swaps
-stay off the public chain — private, and still self-custodial.
+[![NEAR AI TEE](https://img.shields.io/badge/AI-NEAR_AI_TEE-1b6ef3)](https://cloud.near.ai)
+[![NEAR Confidential Intents](https://img.shields.io/badge/NEAR-Confidential_Intents-000000)](https://near.org)
+[![Evidence](https://github.com/noname9006/Refractoo-NEAR/actions/workflows/evidence.yml/badge.svg)](https://github.com/noname9006/Refractoo-NEAR/actions/workflows/evidence.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
-**The other barrier is complexity.** Web3 is fragmented: many wallets and keys,
-many chains (EVM and not), many protocols, liquidity spread across all of them.
-Untangling DeFi is a job for AI, not for a human being.
+[**Live app**](https://refractoo.xyz/app) · [How it works](#how-to-use-it) · [Privacy](#who-sees-what) · [For judges](JUDGES.md) · [Self-host](docs/SELF-HOSTING.md)
 
-**But handing private finances to an inference provider discloses them.**
-Refractoo gives you two ways around that:
+<br>
 
-- **Run the model on your own hardware** — two clicks in Refractoo, and nothing
-  leaves the device. The cost: it is slow, and most machines can't run a
-  powerful model at all.
-- **Use NEAR AI (recommended)** — TEE-based inference, verified and integrated
-  in the web interface. Strong modern models, no hardware requirements. The
-  prompt is encrypted end to end to an enclave that your browser attests before
-  sending anything, so the operator can't read it.
+<img src="docs/media/hero.gif" alt="Refractoo: open the demo, the dashboard fills with live data across EVM and NEAR" width="900">
 
-Either way, Refractoo stores nothing server-side.
+</div>
 
-## What it does
+---
 
-Refractoo reads your wallets — EVM chains, public NEAR accounts and your
-**NEAR Confidential Intents (private-shard) balances** — computes the numbers
-deterministically in the browser, and lets an AI explain them. You choose where
-that AI runs, and the app shows exactly who can see what:
+## Why Refractoo
 
-| Tier | Where the model runs | What this browser verifies |
-|---|---|---|
-| **On device** | wllama (llama.cpp → WebGPU/WASM) in this tab | nothing leaves the device |
-| **NEAR AI TEE** | NEAR AI Cloud, Intel TDX + NVIDIA confidential-computing enclave | gateway + model attestation before sending, end-to-end encryption to the model, a signature on every answer |
-| **External API** | any OpenAI-compatible endpoint | nothing — you trust the operator |
+DeFi is spread across a dozen wallets, chains and protocols. Making sense of it
+is a job for AI, but **handing your portfolio to an AI provider gives away your
+net worth, your positions and every address you own.**
 
-For the two off-device tiers the prompt is **pseudonymized**: wallet addresses,
-NEAR account names, staking pools and tx hashes become placeholders
-(`WALLET_1`, `ADDR_2`, `NEAR_1`…), and the answer is mapped back to your real
-addresses locally.
+Refractoo reads your wallets, works out the numbers in your browser, and lets an
+AI explain them **without anyone else learning what you hold**:
 
-Submitted to **NEAR HACKATHON — Privacy & Private AI track**.
+- **One view of everything.** EVM chains, NEAR accounts, DeFi positions, token
+  approvals and **private NEAR Confidential Intents balances**, priced and
+  summed in one place.
+- **Ask in plain words.** "Where is my money and what's at risk?", "Am I
+  overexposed to ETH?", "Explain my Aave health factor".
+- **Private by design.** The AI runs on your own device, or inside a NEAR AI
+  enclave **that your browser verifies before sending anything**. Addresses are
+  replaced with placeholders before the question leaves the device.
+- **Proof instead of promises.** Every answer comes with a receipt: 6 checks
+  your browser ran, and a signature you can verify yourself.
+- **No sign-up, nothing stored.** No account, no database. Your keys never
+  leave your wallet.
 
-## Why this fits Track 03
+## Try it now: no wallet, no keys
 
-The track's example is a private expense auditor: give an AI your financial
-records, get insight, and nobody else learns what's in them. Refractoo uses the
-same architecture (local or attested-TEE inference, pseudonymized prompts,
-nothing stored server-side) on a **harder dataset: the whole portfolio**.
+1. Open **[refractoo.xyz/app](https://refractoo.xyz/app)**
+2. Click **Explore a demo**
 
-- **More sensitive than expenses.** One expense list leaks one budget. A
-  portfolio aggregate links every wallet you own, your net worth and your
-  positions.
-- **Includes data that is private on-chain.** NEAR Confidential Intents balances
-  are hidden from the public chain. Feeding them to an ordinary cloud AI would
-  undo that privacy. Here they reach only the on-device model or an attested
-  TEE.
-- **The same guarantee, checked in the browser.** The tier you pick is enforced
-  and shown, not claimed (see [Privacy model](#privacy-model-honest-version)).
+You get a live dashboard with demo EVM wallets and public NEAR accounts
+(`root.near`, `satojandro.near`), read from the chain in real time. Everything
+below works in the demo.
 
-## Who pays
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/media/dashboard-dark.png">
+    <img src="docs/media/dashboard-light.png" alt="Refractoo dashboard: wallets, chains, total portfolio value and the Wallet Assistant" width="900">
+  </picture>
+</p>
 
-**Users who want a better model than their device can run.** On-device analysis
-is free and stays free: it costs us nothing to serve. The paid tier is **private
-TEE inference**: larger models on NEAR AI Cloud, with attestation and
-end-to-end encryption, for users without a capable GPU or who want stronger
-answers. It is billed as a subscription or per query, on top of the inference
-cost.
+## How to use it
 
-**Expansion: wallets and funds (B2B).** Wallets, custodians and funds want to
-offer portfolio insight without holding customer data. That is a liability
-under every privacy regime. Refractoo's analyzer can be embedded or
-white-labelled, with the provider paying a licence fee. The privacy guarantee
-is what they are buying: they can tell users "we never see your portfolio" and
-show the attestation that proves it.
+### 1. Add your wallets
 
-## Try it in 3 minutes — no wallet, no keys
+**Connect wallet** and pick a source. Add as many as you like; they all go into
+one portfolio.
 
-Requires Node 22+ and Chrome/Edge (WebGPU only matters for the on-device model).
+| Source | What you get |
+|---|---|
+| **EVM wallet** (MetaMask, Rabby, Coinbase Wallet or any browser wallet) | Tokens on Ethereum, Arbitrum, Optimism, Base, Polygon, BNB, Avalanche and more |
+| **NEAR wallet** (HOT, Meteor, Intear, MyNearWallet, Ledger…) | NEAR, fungible tokens, staking, DeFi, and your private Confidential Intents balances |
+| **Watch any address or `.near` account** | Read-only: paste a name and see it, no signature needed |
 
-```bash
-npm ci
-npm run dev
-```
+Watching is read-only. Refractoo never asks for a transaction or a private key.
 
-Open http://localhost:5173/app, then:
+### 2. See where your money is
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+**Holdings and DeFi, across chains.** Tokens are priced live and grouped by
+chain. DeFi positions are read straight from the protocols' contracts:
+
+- Lending with health factor: **Aave v3, SparkLend, Morpho, Rhea Lend**
+- Liquid staking: **Lido, ether.fi, Ethena, Spark, stNEAR, LiNEAR, rNEAR**
+- NEAR validator staking, per pool
+- **Uniswap v3** liquidity, in or out of range
+
+Also: **Recent activity** and **Spending caps** (token approvals, with
+unlimited ones flagged). Filter by chain with one click; your layout is
+remembered.
+
+</td>
+<td width="50%" valign="top">
+<img src="docs/media/defi.png" alt="DeFi positions: Aave, SparkLend, Morpho with health factors, NEAR staking, Lido" width="100%">
+</td>
+</tr>
+</table>
+
+### 3. Reveal your private balances
+
+<table>
+<tr>
+<td width="50%" valign="top">
+<img src="docs/media/shielded.png" alt="Shielded balances: NEAR Confidential Intents private-shard balances" width="100%">
+</td>
+<td width="50%" valign="top">
+
+**NEAR Confidential Intents** keep balances and swaps off the public chain.
+Refractoo can show them to you, and only to you:
+
+- **One signature of an empty intent** (nothing is transferred) reads your
+  private-shard balances.
+- They are held **in this tab's memory only**: gone when you close it.
+- They reach the AI only on your device or inside a verified enclave.
+
+FHE-encrypted tokens (**Zama, Inco, Fhenix**) are found automatically and stay
+masked as `•••••` until you reveal them one by one.
+
+In the demo, **Show sample private balances** shows what this looks like
+(labelled *sample*).
+
+</td>
+</tr>
+</table>
+
+<p align="center"><img src="docs/media/private.gif" alt="Compare AI tiers, then reveal sample private balances" width="820"></p>
+
+### 4. Choose where the AI runs
+
+Open **Compare tiers** under the chat box to see, side by side, where the model
+runs and who can read your question:
+
+| | **NEAR AI TEE** (recommended) | **On device** | **External API** |
+|---|---|---|---|
+| Where the model runs | NEAR AI Cloud, inside an Intel TDX + NVIDIA confidential-computing enclave | In your browser (WebGPU / CPU) | Any OpenAI-compatible server |
+| Who can read your question | Only code inside the attested enclave | Only you | The server's operator |
+| What your browser checks | TDX quotes, NVIDIA GPU evidence, fresh nonce, a signature on every answer | Nothing leaves the device | Nothing: you trust the operator |
+| Models | GLM 5.3, Qwen 3.8, DeepSeek V4.1, Kimi K3 and more | Qwen 3.5 4B, Gemma 4 with voice input (two-click download) | Your choice |
+| Cost | Pay per token with a [NEAR AI](https://cloud.near.ai) key | Free | Depends on the provider |
+
+<p align="center"><img src="docs/media/tiers.png" alt="Where your AI runs — and who sees what: the three tiers compared" width="820"></p>
+
+**Setting up NEAR AI:** **Settings → AI model → NEAR AI TEE**, paste a key from
+[cloud.near.ai](https://cloud.near.ai), **Verify & connect**. The browser checks
+the enclave before the first question is sent.
+
+**Setting up on-device:** **Settings → AI model → On device**, pick a model,
+**Load model**. It downloads once and is cached in the browser.
+
+### 5. Ask, and check the receipt
+
+Type a question or pick one of the suggestions. The model gets the facts
+Refractoo computed (it never guesses balances), with your addresses replaced by
+`WALLET_1`, `NEAR_1`… Real names are restored in the answer on your device.
+
+Want to see exactly what leaves the device? Turn on **review before sending**:
+the full request is shown and goes out only when you click **Send**.
+
+Every NEAR AI answer gets a **Verified · 6/6 checks** receipt: gateway TDX,
+model TDX, NVIDIA GPU, fresh nonce, end-to-end encryption and the enclave's
+signature. Click **Simulate tampered answer** to flip one byte and watch the
+check fail. **Save receipt** lets anyone re-check it later at
+[refractoo.xyz/verify](https://refractoo.xyz/verify).
+
+**No key yet?** Click **Verify NEAR AI gateway now**: your browser checks the
+live NEAR AI enclave in a few seconds, no account needed.
+
+<p align="center"><img src="docs/media/verify.gif" alt="Key-less NEAR AI gateway check: Intel TDX quote verified, fresh nonce, gateway signing key" width="820"></p>
+
+<table>
+<tr>
+<td width="50%" valign="top">
+<img src="docs/media/gateway-box.png" alt="Gateway check result" width="100%">
+</td>
+<td width="50%" valign="top">
+<img src="docs/media/verify-card.png" alt="Verify a NEAR AI receipt: signature valid, live signer check matches an attested enclave" width="100%">
+</td>
+</tr>
+</table>
+
+## Who sees what
+
+| | Sees your addresses | Sees your balances | Sees your question |
+|---|---|---|---|
+| Refractoo's server | No | No | No (on-device and NEAR AI tiers) |
+| NEAR AI gateway | No | No | Ciphertext only |
+| NEAR AI model enclave | Placeholders only | Yes, inside the attested TEE | Yes, inside the attested TEE |
+| Public RPCs and explorers | The addresses you look up | Only public on-chain data | No |
+| NEAR Intents API (Aurora) | The account you sign in with | Your private-shard balances | No |
+
+Refractoo **stores nothing server-side**: no database, no logs, no sessions. The
+whole backend is about 500 lines in [`server/`](server/) and can be read in
+minutes. The app shows this table per party under **Compare tiers → Every
+party, and what it sees**, and a test checks it against the code.
+
+Full breakdown, including what revealing an FHE balance leaks:
+**[docs/PRIVACY.md](docs/PRIVACY.md)**. What we don't claim:
+**[LIMITS.md](LIMITS.md)**.
+
+## Safety built in
+
+- **Prompt-injection guard.** Token names are written by whoever deploys the
+  token. Suspicious text ("IGNORE PREVIOUS INSTRUCTIONS…") is withheld from the
+  AI and flagged. The demo plants one so you can see it.
+- **No invented numbers.** Totals come from deterministic code, not the model.
+  An encrypted balance is reported as *unknown*, never as zero; a protocol that
+  fails to load is shown as failed, not empty.
+- **Context and cost meter.** See how full the model's context is and roughly
+  what the current chat cost.
+
+## FAQ
+
+<details>
+<summary><b>Do I need a NEAR AI key?</b></summary>
+
+No. The dashboard, private balances and the on-device AI work without one. A
+key unlocks larger models running in a verified enclave.
+</details>
+
+<details>
+<summary><b>Can Refractoo move my funds?</b></summary>
+
+No. It only reads. The only signature it ever asks for is an *empty* intent
+(no transfer) to read your Confidential Intents balances, or an EIP-712 message
+to decrypt an FHE balance you chose to reveal.
+</details>
+
+<details>
+<summary><b>Will the on-device model run on my computer?</b></summary>
+
+Small models run on most machines with Chrome or Edge. Larger ones need a GPU
+with WebGPU. Settings shows the RAM/VRAM estimate and lets you split work
+between GPU and CPU. It is slower than the cloud tier; that's the price of
+nothing leaving the device.
+</details>
+
+<details>
+<summary><b>Which browsers are supported?</b></summary>
+
+Chrome and Edge 113+ are recommended (WebGPU). Safari 18+ and Firefox work;
+the on-device model falls back to CPU there.
+</details>
+
+<details>
+<summary><b>Can I run my own instance?</b></summary>
+
+Yes, it's MIT-licensed: `npm ci && npm run dev`. See
+[docs/SELF-HOSTING.md](docs/SELF-HOSTING.md) for configuration, network modes,
+adding models and deployment.
+</details>
+
+---
+
+## For NEAR HACKATHON judges
+
+Submitted to **NEAR HACKATHON, Privacy & Private AI track (Track 03)**.
+
+The track's example is a private expense auditor. Refractoo applies the same
+architecture (local or attested-TEE inference, pseudonymized prompts, nothing
+stored server-side) to a harder dataset: **the whole portfolio**, including
+balances that are private on-chain (NEAR Confidential Intents). Feeding those
+to an ordinary cloud AI would undo their privacy; here they reach only the
+on-device model or an attested TEE.
+
+**Business model.** On-device analysis is free and costs nothing to serve.
+The paid tier is private TEE inference (larger models on NEAR AI Cloud),
+billed by subscription or per query. Expansion: wallets, custodians and funds
+embed or white-label the analyzer so they can offer portfolio insight
+without holding customer data, and show the attestation that proves it.
+
+### Try it in 3 minutes — no wallet, no keys
+
+On [refractoo.xyz/app](https://refractoo.xyz/app), or locally with
+`npm ci && npm run dev` (Node 22+, then http://localhost:5173/app):
 
 | Do | You should see |
 |---|---|
-| Click **Explore a demo** | A dashboard with an EVM demo wallet and the public NEAR account `root.near`, read live: NEAR balance, FT tokens and NEAR staked in `shitzu.pool.near` (Holdings, DeFi), a **NEAR** chain pill |
-| In the assistant, click **Verify NEAR AI gateway now** | Within a few seconds: "Intel TDX quote verified against Intel collateral · TCB UpToDate", the fresh nonce it is bound to, and the gateway signing key — a real attestation check run in your browser, no API key |
-| Click the privacy line under the chat box (**Compare tiers**) | The three tiers side by side: where the model runs, what leaves the device, who can read it, what is checked, what is pseudonymized |
-| Scroll to **Shielded balances → NEAR Confidential Intents**, click **Show sample private balances (demo)** | Sample private-shard balances (USDC, wNEAR, BTC, ZEC) clearly tagged **sample** — with a wallet connected this button instead asks for one signature of an empty intent and reads your real ones |
-| Click **Connect wallet → NEAR → Watch an account by name**, enter any account (e.g. `randomname1001.near`) | That account's NEAR / FT / staking added to the portfolio, read-only |
+| Click **Explore a demo** | A dashboard with demo EVM wallets and the public NEAR account `root.near`, read live: NEAR balance, FT tokens and NEAR staked in `shitzu.pool.near` (Holdings, DeFi), a **NEAR** chain pill |
+| In the assistant, click **Verify NEAR AI gateway now** | Within a few seconds: "Intel TDX quote verified against Intel collateral · TCB UpToDate", the fresh nonce it is bound to, and the gateway signing key |
+| Click **Compare tiers** under the chat box | The three tiers side by side: where the model runs, what leaves the device, who can read it, what is checked, what is pseudonymized |
+| **Shielded balances → NEAR Confidential Intents → Show sample private balances (demo)** | Sample private-shard balances (USDC, wNEAR, BTC, ZEC) tagged **sample**; with a wallet connected this button asks for one signature of an empty intent and reads your real ones |
+| **Connect wallet → NEAR → Watch an account by name** (e.g. `randomname1001.near`) | That account's NEAR / FT / staking added to the portfolio, read-only |
+| With a NEAR AI key: **Settings → AI model → NEAR AI TEE**, **Verify & connect**, ask anything | A **Verified · 6/6 checks** panel on every answer and a note of what was pseudonymized |
 
-With a NEAR AI key (https://cloud.near.ai): **Settings → AI model → NEAR AI TEE**,
-paste the key, **Verify & connect**, then ask anything. Every answer gets a
-**Verified · 6/6 checks** panel (gateway TDX, model TDX, NVIDIA GPU, fresh nonce,
-E2EE, enclave signature) and a note of what was pseudonymized.
+**Evidence.** [JUDGES.md](JUDGES.md) maps every privacy claim to its code and
+the test that proves it; [LIMITS.md](LIMITS.md) lists what we do not claim.
 
-**Judges: [JUDGES.md](JUDGES.md)** maps every privacy claim to its code and the
-test that proves it, and [LIMITS.md](LIMITS.md) lists what we do not claim.
-`npm run verify:evidence` runs them all (no keys, no network, about 11 seconds) and
-writes `evidence/run-<date>.json`: commit, input hashes and the status of each claim.
-`npm run verify:guards` removes each of 14 guards in turn and shows the tests catch it.
-A real NEAR AI receipt is in [`fixtures/nearai-receipt/`](fixtures/nearai-receipt/);
-check it in the browser at `/verify`, and re-prove live (no key) that its signer is an
-attested enclave key today. CI re-runs all of it on every push
-([`evidence` workflow](.github/workflows/evidence.yml)).
+- `npm run verify:evidence`: all claims, no keys, no network, ~11 s; writes
+  `evidence/run-<date>.json` with commit, input hashes and per-claim status.
+- `npm run verify:guards`: removes each of 14 guards in turn and shows the tests catch it.
+- A real NEAR AI receipt in [`fixtures/nearai-receipt/`](fixtures/nearai-receipt/),
+  checkable at `/verify`, plus a live key-less re-proof that its signer is an
+  attested enclave key today.
+- CI re-runs all of it on every push ([`evidence` workflow](.github/workflows/evidence.yml)).
+- `npm test`: unit tests plus live checks against public endpoints. Tests that
+  spend NEAR AI credit run only when `NEARAI_API_KEY` is set.
 
-Tests: `npm test` — unit tests plus live checks against public endpoints (NEAR
-RPC, FastNEAR, the key-less NEAR AI gateway check). Tests that spend NEAR AI
-credit run only when `NEARAI_API_KEY` is set (env or `.env`).
-
-## Built during the hackathon (scored work)
+### Built during the hackathon (scored work)
 
 Everything before the tag [`pre-hackathon`](https://github.com/noname9006/Refractoo-NEAR/tree/pre-hackathon)
-(commit `e44f03c`) is pre-existing work — see [Baseline](#baseline-pre-hackathon-work).
+(commit `e44f03c`) is pre-existing work, see [Baseline](#baseline-pre-hackathon-work).
 The hackathon diff: [`pre-hackathon...main`](https://github.com/noname9006/Refractoo-NEAR/compare/pre-hackathon...main).
 
 | NEAR feature | Code |
 |---|---|
-| **NEAR AI TEE inference tier**: browser-side gateway + model attestation, E2EE chat, per-answer signature check, "Verified" receipt with a **"Simulate tampered answer"** button (flips one byte, re-runs the real check, receipt turns red); refuses non-attested (Incognito) models | [`src/near/nearAiContext.js`](src/near/nearAiContext.js) |
+| **NEAR AI TEE inference tier**: browser-side gateway + model attestation, E2EE chat, per-answer signature check, "Verified" receipt with a **"Simulate tampered answer"** button; refuses non-attested (Incognito) models | [`src/near/nearAiContext.js`](src/near/nearAiContext.js) |
 | NVIDIA NRAS verdict check with bounded clock tolerance (the SDK has none; a few seconds of client clock lag failed every verification) | [`src/near/nrasVerifier.js`](src/near/nrasVerifier.js) |
 | **Key-less live gateway check** for people without a NEAR AI key | `verifyGatewayNow()` in `nearAiContext.js`, [`GatewayCheck.jsx`](src/components/dashboard/GatewayCheck.jsx) |
-| **NEAR Confidential Intents**: one signature of an empty intent → private-shard balances (and swap history, which the API currently opens by invitation only), held in memory only. Sign with a **NEAR wallet (NEP-413**, via near-connect: HOT, Meteor, Intear, MyNearWallet, Ledger…) or an EVM wallet (ERC-191). NEP-413 payloads are built and the wallet's signature verified locally before anything is sent | [`confidentialIntents.js`](src/near/confidentialIntents.js), [`nep413.js`](src/near/nep413.js), [`nearWallet.js`](src/near/nearWallet.js) |
+| **NEAR Confidential Intents**: one signature of an empty intent → private-shard balances, held in memory only. Sign with a **NEAR wallet (NEP-413**, via near-connect) or an EVM wallet (ERC-191). NEP-413 payloads built and the wallet's signature verified locally before anything is sent. Sign-in uses the SDK's versioned nonce ([why](docs/NEAR-AI.md#confidential-intents-sign-in)) | [`confidentialIntents.js`](src/near/confidentialIntents.js), [`nep413.js`](src/near/nep413.js), [`nearWallet.js`](src/near/nearWallet.js) |
 | **Public NEAR accounts** by name: balance, FTs, per-pool staking, priced | [`src/near/nearAccount.js`](src/near/nearAccount.js) |
-| **NEAR DeFi positions** by account name: Rhea Lend supplied/collateral/borrowed with the protocol's own health-factor rule; liquid staking (stNEAR, LiNEAR, rNEAR) shown as staking, plus NEAR unstaking inside those contracts; public NEAR Intents balances. A failed protocol read is reported, never zero-filled | [`src/near/defi/`](src/near/defi) |
+| **NEAR DeFi positions**: Rhea Lend with the protocol's own health-factor rule; liquid staking (stNEAR, LiNEAR, rNEAR) and unstaking; public NEAR Intents balances. A failed protocol read is reported, never zero-filled | [`src/near/defi/`](src/near/defi) |
 | **Pseudonymization** of off-device prompts, per-tier amount precision (TEE exact, external 4 significant figures), local restore of real addresses | [`src/utils/pseudonymize.js`](src/utils/pseudonymize.js) |
-| **Per-model reasoning controls**: the Think toggle and an effort selector send the parameter each NEAR AI model actually honours (there is no single switch) — see [Reasoning controls](#reasoning-controls-per-near-ai-model) | [`reasoningProfiles.js`](src/near/reasoningProfiles.js), [`outbound.js`](src/utils/outbound.js), [`reasoning-probe.mjs`](spike/reasoning-probe.mjs) |
-| **Context window and chat cost**: max context next to every model, a live context-fill meter and an estimated cost for the current chat, from NEAR AI's own usage counts — see [Context window and chat cost](#context-window-and-chat-cost) | [`usage.js`](src/near/usage.js), `ContextStrip` in [`Assistant.jsx`](src/components/dashboard/Assistant.jsx), [`ModelSwitcher.jsx`](src/components/dashboard/ModelSwitcher.jsx), [`key-info-probe.mjs`](spike/key-info-probe.mjs) |
+| **Per-model reasoning controls**: Think toggle and effort selector send the parameter each NEAR AI model actually honours ([measured table](docs/NEAR-AI.md#reasoning-controls-per-near-ai-model)) | [`reasoningProfiles.js`](src/near/reasoningProfiles.js), [`outbound.js`](src/utils/outbound.js), [`reasoning-probe.mjs`](spike/reasoning-probe.mjs) |
+| **Context window and chat cost** from NEAR AI's own usage counts ([details](docs/NEAR-AI.md#context-window-and-chat-cost)) | [`usage.js`](src/near/usage.js), [`Assistant.jsx`](src/components/dashboard/Assistant.jsx), [`ModelSwitcher.jsx`](src/components/dashboard/ModelSwitcher.jsx) |
 | Tier switcher with the who-sees-what table | [`TierPanel.jsx`](src/components/dashboard/TierPanel.jsx) |
-| **Review before sending**: the exact request body for NEAR AI / external API, sent only on "Send"; one builder makes both the preview and the request | [`OutboundReview.jsx`](src/components/dashboard/OutboundReview.jsx), [`outbound.js`](src/utils/outbound.js) |
-| **Every party, and what it sees**: hosting, RPCs, your wallet, the Intents API, private-shard validators, NEAR AI gateway/enclave, external operator — tested against the code | [`trustBoundaries.js`](src/data/trustBoundaries.js) |
+| **Review before sending**: the exact request body, sent only on "Send"; one builder makes both the preview and the request | [`OutboundReview.jsx`](src/components/dashboard/OutboundReview.jsx), [`outbound.js`](src/utils/outbound.js) |
+| **Every party, and what it sees**, tested against the code | [`trustBoundaries.js`](src/data/trustBoundaries.js) |
 | Private-shard activity: invite-only history explained, never a second wallet prompt | [`historyNote.js`](src/near/historyNote.js) |
-| **Prompt-injection guard**: token names, method names and other chain text are attacker-controlled; suspicious text is withheld before any prompt is built, and the model is told FACTS is data, not instructions. The demo plants a hostile token to show it | [`src/prompts/untrusted.js`](src/prompts/untrusted.js) |
-| Demo mode for reviewers (live NEAR account, labelled sample private-shard data, including a planted prompt-injection token) | [`src/near/demoFixtures.js`](src/near/demoFixtures.js) |
-| **Evidence**: claim manifest + one-command evidence file, guard-removal matrix (14/14 caught), a real NEAR AI receipt verified offline, **Save receipt** and the **`/verify`** page | [`evidence/`](evidence), [`scripts/`](scripts), [`fixtures/nearai-receipt/`](fixtures/nearai-receipt), [`receiptBundle.js`](src/near/receiptBundle.js), [`VerifyReceipt.jsx`](src/components/VerifyReceipt.jsx) |
-| Tests — claim by claim in [JUDGES.md](JUDGES.md) | [`tests/`](tests) |
+| **Prompt-injection guard** for attacker-controlled chain text; the demo plants a hostile token to show it | [`src/prompts/untrusted.js`](src/prompts/untrusted.js) |
+| Demo mode for reviewers (live NEAR account, labelled sample private-shard data, planted prompt-injection token) | [`src/near/demoFixtures.js`](src/near/demoFixtures.js) |
+| **Evidence**: claim manifest, one-command evidence file, guard-removal matrix (14/14), a real NEAR AI receipt verified offline, **Save receipt** and the **`/verify`** page | [`evidence/`](evidence), [`scripts/`](scripts), [`fixtures/nearai-receipt/`](fixtures/nearai-receipt), [`receiptBundle.js`](src/near/receiptBundle.js), [`VerifyReceipt.jsx`](src/components/VerifyReceipt.jsx) |
+| Tests, claim by claim in [JUDGES.md](JUDGES.md) | [`tests/`](tests) |
 
-**Confidential Intents sign-in needs a versioned nonce.** The Intents auth
-APIs reject a plain random nonce — Aurora with a bare `401 Signature
-verification failed`, 1Click with `invalid nonce` — even though the same
-payload passes `intents.near` `simulate_intents`. Sign-in builds the nonce like
-the official SDK (`VersionedNonceBuilder`): magic prefix, `intents.near`
-`current_salt`, the message deadline and the current time, see
-[`nep413.js`](src/near/nep413.js). Live tests sign in with throwaway NEP-413 and
-ERC-191 keys and read balances on every `npm test` run that has the Intents key.
-
-Also in the window: reasoning budget for NEAR AI models (Settings), token-name
-sanitizing before anything reaches a prompt (deployer-chosen names are
-untrusted text), and fixes found along the way — see the commit log.
-
-### Reasoning controls, per NEAR AI model
-
-NEAR AI Cloud has no single reasoning switch: every model (and every provider
-behind the gateway) honours a different parameter, and a wrong one is silently
-ignored. Sending `enable_thinking` to every model — what the app did before —
-left the Think toggle dead on Kimi and DeepSeek V3.2, and on GLM-5.3 moved the
-reasoning into the answer text.
-
-The assistant now has **Think** (on/off) and, where the model has levels, an
-**Effort** selector next to it. Each request carries the parameter that model
-honours:
-
-| Model | Tier | Think off | Think on | Effort levels |
-|---|---|---|---|---|
-| `z-ai/glm-5.3-flash` (default) | NEAR TEE | `reasoning_effort: "low"` (~15 reasoning tokens; there is no true off) | model default + `thinking_token_budget` | — |
-| `Qwen/Qwen3.8-27B` (+ abliterated) | NEAR TEE | `chat_template_kwargs.enable_thinking: false` | `enable_thinking: true` | low, medium, xhigh |
-| `deepseek-ai/DeepSeek-V4.1-Flash-1017` (+ abliterated) | NEAR TEE | `enable_thinking: false` | `enable_thinking: true` | low, high, xhigh, max |
-| `Qwen/Qwen3.6-35B-A3B-FP8`, unknown models | NEAR TEE | `enable_thinking: false` | `enable_thinking: true` | — |
-| `z-ai/glm-5.3` | 3P TEE (Tinfoil) | cannot be switched off — the toggle is locked on | model default + `thinking_token_budget` | low, high, max |
-| `moonshotai/kimi-k3` | 3P TEE (Chutes) | `chat_template_kwargs.thinking: false` | model default | low, high, xhigh |
-| `moonshotai/kimi-k2.6` | 3P TEE (Chutes) | `chat_template_kwargs.thinking: false` | model default | — |
-| `deepseek/deepseek-v3.2` | 3P TEE (Chutes) | nothing sent (does not reason by default) | `reasoning_effort` (default `medium`) | low, medium, high |
-
-- An effort the current model does not accept is never sent (Qwen3.8 answers
-  `high` with a 400, DeepSeek V4.1 rejects `medium`).
-- **Reasoning budget** (Settings) is still the shared `max_tokens` cap; on the
-  two GLM models it is also sent as `thinking_token_budget`, the only parameter
-  that really caps their reasoning. Without it GLM-5.3 Flash stops thinking at
-  8192 tokens whatever the budget says; "Unlimited" sends `null`.
-- The **review-before-sending** dialog shows these parameters: it is built by
-  the same function as the request.
-
-**How this was established.** The NEAR AI docs
-([reasoning models](https://docs.near.ai/cloud/reasoning-models)) cover only
-part of the catalog, so every row was measured against the live API with
-[`spike/reasoning-probe.mjs`](spike/reasoning-probe.mjs) on 2026-11-14: 11
-models × 14 parameter variants, one fixed prompt with no wallet data, counting
-reasoning tokens and rejected values. Run it again when the catalog changes:
-
-```bash
-node spike/reasoning-probe.mjs                      # the default model set
-node spike/reasoning-probe.mjs moonshotai/kimi-k3   # specific models
-```
-
-It needs `NEARAI_API_KEY` (env or `.env`) and costs a few cents. Limits of the
-measurement: one run per variant on an easy prompt, so on/off and rejected
-values are solid, while the difference *between* accepted effort levels on
-Qwen3.8 and DeepSeek V4.1 Flash did not show.
-
-**Tests** ([`tests/reasoningProfiles.test.mjs`](tests/reasoningProfiles.test.mjs),
-offline): each model gets the switch it honours; an effort is sent only when the
-model accepts that value; a model with no off switch always reasons; the budget
-maps to `thinking_token_budget` only on GLM; `nearAiRequestBody` carries the
-result. [`tests/outbound.test.mjs`](tests/outbound.test.mjs) still proves the
-previewed body deep-equals what is handed to the NEAR AI SDK.
-
-### Context window and chat cost
-
-- **Max context when choosing a model.** The model list in the assistant header
-  and both model selects in Settings show each model's context window
-  (`1.05M ctx`, `262k ctx`): NEAR AI models from the public catalog
-  (`/v1/model/{id}` → `contextLength`), on-device models from the registry's
-  `nCtx`.
-- **Context fill in the current chat.** A strip above the messages shows
-  `Context 4.8k / 1.05M · <1%` with a bar (amber from 70%, red from 90%).
-  "Used" is what the last answer's request carried — prompt + completion
-  tokens — i.e. what the next question will bring along. The counts come from
-  NEAR AI's own usage chunk (`stream_options.include_usage`, visible in the
-  review dialog), not from a local tokenizer estimate. They are stored on the
-  message, so the meter survives a reload and follows the chat you switch to.
-  On-device and external-API tiers do not report usage; there the strip shows
-  only the maximum.
-- **Chat cost (estimate).** `Chat cost ≈ $0.0005`: token counts × the model's
-  public price, summed over the chat's answers.
-
-**Balance and spend limits cannot be read with the API key.** Checked against
-the docs and live ([`spike/key-info-probe.mjs`](spike/key-info-probe.mjs)): the
-balance and usage endpoints (`/v1/organizations/{org_id}/usage/balance`, API-key
-usage history, spend limits) accept only a cloud.near.ai session token and
-answer an inference key with 401/404; completions carry no rate-limit headers.
-The inference key can read exactly two things: the usage chunk of its own
-request, and that request's cost via `POST /v1/billing/costs`. So the app shows
-what it can stand behind — per-chat tokens and an estimated cost — and does not
-ask for an account session token, which would be a far broader credential than
-the app needs.
-
-**Tests** ([`tests/usage.test.mjs`](tests/usage.test.mjs), offline): token
-formatting, reading the usage chunk, cost = tokens × price with an unknown price
-giving "unknown" (never $0), context fill taken from the last answer that
-reported usage and capped at 100%, the per-chat cost sum, and that the request
-asks for the usage chunk.
-
-## Baseline (pre-hackathon work)
+### Baseline (pre-hackathon work)
 
 Built June–July 2026, before the hackathon, and not part of the scored work: the
 dashboard and design, EVM portfolio + DeFi + approvals, FHE confidential tokens
 (Zama, Fhenix CoFHE, Inco), the on-device model (wllama) with voice, and the
-external-API tier. The sections below document that baseline.
+external-API tier.
 
-## Run
+## Documentation
 
-```bash
-npm ci
-cp .env.example .env   # optional: VITE_ETHERSCAN_KEY for tx history
-npm run dev
-```
-
-Every key in `.env.example` is optional for the demo. `VITE_AURORA_INTENTS_API_KEY`
-is needed only to read real Confidential Intents balances with a wallet.
-
-## Network modes
-
-The app runs in one of two modes, chosen by `VITE_NETWORK_MODE` in `.env`:
-
-| | `mainnet` (default) | `testnet` |
-|---|---|---|
-| Chains | Ethereum, Arbitrum, Optimism, Base, Polygon | Sepolia, Arbitrum Sepolia, Base Sepolia |
-| Confidential tokens | **Zama Protocol** (Ethereum), Inco Lightning (Base) | **Fhenix CoFHE** (all three), Zama (Sepolia), Inco (Base Sepolia) |
-| Prices | DefiLlama, live | proxied from mainnet twins, **labelled as such** |
-| Aave v3 | yes | no (no pool configured ⇒ skipped) |
-| Token discovery | curated + CoinGecko registry long tail | curated list + tokens seen in history |
-
-### Ethereum DeFi coverage (mainnet)
-
-All read on-chain from the connected/added address through the same public RPCs
-(or your own, per chain) — no protocol API, no indexer. USD comes only from
-DefiLlama; a leg with no price leaves that row's USD empty rather than guessing.
-
-| Protocol | What is read | Limits |
-|---|---|---|
-| Aave v3 | collateral, debt, health factor | |
-| SparkLend | collateral, debt, health factor | |
-| Morpho | per-market supply / collateral / borrow + health factor; MetaMorpho vault shares | only a curated list of the largest markets and vaults (`src/data/ethDefiRegistry.js`) — Morpho Blue has no on-chain "list my markets" call |
-| Uniswap v3 | liquidity NFTs → token amounts, in/out of range | excludes uncollected fees; v2/v4 not read; first 30 NFTs |
-| Lido, ether.fi, Ethena, Spark savings | stETH/wstETH, eETH/weETH, sUSDe, sDAI/sUSDS held in the wallet, as staking positions | Ethena cooldowns and withdrawal NFTs not shown |
-
-Two things worth knowing:
-
-- **Mainnet is not the "no privacy" mode.** Zama Protocol has been live on
-  Ethereum since 2025-12-30 and Inco on Base since 2026-06-15, so confidential
-  balances are real on mainnet, against real value.
-- **Testnet exists for Fhenix.** CoFHE has no mainnet deployment — Sepolia,
-  Arbitrum Sepolia and Base Sepolia are the only places it runs. All three stacks
-  overlap on the Sepolia family, which makes testnet mode the one place every
-  adapter can be exercised at once.
-
-`VITE_` values are inlined at build time, so two modes means two builds. In
-`npm run dev` only, **Settings → Network** switches modes at runtime (it reloads
-the page). The IndexedDB chain cache is namespaced per mode, so the two never mix.
-
-## Confidential (shielded) token balances
-
-Three FHE stacks sit behind one adapter interface in `src/fhe/`:
-
-| Stack | Chains | Discovery | Decryption trust |
-|---|---|---|---|
-| **Zama Protocol** | Ethereum, Sepolia | on-chain wrapper registry (enumerable) | threshold FHE committee |
-| **Fhenix CoFHE** | Sepolia, Arb Sepolia, Base Sepolia | configured contract list | Fhenix threshold network |
-| **Inco Lightning** | Base, Base Sepolia | configured token list | **TEE nodes** (hardware trust) |
-
-How it behaves:
-
-1. **Discovery never decrypts.** Finding confidential holdings is ordinary
-   read-only chain calls (one chunked multicall per chain) — no wallet signature,
-   no relayer contact. It learns *that* a ciphertext exists, never its value. This
-   works for the read-only demo wallet too.
-2. **A non-zero handle is not a non-zero balance.** It only means a ciphertext
-   exists. Encrypted rows show `•••••`, contribute nothing to the total, and are
-   reported to the LLM as `ENCRYPTED — amount unknown` so it can't fill the gap.
-3. **Revealing is per-holding and explicit.** It costs one EIP-712 signature and
-   a decryption round-trip. The plaintext is produced in your browser.
-4. **The SDKs are lazy-loaded.** Each ships a multi-MB TFHE WASM bundle; none of
-   it is in the main chunk. Nothing is fetched unless you reveal something.
-
-For Fhenix specifically, deploy `contracts/ConfidentialDemo.sol` (see
-`contracts/README.md`), set `VITE_COFHE_DEMO_ADDRESS`, and run in testnet mode.
-Zama's registry addresses are built in for both Ethereum and Sepolia; Inco needs
-explicit token addresses (`VITE_INCO_TESTNET_TOKENS`) because it ships no registry.
-
-Open http://localhost:5173 in Chrome/Edge 113+ (WebGPU) — Safari 18+, Firefox
-falls back to CPU.
-
-## First test (no shard hosting needed)
-
-Select **Qwen3-1.7B (lite)** → Load model. It's under wllama's 2 GB single-file
-limit and loads straight from HuggingFace, validating the whole pipeline.
-
-## Adding a model to the registry
-
-Every selectable model is one entry in the `MODELS` array in
-`src/models/registry.js`. To add one, copy an existing entry and fill in:
-
-| Field | Meaning |
+| | |
 |---|---|
-| `id` | Unique slug, used as the selection key. |
-| `name` | Display name shown in the model picker. |
-| `role` | Short label (`Base model`, `Low-resource backup`, `Voice (multimodal)`, `Pipeline test`, ...). |
-| `quant` | Quantization string for display (e.g. `Q4_K_M`). |
-| `sizeBytes` | GGUF size in bytes — drives the human-readable size shown in the picker/loader (`formatSize`) and storage preflight checks. |
-| `source.type` | Currently only `'url'`. |
-| `source.url` | Direct download URL. If the model is split into shards, this must point at the **first** shard — wllama auto-loads the rest from the same naming pattern. |
-| `source.mmprojUrl` | Optional — multimodal projector GGUF, required for models with `audioInput`/vision input. |
-| `nCtx` | Context window. Also sizes the KV cache, which is allocated up front regardless of prompt length — see the size note below. |
-| `sampling` | Per-model overrides merged on top of `DEFAULT_SAMPLING` via `resolveSampling()` (see "Setting sampling parameters" below). |
-| `reasoning` | `true` if the model emits a reasoning/thinking block. |
-| `supportsMTP` | `true` if the GGUF ships MTP (multi-token prediction) draft heads. Has no runtime effect yet — see note below. |
-| `needsSplit` | `true` if the GGUF is/was split into shards. Informational only. |
-| `audioInput` | `true` for multimodal models that accept audio (requires `source.mmprojUrl`). |
+| [docs/PRIVACY.md](docs/PRIVACY.md) | Every party and what it sees; server-side storage; what revealing an FHE balance exposes |
+| [docs/NEAR-AI.md](docs/NEAR-AI.md) | Reasoning controls per NEAR AI model, context and cost meter, Confidential Intents sign-in |
+| [docs/SELF-HOSTING.md](docs/SELF-HOSTING.md) | Run locally, `.env`, mainnet/testnet modes, DeFi coverage, adding on-device models, VPS deployment |
+| [JUDGES.md](JUDGES.md) · [LIMITS.md](LIMITS.md) | Claim → code → test map, and what we do not claim |
 
-Models with a placeholder `https://YOUR-CDN-OR-HF-REPO/...` URL are treated as
-**not hosted** (`isModelHosted()`) and are skipped by the loader, so you can
-add a registry entry before you've actually hosted the shards.
+## License
 
-### Example entry
-
-```js
-{
-  id: 'my-new-model-7b',             // unique slug
-  name: 'My New Model 7B',           // shown in the picker
-  role: 'Base model',
-  quant: 'Q4_K_M',
-  sizeBytes: 4.5e9,                  // ~4.5 GB
-  source: {
-    type: 'url',
-    // >2GB, so this is the FIRST of N split shards
-    url: 'https://YOUR-CDN-OR-HF-REPO/my-new-model-7b-Q4_K_M-00001-of-00009.gguf',
-  },
-  nCtx: 8192,
-  sampling: { temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5, repetition_penalty: 1.0 }, // overrides DEFAULT_SAMPLING
-  reasoning: false,
-  supportsMTP: false,
-  needsSplit: true,
-},
-```
-
-Add this object to the `MODELS` array in `src/models/registry.js`, host the
-split shards, replace the placeholder URL, then the model shows up in the
-picker automatically — no other code changes needed.
-
-### Splitting and hosting large GGUFs
-
-wllama can't load a single GGUF >2 GB (ArrayBuffer limit). Split and host
-larger models, then point `source.url` at the first shard:
-
-```bash
-llama-gguf-split --split-max-size 512M Qwen3.5-4B-MTP-Q4_K_M.gguf qwen35-4b-mtp
-# upload the resulting *-0000N-of-0000M.gguf files to your HF repo / CDN
-# point registry source.url at the FIRST shard, e.g. *-00001-of-00006.gguf
-```
-
-Models under 2 GB (e.g. `qwen3-1.7b-lite`) can point straight at a HuggingFace
-`resolve/main/...gguf` URL — no splitting needed.
-
-Note: the MTP (multi-token prediction) speedup needs speculative-decoding
-support that wllama doesn't expose yet — the model runs as a plain model until
-it does (`supportsMTP` is forward-looking metadata only). The app probes for
-it automatically.
-
-### Setting sampling parameters
-
-`DEFAULT_SAMPLING` in `src/models/registry.js` defines the baseline sampling
-config; a model's own `sampling` object overrides individual fields on top of
-it (`resolveSampling(model)` is the single place inference reads sampling
-from — don't read `model.sampling` directly elsewhere). Fields are named the
-way llama.cpp's own CLI/server flags are; `wllama-context.js` maps them onto
-wllama's `createChatCompletion` field names (`temp`, `penalty_repeat`,
-`penalty_present`) at the call site:
-
-- `temperature` — sampling temperature.
-- `top_p`, `top_k` — nucleus/top-k truncation.
-- `min_p` — 0.0 = off; minimum probability (relative to the top token) a token needs to stay in the candidate pool.
-- `repetition_penalty` — 1.0 = off; >1 discourages verbatim repetition.
-- `presence_penalty` — 0.0 = off; flat penalty once a token has appeared anywhere in context. Qwen3 recommends 0–2; high values can cause language-mixing, so raise cautiously.
-- `penalty_freq` — 0.0 = off; scales with how often a token has appeared.
-- `penalty_last_n` — window of recent tokens the penalties look back over (`-1` = whole context, `0` = disable).
-
-Current `DEFAULT_SAMPLING` mirrors llama.cpp's `temperature=0.7, top_p=0.8,
-top_k=20, min_p=0.0, presence_penalty=1.5, repetition_penalty=1.0`.
-
-You only need to set the fields you want to override — anything omitted falls
-back to `DEFAULT_SAMPLING`.
-
-### Sizing `nCtx`
-
-KV cache is allocated up front from `nCtx`, independent of actual prompt size.
-A large `nCtx` on a multi-billion-parameter model can add several GB on top
-of the model weights, overcommitting smaller GPUs — WebGPU then stalls at
-inference instead of failing cleanly with an OOM error. Keep `nCtx` low enough
-that weights + KV cache fit comfortably within the VRAM you expect users to
-have (8192–32768 depending on model size, in the current registry).
-
-## Privacy model (honest version)
-
-| Data | Where it goes |
-|------|---------------|
-| LLM inference — **on-device** tier | never leaves the browser |
-| LLM inference — **NEAR AI TEE** tier | end-to-end encrypted to an attested NEAR AI model enclave (verified in the browser first); pseudonymized; NEAR's gateway relays ciphertext |
-| LLM inference — **external API** tier | the endpoint operator reads it (pseudonymized, amounts rounded) — use only for self-hosted servers. It is relayed through this app's own server (`/api/llm`), so the app's host relays it too, with your API key in a header |
-| NEAR Confidential Intents balances | the NEAR Intents API (Aurora) sees your account/address and amounts — the one party outside a TEE that does; the private shard's permissioned validators hold the state inside TEEs (hardware trust); the public chain and explorers see nothing; amounts stay in this tab's memory |
-| Public NEAR account reads | FastNEAR and NEAR RPC see the account names you look up; DefiLlama sees which tokens are priced |
-| FHE confidential-balance **discovery** | ordinary public chain reads — no signature, no decryption, no relayer |
-| FHE confidential-balance **plaintext** | produced in-browser; never transmitted, never written to disk |
-| FHE confidential-balance **metadata, on reveal** | ⚠️ the decryption service learns your address + which token you asked about |
-| Public chain reads | RPC + Etherscan see the queried address. The provider list is set in `src/config` (no in-app RPC setting) |
-| **App hosting** (the server serving the page) | never receives your wallet addresses or balances; sees your IP, page loads, the token contracts whose icons are looked up (`/api/coinicon`) and — external tier only — the relayed AI request |
-| Model weights | downloaded once, cached in OPFS |
-
-### Server-side storage: none
-
-**This app stores nothing server-side after a response returns.** Your wallets,
-balances, prompts, answers, API keys and attestation results exist only in your
-browser tab (plus the browser's own `localStorage`/OPFS for settings, layout and
-model files). The code makes this checkable — the whole backend is
-[`server/`](server/), about 500 lines:
-
-- **NEAR AI TEE tier and on-device tier: the server is not involved.** The browser
-  talks to `cloud-api.near.ai` directly (attestation, E2EE chat, signature check).
-  No request is relayed through this app's server.
-- **`/api/llm` (external-API tier only)** is a pass-through proxy
-  ([`server/llm.js`](server/llm.js)): it reads the body into memory, forwards it,
-  and pipes the reply back. It does not write, log or cache the body, the
-  `x-llm-api-key` header or the response.
-- **`/api/coinicon`, `/api/tokenlist`** serve the public CoinGecko token list; the
-  only file the server ever writes is that public list
-  ([`server/cache/tokenlist.json`](server/coingecko.js)). `/api/sysinfo` reads the
-  host machine's own specs and persists nothing.
-- The server has no database, no request logging and no session state.
-
-The app shows the same thing per party in the tier panel ("Every party, and what it sees",
-`src/data/trustBoundaries.js`); `tests/trustBoundaries.test.mjs` checks it against the code.
-
-### What revealing a shielded balance actually exposes
-
-Being precise, because "encrypted" is easy to over-claim:
-
-- **Amounts stay private.** User-decryption re-encrypts to a keypair this page
-  holds, so no relayer, oracle or node operator sees the value. That part of the
-  privacy claim survives fully.
-- **Decrypted amounts are memory-only.** They live in React state for the session
-  and are gone on reload. This is not automatic: `@zama-fhe/sdk` caches decrypted
-  balances to IndexedDB by default, so `src/fhe/memory-storage.js` is passed as its
-  storage backend explicitly to prevent that. Cost: one relayer round-trip per
-  reveal per page load instead of a cached hit — the right trade for the guarantee.
-- **But metadata leaks.** The decryption service learns your address, the token,
-  and the ciphertext handle — i.e. *that you asked about a specific confidential
-  balance*. Discovery leaks nothing; only revealing does.
-- **Trust models differ, and are shown separately.** Zama and Fhenix use threshold
-  committees (cryptographic). **Inco uses TEE-based decryption nodes — a hardware
-  trust assumption, materially weaker.** The Shielded card's "How revealing works"
-  panel states whichever applies to what you actually hold.
-
-One more deliberate deviation: `@cofhe/sdk`'s default web storage backend is a
-third-party cross-origin iframe (`iframe-shared-storage.vercel.app`) used to cache
-FHE *public* parameters. It caches nothing secret, but this app overrides it with
-in-memory storage anyway — a privacy-first app shouldn't embed a third-party frame,
-and under our `COEP: credentialless` header it would be blocked and then stall on
-its 30s timeout.
-
-## Production deploy
-
-Serve with these headers (required for SharedArrayBuffer / CPU multithread):
-
-```
-Cross-Origin-Embedder-Policy: require-corp
-Cross-Origin-Opener-Policy: same-origin
-```
-
-### VPS deployment (Node + Nginx)
-
-**1. Build the frontend on your VPS:**
-
-```bash
-git clone <your-repo> /opt/analyzer
-cd /opt/analyzer
-npm install
-cp .env.example .env   # add VITE_ETHERSCAN_KEY
-npm run build
-```
-
-**2. Run the API server as a systemd service:**
-
-Create `/etc/systemd/system/analyzer-api.service`:
-```ini
-[Unit]
-Description=Analyzer token API
-After=network.target
-
-[Service]
-WorkingDirectory=/opt/analyzer
-ExecStart=/usr/bin/node server/index.js
-Environment=PORT=3001
-Restart=always
-User=www-data
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Then enable and start:
-```bash
-sudo systemctl enable --now analyzer-api
-```
-
-**3. Configure Nginx:**
-
-Create `/etc/nginx/sites-available/analyzer`:
-```nginx
-server {
-    listen 80;
-    server_name _;
-
-    root /opt/analyzer/dist;
-    index index.html;
-
-    # Required for SharedArrayBuffer (wllama WASM multithread)
-    add_header Cross-Origin-Embedder-Policy "require-corp" always;
-    add_header Cross-Origin-Opener-Policy "same-origin" always;
-
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-
-    location /api/ {
-        proxy_pass http://localhost:3001;
-        proxy_set_header Host $host;
-    }
-}
-```
-
-Enable and reload:
-```bash
-sudo ln -s /etc/nginx/sites-available/analyzer /etc/nginx/sites-enabled/
-sudo nginx -t && sudo systemctl reload nginx
-```
-
-Access at: `http://your-vps-ip`
-
-### Serve at a subpath (e.g., `/split`)
-
-**1. Update `vite.config.js`:**
-```javascript
-export default defineConfig({
-  base: '/split/',  // add this
-  // ... rest of config
-  preview: {
-    headers: crossOriginIsolation,
-    proxy: { '/split/api': 'http://localhost:3001' },  // update this
-  },
-});
-```
-
-**2. Rebuild:**
-```bash
-npm run build
-```
-
-**3. Update Nginx config:**
-```nginx
-location /split/ {
-    root /opt/analyzer/dist;
-    try_files $uri /split/index.html;
-}
-
-location /split/api/ {
-    proxy_pass http://localhost:3001/api/;
-    proxy_set_header Host $host;
-}
-```
-
-Access at: `http://your-vps-ip/split`
-
-### HTTPS
-
-Use certbot to generate a free certificate:
-```bash
-sudo certbot --nginx -d your-domain.com
-```
-
-Or use a self-signed cert for IP-based access:
-```bash
-sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-  -keyout /etc/nginx/cert.key -out /etc/nginx/cert.crt
-```
-
-Then add to Nginx:
-```nginx
-listen 443 ssl;
-ssl_certificate /etc/nginx/cert.crt;
-ssl_certificate_key /etc/nginx/cert.key;
-```
-
-**Note:** CoinGecko token icons may fail in production with `require-corp` because their CDN sends no CORP header. If you see broken icons, try `credentialless` instead — it also satisfies the SharedArrayBuffer requirement.
+[MIT](LICENSE)

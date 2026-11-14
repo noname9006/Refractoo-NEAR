@@ -155,3 +155,7 @@ server/cache/
 .claude/settings.local.json
 .kilo/
 hackathon/
+
+# local tooling
+.claude/
+design/

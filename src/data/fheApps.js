@@ -63,7 +63,7 @@ const INCO_DOCS = {
 const APPS = {
   mainnet: [...ZAMA_APPS, INCO_DOCS],
   // On testnet the same Zama app serves Sepolia; CoFHE's only "app" is whatever
-  // confidential contract you deployed yourself (contracts/ConfidentialDemo.sol).
+  // confidential contract you deployed yourself.
   testnet: [...ZAMA_APPS, FHENIX_DOCS, INCO_DOCS],
 };
 
