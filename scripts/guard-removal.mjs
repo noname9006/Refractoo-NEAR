@@ -77,6 +77,18 @@ export const GUARDS = [
     find: 'sessions.set(session.key, session);',
     replace: "sessions.set(session.key, session); globalThis.localStorage?.setItem('pwai.intents', JSON.stringify(session));",
     tests: ['tests/confidentialBalances.test.mjs'], mustFail: ['memory-only: Intents session tokens and balances never reach localStorage, sessionStorage or IndexedDB'] },
+  { id: 'G19', guard: 'Agent: money-moving kinds are denied', file: 'src/agent/actions.js',
+    find: "if (DENIED_KINDS.includes(c.kind)) return { ok: false, reason: 'denied_kind' };", replace: '',
+    tests: ['tests/agentActions.test.mjs'], mustFail: ['agent: money-moving and unknown kinds are refused, never applied'] },
+  { id: 'G20', guard: 'Agent: closed arg schema (no extra fields)', file: 'src/agent/actions.js',
+    find: "if (Object.keys(args).some((k) => !names.includes(k))) return { ok: false, reason: 'extra_arg' };", replace: '',
+    tests: ['tests/agentActions.test.mjs'], mustFail: ['agent: extra fields and bad args are rejected (closed schema)'] },
+  { id: 'G21', guard: 'Agent: execution needs an approval', file: 'src/agent/actions.js',
+    find: "if (!approval || approval.approved !== true) throw new ActionError('not_approved');", replace: '',
+    tests: ['tests/agentActions.test.mjs'], mustFail: ['agent: nothing executes without an approval of these exact bytes'] },
+  { id: 'G22', guard: 'Agent: approval bound to the exact proposal bytes', file: 'src/agent/actions.js',
+    find: "if (approval.hash !== r.proposal.hash) throw new ActionError('approval_mismatch');", replace: '',
+    tests: ['tests/agentActions.test.mjs'], mustFail: ['agent: nothing executes without an approval of these exact bytes'] },
 ];
 
 const only = process.argv.slice(2).filter((a) => /^G\d+$/.test(a));

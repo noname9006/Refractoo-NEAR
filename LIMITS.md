@@ -51,3 +51,12 @@ One command produces a file recording all of this with the commit and input hash
 - **Chain coverage is partial**: the EVM chains and NEAR protocols listed in the README; others are not read.
 - **No on-chain anchor.** The evidence file's integrity rests on the git commit, not on a contract.
   There is no mainnet contract for this and we do not claim one.
+
+## Agent actions (src/agent/actions.js)
+
+The model can only *propose* local view changes (hide/show token, select chain,
+label a placeholder). Each proposal is checked against a closed allowlist,
+money-moving kinds are denied, and execution needs a user approval bound to the
+sha256 of the exact proposal. Tests: `tests/agentActions.test.mjs`; guards G19–G22.
+Not yet: the approval UI in the Dashboard is not wired up — the core is tested
+offline only. Nothing here signs, sends or fetches.
