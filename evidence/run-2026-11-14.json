@@ -1,0 +1,492 @@
+{
+  "claims": [
+    {
+      "claim": "A provider_tee signature over the exact request and response bytes verifies",
+      "id": "A1",
+      "ok": true,
+      "tests": [
+        {
+          "matched": 1,
+          "name": "A1. provider_tee signature over the exact bytes verifies",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "claim": "Flipping one byte of the answer, the request or the signature fails verification",
+      "id": "A2",
+      "ok": true,
+      "tests": [
+        {
+          "matched": 1,
+          "name": "A2. one flipped byte in the answer, the request or the signature → rejected",
+          "status": "pass"
+        },
+        {
+          "matched": 1,
+          "name": "A4. signed text forged to match tampered bytes, but not re-signed → rejected",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "claim": "A valid signature from a key the attestation did not vouch for is rejected",
+      "id": "A3",
+      "ok": true,
+      "tests": [
+        {
+          "matched": 1,
+          "name": "A3. a valid signature from a key the attestation did not vouch for → rejected",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "claim": "Gateway (ed25519) signatures: valid passes, tampered fails",
+      "id": "A5",
+      "ok": true,
+      "tests": [
+        {
+          "matched": 1,
+          "name": "A5. gateway (ed25519) signature: valid passes, tampered answer fails",
+          "status": "pass"
+        },
+        {
+          "matched": 1,
+          "name": "tamper test: gateway (ed25519) signatures use the gateway verifier",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "claim": "The Verified receipt fails if any one link is weak (gateway TDX, model TDX, GPU evidence, nonce, E2EE, signature)",
+      "id": "A6",
+      "ok": true,
+      "tests": [
+        {
+          "matched": 1,
+          "name": "verificationChecks: full receipt is verified",
+          "status": "pass"
+        },
+        {
+          "matched": 1,
+          "name": "verificationChecks: any weak link fails the receipt",
+          "status": "pass"
+        },
+        {
+          "matched": 1,
+          "name": "verificationChecks: OutOfDate TCB is accepted but not shown as verified",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "claim": "The in-app tamper demo re-runs the real check on the exact received bytes; a flipped byte turns the receipt red; stored evidence is never modified",
+      "id": "A7",
+      "ok": true,
+      "tests": [
+        {
+          "matched": 1,
+          "name": "tamper test: real bytes verify, every flipped byte of the answer is rejected",
+          "status": "pass"
+        },
+        {
+          "matched": 1,
+          "name": "tamper test: stored evidence is never modified by a run",
+          "status": "pass"
+        },
+        {
+          "matched": 1,
+          "name": "tampered receipt fails through the same verificationChecks(); the real one is untouched",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "claim": "NVIDIA attestation verdicts: bounded clock tolerance; nonce mismatch or negative verdict rejected",
+      "id": "A8",
+      "ok": true,
+      "tests": [
+        {
+          "matched": 1,
+          "name": "checkClaims accepts a valid verdict",
+          "status": "pass"
+        },
+        {
+          "matched": 1,
+          "name": "checkClaims tolerates a lagging client clock within the bound only",
+          "status": "pass"
+        },
+        {
+          "matched": 1,
+          "name": "checkClaims rejects nonce mismatch, negative verdict, malformed claims",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "claim": "Only NEAR-run attested models are offered; 3P TEE receipts never claim model E2EE",
+      "id": "A9",
+      "ok": true,
+      "tests": [
+        {
+          "matched": 1,
+          "name": "isConfidentialModel admits only NEAR-run attested vLLM chat models",
+          "status": "pass"
+        },
+        {
+          "matched": 1,
+          "name": "listConfidentialModels: NEAR TEE + 3P TEE tiers, does not cache an empty result",
+          "status": "pass"
+        },
+        {
+          "matched": 1,
+          "name": "3P TEE: provider report summary and receipt never claims model E2EE",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "claim": "A REAL NEAR AI answer (captured fixture) verifies offline against the pinned enclave signer; one flipped byte, a swapped signer or a forged signature fails; the prompt it answered carried no real identifier",
+      "id": "R1",
+      "ok": true,
+      "tests": [
+        {
+          "matched": 1,
+          "name": "real receipt: NEAR AI enclave signature over the exact bytes verifies offline, signer pinned",
+          "status": "pass"
+        },
+        {
+          "matched": 1,
+          "name": "real receipt: one flipped byte of the answer or the request is rejected",
+          "status": "pass"
+        },
+        {
+          "matched": 1,
+          "name": "real receipt: a different pinned signer, a swapped signer or a forged signature is rejected",
+          "status": "pass"
+        },
+        {
+          "matched": 1,
+          "name": "real receipt: what was asked carries no real identifier (only hashes of them are kept)",
+          "status": "pass"
+        },
+        {
+          "matched": 1,
+          "name": "real receipt: the live checks at capture are recorded, all passed, and labelled not re-proven offline",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "claim": "Messages sent to an external API contain no real EVM address, NEAR account, staking pool or tx hash, full or shortened",
+      "id": "B1",
+      "ok": true,
+      "tests": [
+        {
+          "matched": 1,
+          "name": "B1. external tier: the exact messages sent contain no real identifier",
+          "status": "pass"
+        },
+        {
+          "matched": 1,
+          "name": "short \"0x1234…abcd\" forms resolve to the same wallet label",
+          "status": "pass"
+        },
+        {
+          "matched": 1,
+          "name": "NEAR names typed in any case are masked and share one label",
+          "status": "pass"
+        },
+        {
+          "matched": 1,
+          "name": "pseudonymizeForRemote: nothing identifying survives the JSON, question too",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "claim": "Amounts reach an external API at 4 significant figures; the TEE tier gets exact amounts by default",
+      "id": "B2",
+      "ok": true,
+      "tests": [
+        {
+          "matched": 1,
+          "name": "B2. external tier: amounts reach the API at 4 significant figures, never exact",
+          "status": "pass"
+        },
+        {
+          "matched": 1,
+          "name": "precisionFor: defaults TEE exact, external 4; respects valid prefs only",
+          "status": "pass"
+        },
+        {
+          "matched": 1,
+          "name": "sigFigs 0 (TEE default): identifiers replaced, numbers and dates exact",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "claim": "Placeholders in the answer are mapped back locally",
+      "id": "B3",
+      "ok": true,
+      "tests": [
+        {
+          "matched": 1,
+          "name": "B3. the answer is mapped back locally to the user's real identifiers",
+          "status": "pass"
+        },
+        {
+          "matched": 1,
+          "name": "restore() maps placeholders back, tolerant of model spelling, no prefix collisions",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "claim": "Encrypted (FHE) balances reach the model as words, never a number; private-shard balances are masked",
+      "id": "B4",
+      "ok": true,
+      "tests": [
+        {
+          "matched": 1,
+          "name": "encrypted (FHE) entries stay words, not numbers, after pseudonymization",
+          "status": "pass"
+        },
+        {
+          "matched": 1,
+          "name": "external tier: account name masked, private amounts rounded to 4 sig figs",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "claim": "Chain-data strings that read like instructions, chat markup or links are withheld; the rest is cut to a plain charset",
+      "id": "C1",
+      "ok": true,
+      "tests": [
+        {
+          "matched": 1,
+          "name": "looksLikeInjection flags instructions, chat markup and links",
+          "status": "pass"
+        },
+        {
+          "matched": 1,
+          "name": "looksLikeInjection leaves ordinary tickers, protocols, methods and accounts alone",
+          "status": "pass"
+        },
+        {
+          "matched": 1,
+          "name": "guardString: detection runs on raw text, cleaning keeps a plain short charset",
+          "status": "pass"
+        },
+        {
+          "matched": 1,
+          "name": "sanitizeFacts guards chain-data keys only, reports paths, does not mutate",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "claim": "Every prompt is built in one place; hostile chain data never reaches it and FACTS sit between begin/end markers",
+      "id": "C2",
+      "ok": true,
+      "tests": [
+        {
+          "matched": 1,
+          "name": "buildAnalysisMessages: hostile chain data never reaches the prompt",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "claim": "The preview is the wire: the external POST body is byte-identical to the preview; the NEAR AI SDK body deep-equals it",
+      "id": "D1",
+      "ok": true,
+      "tests": [
+        {
+          "matched": 1,
+          "name": "external: previewRequest body is byte-identical to what analyze() POSTs",
+          "status": "pass"
+        },
+        {
+          "matched": 1,
+          "name": "NEAR AI: previewRequest body deep-equals what is handed to the SDK (Think on and off)",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "claim": "Reasoning switches reach each model as the parameter it honours",
+      "id": "D2",
+      "ok": true,
+      "tests": [
+        {
+          "matched": 1,
+          "name": "reasoningParams: each model gets the switch it actually honours",
+          "status": "pass"
+        },
+        {
+          "matched": 1,
+          "name": "reasoningParams: effort is sent only when the model accepts that value",
+          "status": "pass"
+        },
+        {
+          "matched": 1,
+          "name": "reasoningParams: a model with no off switch always reasons; budget maps to thinking_token_budget",
+          "status": "pass"
+        },
+        {
+          "matched": 1,
+          "name": "nearAiRequestBody carries the per-model reasoning params",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "claim": "Chat cost uses reported token counts; an unknown price is unknown, never $0",
+      "id": "D3",
+      "ok": true,
+      "tests": [
+        {
+          "matched": 1,
+          "name": "usageCostUsd: tokens × public price; unknown price ⇒ null, never 0",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "claim": "Sign-in signs an empty intent list with NEP-413 and a versioned nonce; the signature is verified locally before anything is sent",
+      "id": "E1",
+      "ok": true,
+      "tests": [
+        {
+          "matched": 1,
+          "name": "intents message is the documented JSON with an empty intent list",
+          "status": "pass"
+        },
+        {
+          "matched": 1,
+          "name": "signatures verify in both wallet encodings; tampering fails",
+          "status": "pass"
+        },
+        {
+          "matched": 1,
+          "name": "versionedNonce matches the SDK layout",
+          "status": "pass"
+        },
+        {
+          "matched": 1,
+          "name": "nearIdentity refuses a signature that does not verify (nothing sent)",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "claim": "One signature per page load; a history refusal never triggers a second wallet prompt",
+      "id": "E2",
+      "ok": true,
+      "tests": [
+        {
+          "matched": 1,
+          "name": "session is reused: the second load does not ask the wallet again",
+          "status": "pass"
+        },
+        {
+          "matched": 1,
+          "name": "history refused (403 invite-only): status \"restricted\", NO second wallet prompt, balances intact",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "claim": "The app's own server never receives a wallet address: the page calls exactly four same-origin endpoints",
+      "id": "F1",
+      "ok": true,
+      "tests": [
+        {
+          "matched": 1,
+          "name": "hosting row: the page calls exactly these same-origin endpoints, none carrying a wallet address",
+          "status": "pass"
+        },
+        {
+          "matched": 1,
+          "name": "every row has every cell, with a known value",
+          "status": "pass"
+        }
+      ]
+    }
+  ],
+  "command": "node --test --test-skip-pattern=^live tests/*.test.mjs",
+  "commit": "fbe6e24a3cca30a7ad4c7b5bc0765afe70fe65fc",
+  "complete": {
+    "claimsChecked": 21,
+    "claimsExpected": 21,
+    "claimsOk": 21
+  },
+  "dirty": false,
+  "dirtyFiles": [],
+  "inputs": {
+    "evidence/manifest.json": "sha256:1d5415ba3650ee0591bb0609034140a9e136bfed8b5d06ceb2dffd65e5781f44",
+    "fixtures/nearai-receipt/attestation.json": "sha256:a396ea7bd914290057a3710e39bace82717218c05f6fe8bf38c74a4562e70a86",
+    "fixtures/nearai-receipt/receipt.json": "sha256:24841d549dcea54639c84279e462a1011c8f9eb0bcf003c0a7f58ea835667e22",
+    "fixtures/nearai-receipt/request-plaintext.json": "sha256:731c717d0d2d07661ad3e49176d6a844b8302eb16f79135cf4097afbb3cafbaa",
+    "package-lock.json": "sha256:7eb28eefae96d29be480ac98139d4d8408bf30fe039be4e78f14dc27b4f60c81",
+    "scripts/verify-evidence.mjs": "sha256:892178ebe85ba43769fc3e0997b87e26aee07cc75b89726a95dd85ede54d99dc",
+    "src/analytics/portfolio.js": "sha256:c932e403921b14eef5ad44447570c4de7b72cba921dfce5cca3a40dc3913dfbe",
+    "src/data/trustBoundaries.js": "sha256:c6a5c5ea36e24f1e683431a4e0bd28f61769786927731c631d5499d40bfc77c0",
+    "src/near/confidentialIntents.js": "sha256:8e3b80d6b6da9b6a752f9cdeedd192e15b372c64b598d7af6c94488391bdfd07",
+    "src/near/nearAiContext.js": "sha256:ea61d4e137a855345ddaa4f6921670e4e1a76315d126e5aab4d8bca79b0fc787",
+    "src/near/nep413.js": "sha256:f5cf40dbce7476898449e02ace8457e80bb7da50eb0b64a51e61ffd07728bbfd",
+    "src/near/nrasVerifier.js": "sha256:2d254b0c6b5fdcebd0b4981b02d37450fb6ade1599f26d1896bc5c0e5bf96236",
+    "src/near/reasoningProfiles.js": "sha256:568ea1301c2d8408eea8778a4d264a7ca9d29869927a381300a151435ec854a7",
+    "src/near/receiptBundle.js": "sha256:c4dc648f8a2941dacc97e98556fe65d20f5fccb0f2c1d9287d920351a17123dd",
+    "src/near/usage.js": "sha256:f3870577a56e46fa3ac58b04cfe20d6eeaa8fb8d775045de3ab9304c828e6601",
+    "src/prompts/untrusted.js": "sha256:2e044334ab597f75d563270cb01344c07642d4e51113f9f2bcb0016ca094084f",
+    "src/prompts/wallet-analysis.js": "sha256:31f17a1d32da78d3bcf6d048ec00eae49660e01f1e23317571f3b44ebc978a14",
+    "src/utils/outbound.js": "sha256:31ccc8f4a4f918ba0060db19162a32b4b8307866ba78b4326028c9f66d0db79d",
+    "src/utils/pseudonymize.js": "sha256:e67b4dbfc390df28beca61abb772f5f42e7d3e43ba8e101a2f20a2b546822e9b",
+    "tests/chartBatching.test.mjs": "sha256:3cf2256108d163db0c91c58b6339f269cbc10c54fb6a898d879aafbde178454f",
+    "tests/claims.test.mjs": "sha256:5ffbfe1893980982de8767525e3da25eaf7e8d8bb9692858c47fb5580edf1270",
+    "tests/confidentialBalances.test.mjs": "sha256:10b6e4b4bb428e1aa9c4a2e4e71f1f0dc05d724e27bc04c7c9505b7fa64698cb",
+    "tests/ethDefi.test.mjs": "sha256:d2729e8abcbf41d0ca4b1ff7ad5d51b483849281727e9b71605ae88692b72c18",
+    "tests/ethDefiAave.test.mjs": "sha256:d2e5aa0b5713d520db0bceac3191c519e58136f09a56ac11f438f84a6f04416a",
+    "tests/ethDefiLive.test.mjs": "sha256:8071a03cfff7362d9e53f47dcf08c07218cc5f48fbca056d07de974b77aa1835",
+    "tests/etherscanGate.test.mjs": "sha256:22e6307398ea2dbcfaec40cc20ed9709a3e1a83ec3f8132d39306ec739e6d39c",
+    "tests/intents.test.mjs": "sha256:8a4cf6a670ae98ab555f0302ed08d69d753bb96a6fd568b62403f8d3db9904c2",
+    "tests/nearAccount.test.mjs": "sha256:8b2298e5ba19bbe914ad793b5c184152b2cfd408bed92529c6b6cbc71d844c9b",
+    "tests/nearDefi.test.mjs": "sha256:7ee616bbd670643da7eb1e8eeb10554d35de193e62fb8e40e3f3b0b972253b4a",
+    "tests/nearRpcGate.test.mjs": "sha256:2c82b4d30d9e291a822a44592e5c4e496517d99dd3a971f903ca38aa7c668950",
+    "tests/nearTxs.test.mjs": "sha256:0a4f9b012452890208abfbe2e201022cfbe506e6b8216913e34e94082dcce8bc",
+    "tests/nearai.test.mjs": "sha256:35fd1030ac9ed4d5c4815303a0099dd5568b4e963f03d677bc679aa4b826029d",
+    "tests/nep413.test.mjs": "sha256:8432d3744bfa3c0477e1ed994fe6db3b2b3a869c07476883bc0d9c21e15ad091",
+    "tests/outbound.test.mjs": "sha256:cd49c4dfa83e3ed34b0cce1c0dc99c8f08f3958921a40785975f05009c5a8021",
+    "tests/pseudonymize.test.mjs": "sha256:1992ea4b4405e9d4086438d2b078fcecfe668855ebbc9ab63010c948ac45621e",
+    "tests/reasoningProfiles.test.mjs": "sha256:3610ec34f344eadba6cca81cd24bb1bb558c4f1d95b0cd72c9cee64d15e1f27d",
+    "tests/receipt.test.mjs": "sha256:5e2ee141d573aa9570b7a5d91895cf0021dae7eefe9d88007860a218a24ae536",
+    "tests/tamper.test.mjs": "sha256:87c9610709725558d242bd5a45e944973e8f81c1174d00b757460dd38d91946f",
+    "tests/trustBoundaries.test.mjs": "sha256:a5b01390d7d1a6bee89d58af429724a3548048030abdad09b0b7313ca33cfc58",
+    "tests/untrusted.test.mjs": "sha256:41a28a1daecb5423e2e7699ab2f6172d4d0128bd6571ab38d1ee44b9a53490ef",
+    "tests/usage.test.mjs": "sha256:363a9f339aca4c5ae5a4d00e114460526a0f4810a8d6363f9663411fc74bc4f5"
+  },
+  "node": "v22.17.1",
+  "notEstablished": [
+    "The real receipt (R1) proves its bytes were signed by the pinned key. That this key lives in a genuine TDX enclave was checked live at capture (fixtures/nearai-receipt/attestation.json) and is not re-proven offline: that needs a fresh TDX quote + NVIDIA evidence bound to a new nonce (npm test with NEARAI_API_KEY).",
+    "With E2EE the signed request is ciphertext, so the plaintext prompt in the fixture is not covered by the signature.",
+    "TDX quote and NVIDIA evidence freshness: live-only (needs a fresh nonce from the gateway).",
+    "Injection detection is a pattern list; a cleverly worded name can pass it.",
+    "That the outbound review dialog sends nothing until Send is clicked is checked in the browser, not by this suite.",
+    "Session tokens live in memory only: by code inspection, not by a test."
+  ],
+  "platform": "win32",
+  "ranAt": "2026-11-14T20:40:59.591Z",
+  "suite": {
+    "exitCode": 0,
+    "fail": 0,
+    "pass": 140,
+    "skipped": 0,
+    "tests": 140
+  },
+  "version": 1
+}

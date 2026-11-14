@@ -1,0 +1,248 @@
+{
+  "version": 1,
+  "commit": "fbe6e24a3cca30a7ad4c7b5bc0765afe70fe65fc",
+  "ranAt": "2026-11-14T20:41:20.048Z",
+  "node": "v22.17.1",
+  "guards": [
+    {
+      "id": "G1",
+      "guard": "Model-signature check: verify against the attested signer",
+      "file": "src/near/receiptBundle.js",
+      "mutation": {
+        "find": "try { verify({ requestBody: req, responseBody, signature: bundle.signature, attestation }); return { ok: true, code: null }; }",
+        "replace": "try { return { ok: true, code: null }; }"
+      },
+      "mustFail": [
+        "real receipt: one flipped byte of the answer or the request is rejected"
+      ],
+      "status": "caught",
+      "failedTests": [
+        "real receipt: NEAR AI enclave signature over the exact bytes verifies offline, signer pinned",
+        "real receipt: one flipped byte of the answer or the request is rejected"
+      ]
+    },
+    {
+      "id": "G2",
+      "guard": "Tamper demo uses the real SDK verifier",
+      "file": "src/near/nearAiContext.js",
+      "mutation": {
+        "find": "verify({ requestBody: e.requestBody, responseBody, signature: e.signature, attestation: e.attestation });",
+        "replace": "/* verification removed */"
+      },
+      "mustFail": [
+        "tamper test: real bytes verify, every flipped byte of the answer is rejected"
+      ],
+      "status": "caught",
+      "failedTests": [
+        "tamper test: real bytes verify, every flipped byte of the answer is rejected",
+        "tamper test: gateway (ed25519) signatures use the gateway verifier",
+        "tampered receipt fails through the same verificationChecks(); the real one is untouched"
+      ]
+    },
+    {
+      "id": "G3",
+      "guard": "Receipt: GPU evidence link required",
+      "file": "src/near/nearAiContext.js",
+      "mutation": {
+        "find": "ok: models.length ? gpuAll : false,",
+        "replace": "ok: true,"
+      },
+      "mustFail": [
+        "verificationChecks: any weak link fails the receipt"
+      ],
+      "status": "caught",
+      "failedTests": [
+        "verificationChecks: any weak link fails the receipt"
+      ]
+    },
+    {
+      "id": "G4",
+      "guard": "Receipt: E2EE link required",
+      "file": "src/near/nearAiContext.js",
+      "mutation": {
+        "find": "ok: receipt?.e2ee === true,",
+        "replace": "ok: true,"
+      },
+      "mustFail": [
+        "verificationChecks: any weak link fails the receipt"
+      ],
+      "status": "caught",
+      "failedTests": [
+        "verificationChecks: any weak link fails the receipt"
+      ]
+    },
+    {
+      "id": "G5",
+      "guard": "NVIDIA verdict: nonce must match",
+      "file": "src/near/nrasVerifier.js",
+      "mutation": {
+        "find": "if (normHex(claims.eat_nonce) !== normHex(expectedNonce)) throw new GpuEvidenceError('nonce_mismatch');",
+        "replace": ""
+      },
+      "mustFail": [
+        "checkClaims rejects nonce mismatch, negative verdict, malformed claims"
+      ],
+      "status": "caught",
+      "failedTests": [
+        "checkClaims rejects nonce mismatch, negative verdict, malformed claims"
+      ]
+    },
+    {
+      "id": "G6",
+      "guard": "NVIDIA verdict: clock tolerance is bounded",
+      "file": "src/near/nrasVerifier.js",
+      "mutation": {
+        "find": "if (claims.iat > nowS + tol) throw new GpuEvidenceError('not_yet_valid');",
+        "replace": ""
+      },
+      "mustFail": [
+        "checkClaims tolerates a lagging client clock within the bound only"
+      ],
+      "status": "caught",
+      "failedTests": [
+        "checkClaims tolerates a lagging client clock within the bound only"
+      ]
+    },
+    {
+      "id": "G7",
+      "guard": "Pseudonymize: full 0x addresses",
+      "file": "src/utils/pseudonymize.js",
+      "mutation": {
+        "find": ".replace(EVM_FULL, (m) => labelFor(m, cluster.includes(m.toLowerCase()) ? 'WALLET' : 'ADDR', shortAddr(m)))",
+        "replace": ""
+      },
+      "mustFail": [
+        "B1. external tier: the exact messages sent contain no real identifier"
+      ],
+      "status": "caught",
+      "failedTests": [
+        "B1. external tier: the exact messages sent contain no real identifier",
+        "B3. the answer is mapped back locally to the user's real identifiers",
+        "identifiers become stable placeholders; cluster wallets are WALLET_n",
+        "value(): rounds amounts, keeps counts and percents, coarsens dates",
+        "pseudonymizeForRemote: nothing identifying survives the JSON, question too",
+        "sigFigs 0 (TEE default): identifiers replaced, numbers and dates exact"
+      ]
+    },
+    {
+      "id": "G8",
+      "guard": "Pseudonymize: tx hashes",
+      "file": "src/utils/pseudonymize.js",
+      "mutation": {
+        "find": ".replace(TX_HASH, (m) => labelFor(m, 'TX', `${m.slice(0, 10)}…`))",
+        "replace": ""
+      },
+      "mustFail": [
+        "B1. external tier: the exact messages sent contain no real identifier"
+      ],
+      "status": "caught",
+      "failedTests": [
+        "B1. external tier: the exact messages sent contain no real identifier"
+      ]
+    },
+    {
+      "id": "G9",
+      "guard": "Amounts rounded to N significant figures",
+      "file": "src/utils/pseudonymize.js",
+      "mutation": {
+        "find": "return !sigFigs || KEEP_EXACT.test(key) ? v : roundSig(v, sigFigs);",
+        "replace": "return v;"
+      },
+      "mustFail": [
+        "B2. external tier: amounts reach the API at 4 significant figures, never exact"
+      ],
+      "status": "caught",
+      "failedTests": [
+        "B2. external tier: amounts reach the API at 4 significant figures, never exact"
+      ]
+    },
+    {
+      "id": "G10",
+      "guard": "Injection detection on chain-data strings",
+      "file": "src/prompts/untrusted.js",
+      "mutation": {
+        "find": "return INJECTION.some((re) => re.test(t));",
+        "replace": "return false;"
+      },
+      "mustFail": [
+        "buildAnalysisMessages: hostile chain data never reaches the prompt"
+      ],
+      "status": "caught",
+      "failedTests": [
+        "looksLikeInjection flags instructions, chat markup and links",
+        "guardString: detection runs on raw text, cleaning keeps a plain short charset",
+        "sanitizeFacts guards chain-data keys only, reports paths, does not mutate",
+        "buildAnalysisMessages: hostile chain data never reaches the prompt"
+      ]
+    },
+    {
+      "id": "G11",
+      "guard": "Prompt is built from sanitized facts only",
+      "file": "src/prompts/wallet-analysis.js",
+      "mutation": {
+        "find": "${JSON.stringify(body, null, 2)}",
+        "replace": "${JSON.stringify(facts, null, 2)}"
+      },
+      "mustFail": [
+        "buildAnalysisMessages: hostile chain data never reaches the prompt"
+      ],
+      "status": "caught",
+      "failedTests": [
+        "buildAnalysisMessages: hostile chain data never reaches the prompt"
+      ]
+    },
+    {
+      "id": "G12",
+      "guard": "FHE balances stay words, never a number",
+      "file": "src/analytics/portfolio.js",
+      "mutation": {
+        "find": "amount: 'ENCRYPTED — amount unknown',",
+        "replace": "amount: 0,"
+      },
+      "mustFail": [
+        "encrypted (FHE) entries stay words, not numbers, after pseudonymization"
+      ],
+      "status": "caught",
+      "failedTests": [
+        "encrypted (FHE) entries stay words, not numbers, after pseudonymization"
+      ]
+    },
+    {
+      "id": "G13",
+      "guard": "NEP-413 signature verified before anything is sent",
+      "file": "src/near/confidentialIntents.js",
+      "mutation": {
+        "find": "if (!verifyNep413(p, signed?.publicKey, signed?.signature)) {",
+        "replace": "if (false) {"
+      },
+      "mustFail": [
+        "nearIdentity refuses a signature that does not verify (nothing sent)"
+      ],
+      "status": "caught",
+      "failedTests": [
+        "nearIdentity refuses a signature that does not verify (nothing sent)"
+      ]
+    },
+    {
+      "id": "G14",
+      "guard": "No new same-origin endpoint (server never sees a wallet)",
+      "file": "src/utils/system-info.js",
+      "mutation": {
+        "find": "const r = await fetch('/api/sysinfo');",
+        "replace": "const r = await fetch('/api/sysinfo'); fetch(`/api/wallet?a=${globalThis.addr}`);"
+      },
+      "mustFail": [
+        "hosting row: the page calls exactly these same-origin endpoints, none carrying a wallet address"
+      ],
+      "status": "caught",
+      "failedTests": [
+        "hosting row: the page calls exactly these same-origin endpoints, none carrying a wallet address"
+      ]
+    }
+  ],
+  "summary": {
+    "guards": 14,
+    "caught": 14
+  },
+  "sourceFilesAfterRun": "unchanged by this run (see git status)"
+}
