@@ -268,6 +268,15 @@ export function hasTamperEvidence(id) {
 // Test seam: lets tests register evidence made with a local key.
 export const _keepEvidenceForTest = keepEvidence;
 
+// The answer's evidence as a portable, offline-verifiable file (receiptBundle.js).
+// Built only when the user asks ("Save receipt"); nothing is written anywhere.
+export async function exportReceipt(id, receipt, model) {
+  const e = EVIDENCE.get(id);
+  if (!e) throw new Error('No evidence for this answer in memory (answers from before a reload cannot be saved).');
+  const { buildReceiptBundle } = await import('./receiptBundle.js');
+  return buildReceiptBundle(e, { receipt, model, checks: receipt ? verificationChecks(receipt) : null });
+}
+
 export async function tamperTest(id, byteIndex) {
   const e = EVIDENCE.get(id);
   if (!e) throw new Error('No evidence for this answer in memory (answers from before a reload cannot be re-checked).');

@@ -110,8 +110,12 @@ paste the key, **Verify & connect**, then ask anything. Every answer gets a
 E2EE, enclave signature) and a note of what was pseudonymized.
 
 **Judges: [JUDGES.md](JUDGES.md)** maps every privacy claim to its code and the
-test that proves it. `npm run test:offline` runs them all — no keys, no network,
-about 11 seconds.
+test that proves it, and [LIMITS.md](LIMITS.md) lists what we do not claim.
+`npm run verify:evidence` runs them all (no keys, no network, about 11 seconds) and
+writes `evidence/run-<date>.json`: commit, input hashes and the status of each claim.
+`npm run verify:guards` removes each of 14 guards in turn and shows the tests catch it.
+A real NEAR AI receipt is in [`fixtures/nearai-receipt/`](fixtures/nearai-receipt/);
+check it in the browser at `/verify`.
 
 Tests: `npm test` — unit tests plus live checks against public endpoints (NEAR
 RPC, FastNEAR, the key-less NEAR AI gateway check). Tests that spend NEAR AI
@@ -140,6 +144,7 @@ The hackathon diff: [`pre-hackathon...main`](https://github.com/noname9006/Refra
 | Private-shard activity: invite-only history explained, never a second wallet prompt | [`historyNote.js`](src/near/historyNote.js) |
 | **Prompt-injection guard**: token names, method names and other chain text are attacker-controlled; suspicious text is withheld before any prompt is built, and the model is told FACTS is data, not instructions. The demo plants a hostile token to show it | [`src/prompts/untrusted.js`](src/prompts/untrusted.js) |
 | Demo mode for reviewers (live NEAR account, labelled sample private-shard data, including a planted prompt-injection token) | [`src/near/demoFixtures.js`](src/near/demoFixtures.js) |
+| **Evidence**: claim manifest + one-command evidence file, guard-removal matrix (14/14 caught), a real NEAR AI receipt verified offline, **Save receipt** and the **`/verify`** page | [`evidence/`](evidence), [`scripts/`](scripts), [`fixtures/nearai-receipt/`](fixtures/nearai-receipt), [`receiptBundle.js`](src/near/receiptBundle.js), [`VerifyReceipt.jsx`](src/components/VerifyReceipt.jsx) |
 | Tests — claim by claim in [JUDGES.md](JUDGES.md) | [`tests/`](tests) |
 
 **Confidential Intents sign-in needs a versioned nonce.** The Intents auth

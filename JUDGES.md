@@ -4,14 +4,25 @@ Refractoo makes privacy claims. This page maps each one to the code that
 implements it and the test that proves it, so you can verify them in a few
 minutes instead of taking them on trust.
 
-## One command, no keys, no network
+## One command, one file, one hash
 
 ```bash
 npm ci
-npm run test:offline
+npm run verify:evidence
 ```
 
-128 tests, about 11 seconds. `npm test` additionally runs the `live:` tests
+Runs the offline suite (140 tests, about 11 seconds, no keys, no network) and checks
+every claim in [`evidence/manifest.json`](evidence/manifest.json) against it. A test the
+manifest names that is missing from the run fails the claim, so a deleted test cannot
+pass quietly. It writes `evidence/run-<date>.json` with the commit, a dirty-tree flag,
+the Node version, the SHA-256 of every input file, the status of each claim, and the
+list of what is **not** established, then prints the SHA-256 of that file.
+`node scripts/verify-evidence.mjs --check evidence/run-<date>.json` tells you whether
+your checkout still matches a recorded run.
+
+What we do **not** claim is in [LIMITS.md](LIMITS.md).
+
+Plain tests only: `npm run test:offline`. That is 140 tests, about 11 seconds. `npm test` additionally runs the `live:` tests
 against public endpoints (NEAR RPC, `intents.near`, the NEAR AI gateway); the
 ones that need a NEAR AI or Intents API key skip themselves without one.
 
@@ -25,6 +36,8 @@ To see the features rather than the tests: [README → Try it in 3 minutes](READ
 |---|---|---|
 | Every answer is signed inside the attested enclave, over the exact request and response bytes: flip any single byte of the answer, the request or the signature and verification fails | `client.verifyResponse()` → `verifyModelResponse` in `@nearai/inference-sdk`, called from [`nearAiContext.js`](src/near/nearAiContext.js) `analyze()` | [`claims.test.mjs`](tests/claims.test.mjs) A1–A5 |
 | **See it yourself:** "Simulate tampered answer" on a Verified receipt re-runs the SDK's own signature check on that answer's exact bytes, as received (✓) and with one byte flipped (✗ `signature.payload_mismatch`); the receipt turns red. Nothing is faked and nothing is sent; the bytes stay in memory only | `tamperTest()` in [`nearAiContext.js`](src/near/nearAiContext.js), `VerifiedPanel` in [`Assistant.jsx`](src/components/dashboard/Assistant.jsx) | [`tamper.test.mjs`](tests/tamper.test.mjs); live: `nearai.test.mjs` "verified E2EE stream…" |
+| **A real NEAR AI answer, verifiable by anyone, offline.** [`fixtures/nearai-receipt/`](fixtures/nearai-receipt/) holds one answer captured from NEAR AI Cloud: the exact request/response bytes, the enclave's signature and the attested signer. The test pins that signer, verifies with the SDK, and requires a flipped byte, a swapped signer and a forged signature to fail. The prompt it answered contains no real identifier | [`receiptBundle.js`](src/near/receiptBundle.js), captured by [`spike/capture-receipt.mjs`](spike/capture-receipt.mjs) | [`receipt.test.mjs`](tests/receipt.test.mjs) (5 tests) |
+| **Save receipt / verify it yourself:** under a Verified answer, **Save receipt** downloads that answer's bytes and signature as JSON. Drop it on **`/verify`** (or click "Check the sample receipt"): the browser re-runs the signature check, flips one byte as a control, and says separately what is established and what is not | `exportReceipt()` in [`nearAiContext.js`](src/near/nearAiContext.js), [`VerifyReceipt.jsx`](src/components/VerifyReceipt.jsx) | same verifier as `receipt.test.mjs` |
 | A valid signature from a key the attestation did not vouch for is rejected | same | `claims.test.mjs` A3 |
 | The "Verified" receipt fails if any one link is weak (gateway TDX, model TDX, NVIDIA GPU evidence, fresh nonce, E2EE, signature) | `verificationChecks()` in [`nearAiContext.js`](src/near/nearAiContext.js) | [`nearai.test.mjs`](tests/nearai.test.mjs) "verificationChecks: …" |
 | NVIDIA attestation verdicts are checked with a bounded clock tolerance, and a nonce mismatch or negative verdict is rejected | [`nrasVerifier.js`](src/near/nrasVerifier.js) | `nearai.test.mjs` "checkClaims …" |
@@ -79,6 +92,36 @@ Limits: detection is a pattern list, so a cleverly worded name can get past it. 
 | The in-app table lists every party the app talks to (hosting, RPCs, price APIs, your wallet, the Intents API, private-shard validators, NEAR AI gateway and enclave, external operator) and what each sees | [`trustBoundaries.js`](src/data/trustBoundaries.js), shown in the tier panel | [`trustBoundaries.test.mjs`](tests/trustBoundaries.test.mjs) |
 | The app's own server never receives a wallet address: the page calls exactly four same-origin endpoints, none carrying one | same | `trustBoundaries.test.mjs` "hosting row …" — fails if a new endpoint appears |
 
+## Do the tests catch anything? (guard removal)
+
+A green suite proves little if the tests would stay green without the guards. So
+[`scripts/guard-removal.mjs`](scripts/guard-removal.mjs) removes each guard in turn, runs
+the named tests, requires at least one to **fail**, and restores the file byte for byte.
+A mutation whose code has moved is reported, never skipped.
+
+```bash
+npm run verify:guards        # about 1 minute → evidence/guards-<date>.json
+```
+
+| # | Guard removed | Mutation | Test that must fail | Result |
+|---|---|---|---|---|
+| G1 | Signature check on a saved receipt | `verify(…)` call deleted in [`receiptBundle.js`](src/near/receiptBundle.js) | `receipt.test.mjs` "one flipped byte … is rejected" | caught |
+| G2 | Tamper demo uses the real SDK verifier | `verify(…)` deleted in `tamperTest()` | `tamper.test.mjs` "real bytes verify, every flipped byte … rejected" | caught |
+| G3 | Receipt requires NVIDIA GPU evidence | `gpu` check → `ok: true` | `nearai.test.mjs` "any weak link fails the receipt" | caught |
+| G4 | Receipt requires E2EE | `e2ee` check → `ok: true` | same | caught |
+| G5 | NVIDIA verdict nonce must match | nonce check deleted in [`nrasVerifier.js`](src/near/nrasVerifier.js) | "checkClaims rejects nonce mismatch …" | caught |
+| G6 | Bounded clock tolerance | `iat` future check deleted | "checkClaims tolerates a lagging client clock within the bound only" | caught |
+| G7 | Full 0x addresses masked | `EVM_FULL` replace deleted in [`pseudonymize.js`](src/utils/pseudonymize.js) | `claims.test.mjs` B1 | caught |
+| G8 | Tx hashes masked | `TX_HASH` replace deleted | B1 | caught |
+| G9 | Amounts rounded | `roundSig` bypassed | B2 | caught |
+| G10 | Injection detection | `looksLikeInjection` → `false` | `untrusted.test.mjs` "hostile chain data never reaches the prompt" | caught |
+| G11 | Prompt built from sanitized facts | raw `facts` put between the FACTS markers | same | caught |
+| G12 | FHE balances stay words | `'ENCRYPTED — amount unknown'` → `0` | `confidentialBalances.test.mjs` "encrypted (FHE) entries stay words …" | caught |
+| G13 | NEP-413 signature verified before sending | `verifyNep413` check → `if (false)` | `intents.test.mjs` "nearIdentity refuses a signature that does not verify" | caught |
+| G14 | Server never sees a wallet | a fifth same-origin endpoint carrying an address | `trustBoundaries.test.mjs` "hosting row …" | caught |
+
+**14/14 caught** on the recorded run ([`evidence/`](evidence)); the JSON lists every failing test per guard.
+
 ## See it in the browser (2 minutes)
 
 `npm run dev`, open http://localhost:5173/app, click **Explore a demo**.
@@ -92,13 +135,18 @@ Limits: detection is a pattern list, so a cleverly worded name can get past it. 
 - **Private shard:** Shielded balances → **Show sample private balances (demo)**.
   Recent activity then explains why private history isn't listed.
 - **Key-less TEE check:** **Verify NEAR AI gateway now** in the assistant.
+- **Offline receipt check:** open http://localhost:5173/verify → **Check the sample
+  receipt from the repo** (a real NEAR AI answer), or drop a receipt you saved.
 
 ## What is *not* proven here (honest limits)
 
-- **Live NEAR AI chat needs a key.** Offline, the signature tests run the SDK's
-  real verification functions, with a locally generated key standing in for the
-  enclave's attested key. The live end-to-end run (`npm test` with
-  `NEARAI_API_KEY`) uses the real enclave.
+The full list is in [LIMITS.md](LIMITS.md). The short version:
+
+- **Offline signature ≠ live attestation.** The captured receipt proves "these bytes
+  were signed by this key". That the key sits in a genuine TDX enclave was checked live
+  at capture ([`attestation.json`](fixtures/nearai-receipt/attestation.json)) and is not
+  re-proven offline; that needs a fresh quote and nonce (`npm test` with `NEARAI_API_KEY`,
+  or "Verify NEAR AI gateway now").
 - **The NEAR Intents API (Aurora) sees your private balances** — it serves them
   to you after you sign. It is the one party outside a TEE that does.
 - **Private-shard validators** hold the shard state inside TEEs: a hardware

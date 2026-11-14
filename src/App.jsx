@@ -5,6 +5,7 @@ import Onboarding from './components/Onboarding.jsx';
 import Dashboard from './components/Dashboard.jsx';
 import Landing from './components/Landing.jsx';
 import Bench from './components/Bench.jsx';
+import VerifyReceipt from './components/VerifyReceipt.jsx';
 
 export default function App() {
   // Three pages: the marketing landing at "/", the app flow at "/app", and
@@ -13,6 +14,8 @@ export default function App() {
   // touches the main app's onboarding/model-recommendation flow.
   const path = window.location.pathname;
   if (path === '/bench' || path.startsWith('/bench/')) return <Bench />;
+  // Offline re-check of a saved NEAR AI receipt; no app state needed.
+  if (path === '/verify') return <VerifyReceipt />;
 
   const isApp = path === '/app' || path.startsWith('/app/');
 

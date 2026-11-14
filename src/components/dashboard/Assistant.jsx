@@ -13,7 +13,7 @@ import { PrivacyBadge } from './PrivacyBadge.jsx';
 import TierPanel from './TierPanel.jsx';
 import ModelSwitcher from './ModelSwitcher.jsx';
 import GatewayCheck from './GatewayCheck.jsx';
-import { verificationChecks, hasTamperEvidence, tamperTest, tamperedReceipt, NEARAI_DEFAULT_MODEL, listConfidentialModels } from '../../near/nearAiContext.js';
+import { verificationChecks, hasTamperEvidence, tamperTest, tamperedReceipt, exportReceipt, NEARAI_DEFAULT_MODEL, listConfidentialModels } from '../../near/nearAiContext.js';
 import { contextFill, conversationCostUsd, usageCostUsd, fmtTokens, fmtUsdSmall } from '../../near/usage.js';
 import { reasoningProfile } from '../../near/reasoningProfiles.js';
 import { pseudonymizeForRemote, precisionFor } from '../../utils/pseudonymize.js';
@@ -833,6 +833,21 @@ const VerifiedPanel = memo(function VerifiedPanel({ receipt: real }) {
   const [tamper, setTamper] = useState(null); // null | { result } | { error }
   const canTamper = real.response?.ok === true && hasTamperEvidence(real.response.id);
   const receipt = tamper?.result && !tamper.result.tampered.ok ? tamperedReceipt(real, tamper.result) : real;
+  const [saved, setSaved] = useState(null); // null | 'ok' | error string
+  // "Save receipt": the exact bytes + signature as a file anyone can re-check
+  // offline (/verify, or tests/receipt.test.mjs). Built on click, never stored.
+  const saveReceipt = async () => {
+    try {
+      const { receiptFileName } = await import('../../near/receiptBundle.js');
+      const bundle = await exportReceipt(real.response.id, real, real.attestation?.model ?? null);
+      const url = URL.createObjectURL(new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' }));
+      const link = document.createElement('a');
+      link.href = url; link.download = receiptFileName(bundle);
+      document.body.appendChild(link); link.click(); link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setSaved('ok');
+    } catch (e) { setSaved(String(e?.message || e)); }
+  };
   const runTamper = async () => {
     try { setTamper({ result: await tamperTest(real.response.id) }); setOpen(true); }
     catch (e) { setTamper({ error: String(e?.message || e) }); }
@@ -889,9 +904,16 @@ const VerifiedPanel = memo(function VerifiedPanel({ receipt: real }) {
           {canTamper && !tamper?.result && (
             <li className="na meta tamper-row">
               <span className="vi" />
+              <div className="receipt-actions">
               <button className="btn ghost sm" onClick={runTamper} title="Flips one byte of this answer's response in memory and re-runs the same signature check. Nothing is sent.">
                 Simulate tampered answer
               </button>
+              <button className="btn ghost sm" onClick={saveReceipt} title="Downloads this answer's exact bytes, signature and signer as JSON. Anyone can re-check the signature offline.">
+                Save receipt
+              </button>
+              <a className="linklike" href="/verify" target="_blank" rel="noopener">Verify a saved receipt</a>
+              {saved && <span className="vd">{saved === 'ok' ? 'Saved. Re-check it any time at /verify, offline.' : saved}</span>}
+              </div>
             </li>
           )}
         </ul>
