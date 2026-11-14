@@ -11,7 +11,7 @@ npm ci
 npm run test:offline
 ```
 
-86 tests, about 2 seconds. `npm test` additionally runs the `live:` tests
+118 tests, about 11 seconds. `npm test` additionally runs the `live:` tests
 against public endpoints (NEAR RPC, `intents.near`, the NEAR AI gateway); the
 ones that need a NEAR AI or Intents API key skip themselves without one.
 

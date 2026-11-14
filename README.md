@@ -111,7 +111,7 @@ E2EE, enclave signature) and a note of what was pseudonymized.
 
 **Judges: [JUDGES.md](JUDGES.md)** maps every privacy claim to its code and the
 test that proves it. `npm run test:offline` runs them all — no keys, no network,
-about 2 seconds.
+about 11 seconds.
 
 Tests: `npm test` — unit tests plus live checks against public endpoints (NEAR
 RPC, FastNEAR, the key-less NEAR AI gateway check). Tests that spend NEAR AI
