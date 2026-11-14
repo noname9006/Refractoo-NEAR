@@ -30,7 +30,7 @@ Negative control: rename or delete any test the manifest names and the run fails
 the claims, the guard matrix and the live signer check on GitHub's runners on every push,
 and keeps the JSON as a run artifact ([Actions → evidence](https://github.com/noname9006/Refractoo-NEAR/actions/workflows/evidence.yml)).
 
-What we do **not** claim is in [LIMITS.md](LIMITS.md).
+What we do **not** claim is in [LIMITS.md](LIMITS.md). Who could attack, what we trust, and which test catches it: [THREAT_MODEL.md](THREAT_MODEL.md).
 
 Plain tests only: `npm run test:offline`. That is 140 tests, about 11 seconds. `npm test` additionally runs the `live:` tests
 against public endpoints (NEAR RPC, `intents.near`, the NEAR AI gateway); the

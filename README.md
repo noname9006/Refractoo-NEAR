@@ -364,7 +364,7 @@ external-API tier.
 | [docs/PRIVACY.md](docs/PRIVACY.md) | Every party and what it sees; server-side storage; what revealing an FHE balance exposes |
 | [docs/NEAR-AI.md](docs/NEAR-AI.md) | Reasoning controls per NEAR AI model, context and cost meter, Confidential Intents sign-in |
 | [docs/SELF-HOSTING.md](docs/SELF-HOSTING.md) | Run locally, `.env`, mainnet/testnet modes, DeFi coverage, adding on-device models, VPS deployment |
-| [JUDGES.md](JUDGES.md) · [LIMITS.md](LIMITS.md) | Claim → code → test map, and what we do not claim |
+| [JUDGES.md](JUDGES.md) · [LIMITS.md](LIMITS.md) · [THREAT_MODEL.md](THREAT_MODEL.md) | Claim → code → test map, what we do not claim, and who could attack |
 
 ## License
 
