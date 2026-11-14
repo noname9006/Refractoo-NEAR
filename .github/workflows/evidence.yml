@@ -26,7 +26,7 @@ jobs:
       - run: npm ci
       - name: Claims (offline, no keys)
         run: node scripts/verify-evidence.mjs --out evidence/ci-run.json
-      - name: Recorded run still matches this checkout
+      - name: Recorded run vs this checkout (informational, never fails)
         run: |
           node scripts/verify-evidence.mjs --check evidence/run-2026-11-14.json || echo "::notice::inputs changed since the recorded run (expected after later commits)"
       - name: Guard removal (each guard removed must break a test)

@@ -1,10 +1,9 @@
 // Deterministic analytics. Every number the LLM talks about is computed here
 // in plain JS — the model narrates and explains, it never invents figures.
 //
-// MVP scope note: no price oracle is wired in, so there are no USD values and
-// no true P&L. We compute token FLOWS (net in/out) and label them as such.
-// Wiring a price feed would be another network call — a privacy tradeoff to
-// decide explicitly later.
+// Scope: this module computes token FLOWS (net in/out) only — no prices here.
+// USD values come from the separate, price-aware path in portfolio.js
+// (portfolioFacts), which the assistant receives as `usdPortfolio`.
 
 // shieldedForWallet: ShieldedToken[] belonging to THIS wallet (see
 // data/shielded.js). Already narrowed by the caller.

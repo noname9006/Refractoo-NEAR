@@ -20,7 +20,7 @@ Answer (restored locally would map WALLET_n back): "WALLET_1 holds 61.756612 ETH
 node --test tests/receipt.test.mjs
 ```
 
-Or drop `receipt.json` on `/app#/verify` in the running app.
+Or drop `receipt.json` on `/verify` in the running app.
 
 **Established offline:** these bytes were signed by that key; one flipped byte fails.
 **Not established offline:** that the key is in a genuine TDX enclave *now*: that was checked live at capture
