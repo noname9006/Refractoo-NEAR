@@ -22,11 +22,12 @@ jobs:
   live:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    env:
-      NEARAI_API_KEY: ${{ secrets.NEARAI_API_KEY }}
     steps:
+      # The key is exposed to exactly two steps: this presence check and the tests.
       - name: Secret present?
         id: key
+        env:
+          NEARAI_API_KEY: ${{ secrets.NEARAI_API_KEY }}
         run: |
           if [ -z "$NEARAI_API_KEY" ]; then
             echo "::notice::NEARAI_API_KEY secret not set: keyed live tests not run"
@@ -41,8 +42,11 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      # No install scripts: dependency code does not run before the tests.
+      - run: npm ci --ignore-scripts
         if: steps.key.outputs.run == 'true'
       - name: "Keyed live tests: E2EE answer, attestation, signature, tamper, steering"
         if: steps.key.outputs.run == 'true'
+        env:
+          NEARAI_API_KEY: ${{ secrets.NEARAI_API_KEY }}
         run: node --test --test-name-pattern="^live" --test-reporter=spec tests/nearai.test.mjs tests/receipt.test.mjs
