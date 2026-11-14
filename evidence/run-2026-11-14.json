@@ -419,7 +419,7 @@
     }
   ],
   "command": "node --test --test-skip-pattern=^live tests/*.test.mjs",
-  "commit": "fbe6e24a3cca30a7ad4c7b5bc0765afe70fe65fc",
+  "commit": "98f10bcde16b4f858536f637fbd9279c9a3d6fa1",
   "complete": {
     "claimsChecked": 21,
     "claimsExpected": 21,
@@ -441,7 +441,7 @@
     "src/near/nep413.js": "sha256:f5cf40dbce7476898449e02ace8457e80bb7da50eb0b64a51e61ffd07728bbfd",
     "src/near/nrasVerifier.js": "sha256:2d254b0c6b5fdcebd0b4981b02d37450fb6ade1599f26d1896bc5c0e5bf96236",
     "src/near/reasoningProfiles.js": "sha256:568ea1301c2d8408eea8778a4d264a7ca9d29869927a381300a151435ec854a7",
-    "src/near/receiptBundle.js": "sha256:c4dc648f8a2941dacc97e98556fe65d20f5fccb0f2c1d9287d920351a17123dd",
+    "src/near/receiptBundle.js": "sha256:fdefa2e6ff742ad3fbd836f1ec1d13800d4da23b4d1701f9048174353822b9e7",
     "src/near/usage.js": "sha256:f3870577a56e46fa3ac58b04cfe20d6eeaa8fb8d775045de3ab9304c828e6601",
     "src/prompts/untrusted.js": "sha256:2e044334ab597f75d563270cb01344c07642d4e51113f9f2bcb0016ca094084f",
     "src/prompts/wallet-analysis.js": "sha256:31f17a1d32da78d3bcf6d048ec00eae49660e01f1e23317571f3b44ebc978a14",
@@ -464,7 +464,7 @@
     "tests/outbound.test.mjs": "sha256:cd49c4dfa83e3ed34b0cce1c0dc99c8f08f3958921a40785975f05009c5a8021",
     "tests/pseudonymize.test.mjs": "sha256:1992ea4b4405e9d4086438d2b078fcecfe668855ebbc9ab63010c948ac45621e",
     "tests/reasoningProfiles.test.mjs": "sha256:3610ec34f344eadba6cca81cd24bb1bb558c4f1d95b0cd72c9cee64d15e1f27d",
-    "tests/receipt.test.mjs": "sha256:5e2ee141d573aa9570b7a5d91895cf0021dae7eefe9d88007860a218a24ae536",
+    "tests/receipt.test.mjs": "sha256:ecdbad72051772b9b09a73bcd5b05972abe8a1edb175b68ec405e1f179e4ea97",
     "tests/tamper.test.mjs": "sha256:87c9610709725558d242bd5a45e944973e8f81c1174d00b757460dd38d91946f",
     "tests/trustBoundaries.test.mjs": "sha256:a5b01390d7d1a6bee89d58af429724a3548048030abdad09b0b7313ca33cfc58",
     "tests/untrusted.test.mjs": "sha256:41a28a1daecb5423e2e7699ab2f6172d4d0128bd6571ab38d1ee44b9a53490ef",
@@ -480,7 +480,7 @@
     "Session tokens live in memory only: by code inspection, not by a test."
   ],
   "platform": "win32",
-  "ranAt": "2026-11-14T20:40:59.591Z",
+  "ranAt": "2026-11-14T21:18:11.098Z",
   "suite": {
     "exitCode": 0,
     "fail": 0,

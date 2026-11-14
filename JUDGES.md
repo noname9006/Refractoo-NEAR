@@ -21,8 +21,8 @@ list of what is **not** established, then prints the SHA-256 of that file.
 your checkout still matches a recorded run.
 
 Recorded run in the repo: [`evidence/run-2026-11-14.json`](evidence/run-2026-11-14.json),
-commit `fbe6e24`, clean tree, 21/21 claims, 140/140 tests, canonical SHA-256
-`174be696ecec430eef8476a67b6af3c836afe5dde4c01fdedfdbda4921c11f62`.
+commit `98f10bc`, clean tree, 21/21 claims, 140/140 tests, canonical SHA-256
+`889145b054886eed46dc6bc91420eee3e37bde4315f36ada45edf94dd62bb5f2`.
 Negative control: rename or delete any test the manifest names and the run fails with
 `missing: <test name>` and exit code 1.
 
